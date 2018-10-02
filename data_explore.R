@@ -86,10 +86,79 @@ row.names(fishtrait2)<-fishtrait2$Species
 fishtrait2<-fishtrait2[,c(3:5,7:length(fishtrait2))]
 # could also drop 'Function' as coarse representative of 'Food'?
 
+
+##~~~~~~~~~~~~ Trial using FD package ~~~~~~~~~~~##
+
+fishtrait_dist<-gowdis(fishtrait2)
+
+#get abundance data into matrix and remove site and region variables
+
+fish_matx<-as.matrix(data.frame(fishdat[,2:371]))
+
+dimnames(fish_matx)[[1]]<-fishdat$X__1
+dimnames(fish_matx)[[2]]<-names(fishdat)[2:371]
+
+# run checks for FD
+# abun values > 0
+which(colSums(fish_matx, na.rm=T)==0)# none
+which(colSums(fish_matx, na.rm=T)<2)# fair few
+
+# check levels and see if any are unbalanced
+
+str(fishtrait2)
+
+# run with different traits and see which cause issues
+temp<-functcomp(fishtrait2[,c(1:4, 6:7)], fish_matx)
+# bad columns: 5,8,9,11
+
+table(fishtrait2$Food)
+table(fishtrait2$Position)
+table(fishtrait2$SpawnMode)
+table(fishtrait2$Active)
+
+# the subsetting has left factors with 0s, fix
+
+fishtrait2$Food<-factor(fishtrait2$Food)
+fishtrait2$Position<-factor(fishtrait2$Position)
+fishtrait2$SpawnMode<-factor(fishtrait2$SpawnMode)
+fishtrait2$Active<-factor(fishtrait2$Active)
+
+funct_comp<-functcomp(fishtrait2, fish_matx, CWM.type = c("dom", "all"), bin.num = NULL) #doesn't work unless it's a matrix?
+# ok fixed
+
+# run fd
+
+funct_disp<-fdisp(fishtrait_dist, fish_matx)
+
+funct_comp<-functcomp(fishtrait2, fish_matx, CWM.type = c("dom", "all"), bin.num = NULL) #doesn't work unless it's a matrix?
+
+FDdata<-dbFD(fishtrait2, fish_matx, corr='cailliez', calc.FRic=F)
+
+FDdata_hc<-dbFD(fishtrait2, fish_matx, corr='cailliez', calc.FRic=T, print.pco = T, clust.type = "ward")
+
+FDdata_km<-dbFD(fishtrait2, fish_matx, corr='cailliez', calc.FRic=T, print.pco = T, clust.type = "kmeans")
+
+
+#getting out of DB
+FRic<-FDdata$FRic 
+nbsp<-FDdata$nbsp
+sing.sp<-FDdata$sing.sp
+FEve<-FDdata$FEve
+FDis<-FDdata$FDis
+RaoQ<-FDdata$RaoQ
+
+funcDF<-data.frame( sing.sp, FEve, FDis, RaoQ)
+
+ex2 <- functcomp(fishtrait_dist, fish_matx)
+ex3 <- dbFD(traits, dbabun, corr="cailliez")
+
+
+##~~~~~~~~~~~~ Plotting trait space ~~~~~~~~~~~##
+## e.g. Mouillot et al (2014) and Mcwilliam (2018)
+
 fishtrait_dist<-gowdis(fishtrait2)
 
 is.euclid(fishtrait_dist) # not euclidean so needs transforming for use in pcoa
-
 
 fishtrait_dist2 <- cailliez(fishtrait_dist)
 
