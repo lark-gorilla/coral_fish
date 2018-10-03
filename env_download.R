@@ -79,16 +79,21 @@ strsplit(getURL('ftp://ftp.star.nesdis.noaa.gov/pub/sod/mecb/crw/data/5km/v3.1/n
 # have alook at years
 strsplit(u1, '\r\n')
 #
-# ok so there is MIN, MAX and MEAN products per month and
+# ok so there is MIN, MAX and MEAN products per month for sst and ssta,
+# only MAX availiable for dha, hs and baa
 # sst - sea surface temp
-# dha - degree heating weeks
-# hs - heat stress
 # ssta - sea surface temp anomoly
+# hs - bleaching hotspot
+# dhw - degree heating weeks
+# baa - bleaching alert area
 
 # remember these are global rasters so we'll grab from 09/2017 (Australia - most recent) back to 
 # 10 years prior to 02/2010 (Australia - oldest), so 02/2000. This also covers RMI and Japan (2014, 15/16)
 
 url1='ftp://ftp.star.nesdis.noaa.gov/pub/sod/mecb/crw/data/5km/v3.1/nc/v1.0/monthly/'
+
+## NOTE: ncdf4 cannot read downloaded .nc unless mode='wb' !!!
+# https://stackoverflow.com/questions/50048989/downloading-netcdf-files-with-r-manually-works-download-file-produces-error
 
 for (i in 2000:2017)
 {
@@ -98,9 +103,64 @@ for (i in 2000:2017)
   
     download.file(url=dl,
                 destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/sst/',
-                                'ct5km_sst-mean_v3.1_',i, j, '.nc'))
+                               'ct5km_sst-mean_v3.1_',i, j, '.nc'), mode='wb')
+    
+    dl2=paste0(url1,i,'/ct5km_ssta-mean_v3.1_',i, j, '.nc')
+    
+    download.file(url=dl2,
+                  destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/ssta/',
+                                  'ct5km_ssta-mean_v3.1_',i, j, '.nc'), mode='wb')
+    
+    dl3=paste0(url1,i,'/ct5km_dhw-max_v3.1_',i, j, '.nc')
+    
+    download.file(url=dl3,
+                  destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/dhw/',
+                                  'ct5km_dhw-max_v3.1_',i, j, '.nc'), mode='wb')
+    print(paste(i,j)) 
     }  
-print(paste(i,j))  
+ 
 }
+
+# slightly different loop for daily data
+
+#https://stackoverflow.com/questions/52182635/r-reading-geotiff-data-straight-from-web-url-httrget-raw-content
+
+for (i in 2000:2017)
+{
+  # for sst
+  url1<-paste0('ftp://ftp.star.nesdis.noaa.gov/pub/sod/mecb/crw/data/5km/v3.1/nc/v0.1/daily/sst/', i, '/')
+  
+  filez<-strsplit(getURL(url1, dirlistonly=T),'\r\n')
+  
+  for(j in unlist(filez))
+  {
+    
+    download.file(url=paste0(url1,j),
+                  destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/sst/',
+                                  'ct5km_sst-mean_v3.1_',i, j, '.nc'), mode='wb')
+    
+    dl2=paste0(url1,i,'/ct5km_ssta-mean_v3.1_',i, j, '.nc')
+    
+    download.file(url=dl2,
+                  destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/ssta/',
+                                  'ct5km_ssta-mean_v3.1_',i, j, '.nc'), mode='wb')
+    
+    dl3=paste0(url1,i,'/ct5km_dhw-max_v3.1_',i, j, '.nc')
+    
+    download.file(url=dl3,
+                  destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/dhw/',
+                                  'ct5km_dhw-max_v3.1_',i, j, '.nc'), mode='wb')
+    print(paste(i,j)) 
+  }  
+  
+}
+
+
+
+# read in and check data
+
+r1<-raster('C:/ocean_data/NOAA_coral_bleaching/dhw/ct5km_dhw-max_v3.1_200001.nc')
+
+print(r1)
 
 
