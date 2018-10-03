@@ -8,6 +8,7 @@ library(rerddap)
 library(raster)
 library(ncdf4)
 library(sf)
+library(RCurl)
 
 setwd("M:/coral_fish")
 
@@ -53,44 +54,53 @@ x2=i$xmax
 y1=i$ymin
 y2=i$ymax
 
-
-CRW_DHW[(2004-09-01T12:00:00Z):1:(2014-09-01T12:00:00Z)][(6.56696):1:(7.72105)][(170.52708):1:(171.88225)],CRW_HOTSPOT[(2004-09-01T12:00:00Z):1:(2014-09-01T12:00:00Z)][(6.56696):1:(7.72105)][(170.52708):1:(171.88225)],CRW_SST[(2004-09-01T12:00:00Z):1:(2014-09-01T12:00:00Z)][(6.56696):1:(7.72105)][(170.52708):1:(171.88225)],CRW_SSTANOMALY[(2004-09-01T12:00:00Z):1:(2014-09-01T12:00:00Z)][(6.56696):1:(7.72105)][(170.52708):1:(171.88225)]
-
 dl_key<-paste0('https://coastwatch.pfeg.noaa.gov/erddap/griddap/NOAA_DHW.nc?CRW_DHW[(2004-09-01T12:00:00Z):1:(2014-09-01T12:00:00Z)][(',y1,'):1:(',y2,')][(',x1,'):1:(',x2,')],
 CRW_HOTSPOT[(2004-09-01T12:00:00Z):1:(2014-09-01T12:00:00Z)][(',y1,'):1:(',y2,')][(,',x1,'):1:(',x2,')],
 CRW_SST[(2004-09-01T12:00:00Z):1:(2014-09-01T12:00:00Z)][(',y1,'):1:(',y2,')][(',x1,'):1:(',x2,')],
 CRW_SSTANOMALY[(2004-09-01T12:00:00Z):1:(2014-09-01T12:00:00Z)][(',y1,'):1:(',y2,')][(',x1,'):1:(',x2,')]')
 
-## Issue: only goes back until 2013 on ERDDAP servers grr
-
-## Use these instad and write manual code
-# ftp://ftp.star.nesdis.noaa.gov/pub/sod/mecb/crw/data/5km/
-
-
 download.file(url=dl_key,
               destfile='C:/ocean_data/NOAA_coral_bleaching/RMI_1.nc')
 
+## Issue: only goes back until 2013 on ERDDAP servers - need further back in time.
 
-https://coastwatch.pfeg.noaa.gov/coastwatch/CWBrowserWW360.jsp?get=gridData&dataSet=CGCssta&timePeriod=monthly&centeredTime=0001-09-16T00:00:00&minLon=165.5&maxLon=172.5&minLat=6&maxLat=12.5&fileType=.nc
+## Solution: Use FTP from https://coralreefwatch.noaa.gov to gain access to monthly product:
+# ftp://ftp.star.nesdis.noaa.gov/pub/sod/mecb/crw/data/5km/
 
-# chl use erdVH3chla8day or erdMH1chla8day 
-# sst erdAGssta8day or ncdcOisst2Agg
-# ssh nrlHycomGLBu008e911S
-# wind stress and upwelling erdQMstress3day
-# sst anomaly ncdcOisst2Agg or erdAGtanm8day
+#get url files for monthly products
+u1<-getURL('ftp://ftp.star.nesdis.noaa.gov/pub/sod/mecb/crw/data/5km/v3.1/nc/v1.0/monthly/', dirlistonly=T)
 
-# should do a extract3d on the blended sst anomaly
-"nrlHycomGLBu008e911S", "erdVH3chla8day", "erdMH1chla8day",
-"erdAGssta8day", "ncdcOisst2Agg", "erdAGtanm8day"
-"erdQMstress8day" 
+# have alook at years
+strsplit(u1, '\r\n')
 
-# we're gonna save and export as a .nc file as waaaaaay smaller than csv file size (50 vs 600 Mb)
+#have a look at annual contents
+strsplit(getURL('ftp://ftp.star.nesdis.noaa.gov/pub/sod/mecb/crw/data/5km/v3.1/nc/v1.0/monthly/1990/', dirlistonly=T),'\r\n')
 
-ed_search(query = 'erdMH1chla16day', which = "grid")$info
+# have alook at years
+strsplit(u1, '\r\n')
+#
+# ok so there is MIN, MAX and MEAN products per month and
+# sst - sea surface temp
+# dha - degree heating weeks
+# hs - heat stress
+# ssta - sea surface temp anomoly
 
-info("erdVH3chlamday")
+# remember these are global rasters so we'll grab from 09/2017 (Australia - most recent) back to 
+# 10 years prior to 02/2010 (Australia - oldest), so 02/2000. This also covers RMI and Japan (2014, 15/16)
 
-(res <- griddap("erdMH1chlamday",
-                time = c('2014-02-01', '2014-04-30'),
-                latitude = c(-10, -42),
-                longitude = c(140, 170))) 
+url1='ftp://ftp.star.nesdis.noaa.gov/pub/sod/mecb/crw/data/5km/v3.1/nc/v1.0/monthly/'
+
+for (i in 2000:2017)
+{
+  for(j in c('01','02','03','04','05','06','07','08','09','10','11','12'))
+    {
+    dl=paste0(url1,i,'/ct5km_sst-mean_v3.1_',i, j, '.nc')
+  
+    download.file(url=dl,
+                destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/sst/',
+                                'ct5km_sst-mean_v3.1_',i, j, '.nc'))
+    }  
+print(paste(i,j))  
+}
+
+
