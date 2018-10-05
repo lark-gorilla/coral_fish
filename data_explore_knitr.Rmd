@@ -1,3 +1,19 @@
+---
+title: "Trait exploration"
+author: "Mark Miller"
+date: "2 October 2018"
+output: html_document
+runtime: shiny
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+```
+
+
+
+```{r}
 # 20/09/2018
 
 # Initial explore of fish and coral survey and trait data
@@ -10,6 +26,9 @@ library(gridExtra)
 #https://daijiang.name/en/2014/05/11/functional-diversity-in-r/
 library(FD)
 library(ade4)
+library(cluster)
+library(factoextra)
+library(Rtsne)
 
 #setwd("~/leeds_postdoc")
 setwd("M:/coral_fish")
@@ -37,7 +56,7 @@ ingrid$test=ingrid$Var1==ingrid$Var2
 ingrid_out<- ingrid %>% group_by(Var1) %>%
   summarise(has_trait=TRUE%in%test)
 
-filter(ingrid_out, has_trait==F)
+#filter(ingrid_out, has_trait==F)
 # only Bryanops natans
 # called Bryaninops natans in trait data - correct
 names(fishdat)[names(fishdat)=='Bryanops natans']<-'Bryaninops natans'
@@ -69,7 +88,7 @@ ingrid$test=ingrid$Var1==ingrid$Var2
 ingrid_out<- ingrid %>% group_by(Var1) %>%
   summarise(has_trait=TRUE%in%test)
 
-filter(ingrid_out, has_trait==F)
+#filter(ingrid_out, has_trait==F)
 # two 'sp.' species had the '.' removed by gsub above
 names(coraldat)[names(coraldat)=='Acropora sp ']<-'Acropora sp.'
 names(coraldat)[names(coraldat)=='Alveopora sp ']<-'Alveopora sp.'
@@ -98,21 +117,21 @@ dimnames(fish_matx)[[2]]<-names(fishdat)[2:371]
 
 # run checks for FD
 # abun values > 0
-which(colSums(fish_matx, na.rm=T)==0)# none
-which(colSums(fish_matx, na.rm=T)<2)# fair few
+#which(colSums(fish_matx, na.rm=T)==0)# none
+#which(colSums(fish_matx, na.rm=T)<2)# fair few
 
 # check levels and see if any are unbalanced
 
-str(fishtrait2)
+#str(fishtrait2)
 
 # run with different traits and see which cause issues
 temp<-functcomp(fishtrait2[,c(1:4, 6:7)], fish_matx)
 # bad columns: 5,8,9,11
 
-table(fishtrait2$Food)
-table(fishtrait2$Position)
-table(fishtrait2$SpawnMode)
-table(fishtrait2$Active)
+#table(fishtrait2$Food)
+#table(fishtrait2$Position)
+#table(fishtrait2$SpawnMode)
+#table(fishtrait2$Active)
 
 # the subsetting has left factors with 0s, fix
 
@@ -132,12 +151,7 @@ funct_disp<-fdisp(fishtrait_dist, fish_matx)
 
 funct_comp<-functcomp(fishtrait2, fish_matx, CWM.type = c("dom", "all"), bin.num = NULL) #doesn't work unless it's a matrix?
 
-FDdata<-dbFD(fishtrait2, fish_matx, corr='cailliez', calc.FRic=F, print.pco=T)
-
-# doesn't work
-#FDdata_hc<-dbFD(fishtrait2, fish_matx, corr='cailliez', calc.FRic=T, print.pco = T, clust.type = "ward")
-
-#FDdata_km<-dbFD(fishtrait2, fish_matx, corr='cailliez', calc.FRic=T, print.pco = T, clust.type = "kmeans")
+FDdata<-dbFD(fishtrait2, fish_matx, corr='cailliez', calc.FRic=F, print.pco=T, messages=F)
 
 
 #getting out of DB
@@ -148,13 +162,20 @@ FEve<-FDdata$FEve
 FDis<-FDdata$FDis
 RaoQ<-FDdata$RaoQ
 
-funcDF<-data.frame( sing.sp, FEve, FDis, RaoQ)
+funcDF<-data.frame(sing.sp, FEve, FDis, RaoQ)
 
+```
+
+# Plotting trait space
+
+### Construct PCoA plot of trait space and see where different families sit
+
+```{r}
 
 ##~~~~~~~~~~~~ Plotting trait space ~~~~~~~~~~~##
 ## e.g. Mouillot et al (2014) and Mcwilliam (2018)
 
-is.euclid(fishtrait_dist) # not euclidean so needs transforming for use in pcoa
+#is.euclid(fishtrait_dist) # not euclidean so needs transforming for use in pcoa
 
 fishtrait_dist2 <- cailliez(fishtrait_dist)
 
@@ -162,12 +183,12 @@ pc1<-pcoa(fishtrait_dist2)
 
 pc2<-dudi.pco(d = fishtrait_dist2, scannf = FALSE, nf = 4)
 
-screeplot(pc2)
-biplot(pc2) # yikes
+#screeplot(pc2)
+#biplot(pc2) # yikes
 
 #https://www.r-bloggers.com/7-functions-to-do-metric-multidimensional-scaling-in-r/
 ppp <- ggplot() + coord_fixed() + 
-  labs(x="Comp1, Axis1", y="Comp2, Axis2") +
+  labs(x="PCoA1", y="PCoA2") +
   geom_hline(yintercept=0, col="darkgrey") + 
   geom_vline(xintercept=0, col="darkgrey")
 
@@ -178,7 +199,11 @@ pc2.dfs<-left_join(pc2.dfs, fishtrait[,1:2], by='Species')
 
 #plot gloab trait space by family
 ppp + geom_point(data=pc2.dfs, aes(x=A1, y=A2, colour=Family))
+```
 
+### Use trait space to visualise gradients within traits
+
+```{r,  fig.height=16, fig.width=8}
 # and for each trait
 p1<-ppp + geom_point(data=pc2.dfs, aes(x=A1, y=A2, colour=HomeRange))+scale_colour_gradientn(colors=topo.colors(10))
 p2<-ppp + geom_point(data=pc2.dfs, aes(x=A1, y=A2, colour=MaxLength))+scale_colour_gradientn(colors=topo.colors(10))
@@ -194,8 +219,12 @@ p10<-ppp + geom_point(data=pc2.dfs, aes(x=A1, y=A2, colour=ParentalMode))
 p11<-ppp + geom_point(data=pc2.dfs, aes(x=A1, y=A2, colour=Active))
 
 # plot easily visualised traits together
-grid.arrange(p2,p4,p6,p7,p8,p9,p10,p11, ncol=4)
+grid.arrange(p2,p4,p6,p7,p8,p9,p10,p11, ncol=2)
+```
 
+### Summarise where each regional fish community sits within global (all regions) trait space
+
+```{r}
 # attribute PCOA species with counts per RMI region
 fishdat$region=substr(fishdat$X__1, 1,2)
 
@@ -252,7 +281,66 @@ p4<-ppp+
 
 grid.arrange(p1, p2, p3, p4, ncol=2)
 
-# In knitr version I've plotted Axes 3 & $ also
+
+```
+
+### And same plot for PCoA Axis 3 & 4
+
+```{r}
+
+ppp <- ggplot() + coord_fixed() + 
+  labs(x="PCoA3", y="PCoA4") +
+  geom_hline(yintercept=0, col="darkgrey") + 
+  geom_vline(xintercept=0, col="darkgrey")
+
+ailuk_df<-pc2.dfs[pc2.dfs$Ailuk>0,]
+majuro_df<-pc2.dfs[pc2.dfs$Majuro>0,]
+rongerik_df<-pc2.dfs[pc2.dfs$Rongerik>0,]
+rongelap_df<-pc2.dfs[pc2.dfs$Rongelap>0,]
+
+#hulls
+glob_hull<-pc2.dfs[chull(pc2.dfs$A3, pc2.dfs$A4),]
+
+ailuk_hull<-ailuk_df[chull(ailuk_df$A3, ailuk_df$A4),]
+majuro_hull<-majuro_df[chull(majuro_df$A3, majuro_df$A4),]
+rongerik_hull<-rongerik_df[chull(rongerik_df$A3, rongerik_df$A4),]
+rongelap_hull<-rongelap_df[chull(rongelap_df$A3, rongelap_df$A4),]
+
+p1<-ppp+
+  geom_polygon(data=glob_hull,aes(x=A3,y=A4),fill=NA,colour="grey70")+
+  geom_point(data=pc2.dfs, aes(x=A3, y=A4), colour='grey70')+theme_bw()+
+  geom_polygon(data=ailuk_hull,aes(x=A3,y=A4),alpha=0.09, fill='red',colour="black")+
+  geom_point(data=ailuk_df, aes(x=A3, y=A4), colour='red')+theme_bw()+labs(title='Ailuk')
+
+p2<-ppp+
+  geom_polygon(data=glob_hull,aes(x=A3,y=A4),fill=NA,colour="grey70")+
+  geom_point(data=pc2.dfs, aes(x=A3, y=A4), colour='grey70')+theme_bw()+
+  geom_polygon(data=majuro_hull,aes(x=A3,y=A4),alpha=0.09, fill='green',colour="black")+
+  geom_point(data=majuro_df, aes(x=A3, y=A4), colour='green')+theme_bw()+labs(title='Majuro')
+
+
+p3<-ppp+
+  geom_polygon(data=glob_hull,aes(x=A3,y=A4),fill=NA,colour="grey70")+
+  geom_point(data=pc2.dfs, aes(x=A3, y=A4), colour='grey70')+theme_bw()+
+  geom_polygon(data=rongerik_hull,aes(x=A3,y=A4),alpha=0.09, fill='blue',colour="black")+
+  geom_point(data=rongerik_df, aes(x=A3, y=A4), colour='blue')+theme_bw()+labs(title='Rongerik')
+
+
+p4<-ppp+
+  geom_polygon(data=glob_hull,aes(x=A3,y=A4),fill=NA,colour="grey70")+
+  geom_point(data=pc2.dfs, aes(x=A3, y=A4), colour='grey70')+theme_bw()+
+  geom_polygon(data=rongelap_hull,aes(x=A3,y=A4),alpha=0.09, fill='purple',colour="black")+
+  geom_point(data=rongelap_df, aes(x=A3, y=A4), colour='purple')+theme_bw()+labs(title='Rongelap')
+
+grid.arrange(p1, p2, p3, p4, ncol=2)
+
+```
+
+# Clustering
+
+Lets try some cluster analyses on the trait data to try and pull outdifferent functional groups, first up hierarchical partitioning.*using a set number of groups (k=8)*
+
+```{r, fig.height=12, fig.width=12}
 
 ##~~~~~~~~~~~~ clustering trials ~~~~~~~~~~~##
 
@@ -260,24 +348,27 @@ grid.arrange(p1, p2, p3, p4, ncol=2)
 
 FDis_clust = hclust (fishtrait_dist, method = "ward.D") 
 
-pvc<-pvclust(fishtrait_dist, method.hclust = "ward.D", nboot=10)
-
-FDis_clust %>% as.dendrogram()
-
-dis.mat<-as.matrix(Fdissim)
 
 # plot(FDis_clust, labels = fish.traits$Species, cex = 0.1)
 ### display as ring
 FDisClus_phy = as.phylo(FDis_clust)
-labelClust = as.character (row.names(fish.traits))
+labelClust = as.character (row.names(fishtrait2))
 FDisClus_phy$tip.label = labelClust
-colours=c('red','green','blue','orange','forestgreen', 'purple')
-clus6<-cutree(FDis_clust, k=6)
+colours=rainbow(8)
+clus6<-cutree(FDis_clust, k=8)
 
 plot(FDisClus_phy, type="fan", use.edge.length = TRUE, node.pos = NULL,
      show.tip.label = TRUE, show.node.label = FALSE, tip.color = colours[clus6] ,
      edge.width = 1, edge.lty = 1, font = 2, cex = 0.5, label.offset = 0.1)
+```
 
+Now trial using Partitioning Around Mediods (PAM) clustering,
+which is similar to K-means but less sensistive to outliers and 
+more appropriate for categorical data
+
+First have a look at correlation between species, based on correlation of Gower trait distance
+
+```{r, fig.cap= '1 = perfect difference, 0 = identical'  }
 
 ### Kmeans and Partitioning Around Mediods (PAM)
 # https://www.r-bloggers.com/clustering-mixed-data-types-in-r/
@@ -290,6 +381,11 @@ DistanceMap <- fviz_dist(fishtrait_dist, order = TRUE, show_labels = TRUE, lab_s
 
 DistanceMap
 # 0 means identical gower distance
+```
+
+We can use the check the Gower distances are correct but ouputting the most similar species pair.. 
+
+```{r}
 
 gower_mat <- as.matrix(fishtrait_dist)
 
@@ -298,11 +394,21 @@ gower_mat <- as.matrix(fishtrait_dist)
 fishtrait2[
   which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]),
         arr.ind = TRUE)[1, ], ]
+```
+
+And the most dissimilar species pair 
+
+```{r}
 
 # and least similar
 fishtrait2[
   which(gower_mat == max(gower_mat[gower_mat != min(gower_mat)]),
         arr.ind = TRUE)[1, ], ]
+```
+
+Need to decide the optimum number of clusters. We calculate the silhouette width, looking for the highest value (from reasonably low number of clusters) - 8 looks good
+
+```{r}
 
 # Calculate silhouette width for many k using PAM
 
@@ -321,7 +427,11 @@ for(i in 2:20){
 qplot(x=1:20, y=sil_width)+labs(x="Number of clusters", y= "Silhouette Width")+
  geom_line() +scale_x_continuous(breaks=2:20)
 # fyi keeps going upn after 12... 8 clusters looks good
+```
 
+We fit PAM clustering model with 8 clusters and can then view the summary of traits within each cluster
+
+```{r}
 
 ## We can see the summary values for traits within each cluster
 
@@ -334,14 +444,28 @@ pam_results <- fishtrait2 %>%
 
 pam_results$the_summary
 
+```
+
+We can also see the mediod of each cluster, which is the exemplar species from each cluster
+
+```{r}
+
 ## We can also see the mediod of each cluster, which is the
 ## exemplar species from each cluster
 
-fishtrait2_cl[pam1$medoids,]
-
-# make plots 
 fishtrait2_cl<-fishtrait2
 fishtrait2_cl$cluster<-pam1$clustering
+
+fishtrait2_cl[pam1$medoids,]
+
+```
+
+And now we can visualise how each cluster is represented by the different trait values
+
+```{r}
+
+# make plots 
+
 
 p<-ggplot(data=fishtrait2_cl, aes(x=factor(cluster)))+labs(x='Cluster')
 
@@ -401,7 +525,14 @@ p12<-ggplot(data=fishtrait2_cl %>% group_by(cluster,Active) %>%
   labs(x = "Cluster", y = "Percent", fill = "Active")+theme_bw()
 
 
-grid.arrange(p1, p2, p3, p4,p5, p6, p7, p8, p9, p10, p11, p12, ncol=1)
+p1; p2; p3; p4;p5; p6; p7; p8; p9; p10; p11; p12
+```
+
+# View clusters in reduced-axes space
+
+We can now try to visualise the clusters in multidensional space. First try a couple of PCA visualisations - tricky because of lots of data
+
+```{r}
 
 # Now we can visualise using pca, sort of..
 
@@ -420,7 +551,11 @@ fviz_cluster(object=list(data=fishtrait_dist, cluster = pam1$clustering),
              repel = F,
              shape=1,
              geom='point',ggtheme = theme_classic())
+```
 
+We can also visualise using Rtsne (Barnes-Hut implementation of t-Distributed Stochastic Neighbor Embedding) *I have no idea how this MDS scaling method works, just for visualising really*
+
+```{r}
 
 ## Alternative visualisation using Rtsne
 
@@ -434,7 +569,11 @@ tsne_data <- tsne_obj$Y %>%
 
    ggplot(aes(x = X, y = Y), data = tsne_data) +
    geom_point(aes(color = cluster))+theme_bw()
+```
 
+Fianlly, we can validate our identified clusters using silhoette metric. The closer the value to 1, the more likely the observation is to be in correct cluster, close to 0 means observation lies between clusters and negative values mean the observation is liekly in the wrong cluster - on this basis some of our clusters don't look great. 
+
+```{r}
 # we can validate with silhoette
 
 fviz_silhouette(silhouette(pam1))
@@ -442,3 +581,18 @@ fviz_silhouette(silhouette(pam1))
 # The closer the value to 1, the more likely the observation is to be in correct cluster, 
 # close to 0 means observation lies between clusters and negative values
 # mean the observation is liekly in the wrong cluster.
+
+```
+
+Choose a time series:
+```{r echo = FALSE}
+selectInput("data", "",
+ c("co2", "lh"))
+```
+See a plot:
+```{r echo = FALSE}
+renderPlot({
+ d <- get(input$data)
+ plot(d)
+})
+```
