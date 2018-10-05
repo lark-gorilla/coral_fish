@@ -29,6 +29,7 @@ library(ade4)
 library(cluster)
 library(factoextra)
 library(Rtsne)
+library(rmdexamples)
 
 #setwd("~/leeds_postdoc")
 setwd("M:/coral_fish")
@@ -584,7 +585,58 @@ fviz_silhouette(silhouette(pam1))
 
 ```
 
-Choose a time series:
+
+Have a look interactively with K-means clustering
+
+   ggplot(aes(x = X, y = Y), data = tsne_data) +
+   geom_point(aes(color = cluster))+theme_bw()
+
+
+```{r}
+ vars = names(fishtrait2)
+
+  shinyApp(
+    ui = fluidPage(
+      fluidRow(style = "padding-bottom: 20px;",
+        column(4, numericInput('clusters', 'Cluster count', 3,
+                               min = 1, max = 9))
+      ),
+      fluidRow(
+        plotOutput('kmeans', height = "400px")  
+      )
+    ),
+
+    server = function(input, output, session) {
+      
+      
+    
+
+      # Combine the selected variables into a new data frame
+   
+
+      clusters = reactive({
+        pam(fishtrait_dist,diss = TRUE, k = input$clusters)
+      })
+      
+         selectedData = reactive({
+        tsne_obj$Y %>%
+    data.frame() %>%
+     setNames(c("X", "Y")) %>% `rownames<-` (row.names(fishtrait2))
+      })
+
+      output$kmeans = renderPlot(height = 400, {
+        res = clusters()
+        par(mar = c(5.1, 4.1, 0, 1))
+        plot(selectedData(),
+             col = res$clustering, pch = 20, cex = 3)
+        points(selectedData()[res$medoids,], pch = 4, cex = 4, lwd = 4)
+      })
+    },
+
+    options = list(height = 500)
+  )
+```
+
 ```{r echo = FALSE}
 selectInput("data", "",
  c("co2", "lh"))
