@@ -123,6 +123,43 @@ for (i in 2000:2017)
 
 # slightly different loop for daily data
 
+# read in site data
+
+jpn_sites<-read.csv('M:/coral_fish/data/Japan/JP2015_16_waypoints.csv', h=T)
+rmi_sites<-read.csv('M:/coral_fish/data/RMI/RMI_~Sitetraits.csv', h=T)
+aus_sites<-read.csv('M:/coral_fish/data/Australia/Australia_SitesMar2010toAug2017.csv', h=T)
+
+sites<-rbind(data.frame(site=jpn_sites$Site, region='JPN', date=jpn_sites$Date, lat=jpn_sites$lat, long=jpn_sites$lon),
+             data.frame(site=rmi_sites$SiteID, region='RMI', date=rmi_sites$Date, lat=rmi_sites$Lat, long=rmi_sites$Long),
+             data.frame(site=aus_sites$Site.name, region='AUS', date=aus_sites$Date, lat=aus_sites$Lat, long=aus_sites$Long))
+
+sites[108,]$lat= -28.61087
+sites[108,]$long=	153.62809
+
+sites<-na.omit(sites) # remove NA rows
+
+sites<-sites[-120,] # remove blank
+
+sites<-sites[-which(duplicated(sites$site)),] # remove site duplicates
+
+sites_sp<-st_as_sf(sites, coords = c("long","lat"), crs="+proj=longlat +datum=WGS84") # as sf object
+sites_buf<-st_buffer(sites_sp, dist=0.5)# buffer it. dist in decimal degrees ~ 50 km
+
+sites_buf<-as(sites_buf, 'Spatial') # as 'sp' object raster can understand
+
+#setup master dataframe
+
+ext2<-extract(r1, cbind(sites$long, sites$lat), buffer=50000, cellnumbers=T)
+
+out<-NULL
+for(i in 1:nrow(sites))
+{
+  df<-data.frame(sites[i,], coordinates(r1)[ext2[[i]][,1],])
+  out<-rbind(out, df)
+  print(i)
+}
+
+
 #https://stackoverflow.com/questions/52182635/r-reading-geotiff-data-straight-from-web-url-httrget-raw-content
 
 for (i in 2000:2017)
@@ -130,28 +167,47 @@ for (i in 2000:2017)
   # for sst
   url1<-paste0('ftp://ftp.star.nesdis.noaa.gov/pub/sod/mecb/crw/data/5km/v3.1/nc/v0.1/daily/sst/', i, '/')
   
-  filez<-strsplit(getURL(url1, dirlistonly=T),'\r\n')
+  filez<-unlist(strsplit(getURL(url1, dirlistonly=T),'\r\n'))
+  filez<-filez[order(substr(filez, 15,22))]
   
-  for(j in unlist(filez))
+  yr_out<-out
+  for(j in filez)
   {
     
     download.file(url=paste0(url1,j),
-                  destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/sst/',
-                                  'ct5km_sst-mean_v3.1_',i, j, '.nc'), mode='wb')
+                  destfile='C:/ocean_data/temp_sst.nc', mode='wb')
     
-    dl2=paste0(url1,i,'/ct5km_ssta-mean_v3.1_',i, j, '.nc')
     
-    download.file(url=dl2,
-                  destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/ssta/',
-                                  'ct5km_ssta-mean_v3.1_',i, j, '.nc'), mode='wb')
+    r1<-raster('C:/ocean_data/temp_sst.nc')
     
-    dl3=paste0(url1,i,'/ct5km_dhw-max_v3.1_',i, j, '.nc')
+    ext1<-raster::extract(r1, cbind(sites$long, sites$lat), buffer=50000)
     
-    download.file(url=dl3,
-                  destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/dhw/',
-                                  'ct5km_dhw-max_v3.1_',i, j, '.nc'), mode='wb')
+    yr_out<-cbind(yr_out, unlist(ext1))
+    names(yr_out)[names(yr_out)=='unlist(ext1)']<-paste0('s', substr(j, 15,22))
+    
+    file.remove('C:/ocean_data/temp_sst.nc')
+  
+    
+    # delete temp file
+    
+ 
+    
+    #dl2=paste0(url1,i,'/ct5km_ssta-mean_v3.1_',i, j, '.nc')
+    
+    #download.file(url=dl2,
+    #              destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/ssta/',
+    #                              'ct5km_ssta-mean_v3.1_',i, j, '.nc'), mode='wb')
+    
+    #dl3=paste0(url1,i,'/ct5km_dhw-max_v3.1_',i, j, '.nc')
+    
+    #download.file(url=dl3,
+    #              destfile=paste0('C:/ocean_data/NOAA_coral_bleaching/dhw/',
+    #                              'ct5km_dhw-max_v3.1_',i, j, '.nc'), mode='wb')
     print(paste(i,j)) 
-  }  
+    
+    
+  }
+  write.csv(yr_out, paste0('C:/ocean_data/NOAA_coral_bleaching/daily_sst/sst_', i, '.csv'), quote=F, row.names=F)
   
 }
 
