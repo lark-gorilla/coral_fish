@@ -586,10 +586,7 @@ fviz_silhouette(silhouette(pam1))
 ```
 
 
-Have a look interactively with K-means clustering
-
-   ggplot(aes(x = X, y = Y), data = tsne_data) +
-   geom_point(aes(color = cluster))+theme_bw()
+Have a look interactively with PAM clustering
 
 
 ```{r}
@@ -602,7 +599,7 @@ Have a look interactively with K-means clustering
                                min = 1, max = 9))
       ),
       fluidRow(
-        plotOutput('kmeans', height = "400px")  
+        plotOutput('kmeans', height = "400px")
       )
     ),
 
@@ -618,6 +615,9 @@ Have a look interactively with K-means clustering
         pam(fishtrait_dist,diss = TRUE, k = input$clusters)
       })
       
+
+
+      
          selectedData = reactive({
         tsne_obj$Y %>%
     data.frame() %>%
@@ -631,20 +631,10 @@ Have a look interactively with K-means clustering
              col = res$clustering, pch = 20, cex = 3)
         points(selectedData()[res$medoids,], pch = 4, cex = 4, lwd = 4)
       })
+      
+    
     },
 
     options = list(height = 500)
   )
-```
-
-```{r echo = FALSE}
-selectInput("data", "",
- c("co2", "lh"))
-```
-See a plot:
-```{r echo = FALSE}
-renderPlot({
- d <- get(input$data)
- plot(d)
-})
 ```

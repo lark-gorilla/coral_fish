@@ -142,13 +142,9 @@ sites<-sites[-120,] # remove blank
 
 sites<-sites[-which(duplicated(sites$site)),] # remove site duplicates
 
-sites_sp<-st_as_sf(sites, coords = c("long","lat"), crs="+proj=longlat +datum=WGS84") # as sf object
-sites_buf<-st_buffer(sites_sp, dist=0.5)# buffer it. dist in decimal degrees ~ 50 km
-
-sites_buf<-as(sites_buf, 'Spatial') # as 'sp' object raster can understand
 
 #setup master dataframe
-
+r1<-raster('C:/ocean_data/template_sst.nc')
 ext2<-extract(r1, cbind(sites$long, sites$lat), buffer=50000, cellnumbers=T)
 
 out<-NULL
@@ -213,10 +209,32 @@ for (i in 2000:2017)
 
 
 
-# read in and check data
+## Now extract chl-a data usinf rerrdap
 
-r1<-raster('C:/ocean_data/NOAA_coral_bleaching/dhw/ct5km_dhw-max_v3.1_200001.nc')
+library(rerrdap)
 
-print(r1)
+info('erdMH1chla8day')
+
+sites_sp<-st_as_sf(sites, coords = c("long","lat"), crs="+proj=longlat +datum=WGS84") # as sf object
+sites_buf<-st_buffer(sites_sp, dist=0.5)# buffer it. dist in decimal degrees ~ 50 km
+
+for(i in 1: nrow(sites_buf))
+{
+  beeb<-st_bbox(sites_buf[i,])
+  
+  (res <- griddap("erdMH1chla8day",
+                  time = c('2003-01-05', '2017-12-30'),
+                  latitude = c(beeb$ymin, beeb$ymax),
+                  longitude = c(beeb$xmin, beeb$xmax))) 
+  
+}
+
+# get list of bboxes for download parameters 
+bbox_list<-sites_buf %>% st_cast('POLYGON') %>% lapply(st_bbox) 
+
+
+
+
+
 
 
