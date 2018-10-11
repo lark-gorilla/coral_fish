@@ -222,6 +222,11 @@ for(i in 1: nrow(sites_buf))
 {
   beeb<-st_bbox(sites_buf[i,])
   
+  urly<-'https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMH1chla8day.nc?chlorophyll[(2003-01-29):1:(2017-12-31)][(24.84577):1:(23.84577)][(123.18996):1:(124.18996)]'
+  
+  download.file(url=urly,
+                destfile='C:/ocean_data/AQUA_MODIS_chla/JP1.nc', mode='wb')
+  
   (res <- griddap("erdMH1chla8day",
                   time = c('2003-01-05', '2017-12-30'),
                   latitude = c(beeb$ymin, beeb$ymax),
