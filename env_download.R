@@ -209,7 +209,7 @@ for (i in 2000:2017)
 
 
 
-## Now extract chl-a data usinf rerrdap
+## Now extract chl-a data from ERDDAP servers. rerrdap not working
 
 library(rerrdap)
 
@@ -222,16 +222,38 @@ for(i in 1: nrow(sites_buf))
 {
   beeb<-st_bbox(sites_buf[i,])
   
-  urly<-'https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMH1chla8day.nc?chlorophyll[(2003-01-29):1:(2017-12-31)][(24.84577):1:(23.84577)][(123.18996):1:(124.18996)]'
+  # MODIS chlorophyll
+  #urly<-paste0('https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMH1chla8day.nc?chlorophyll[(2003-01-29):1:(2017-12-31)][(',
+  #             beeb$ymax,'):1:(',beeb$ymin,')][(',beeb$xmin,'):1:(',beeb$xmax,')]')
   
-  download.file(url=urly,
-                destfile='C:/ocean_data/AQUA_MODIS_chla/JP1.nc', mode='wb')
+  #download.file(url=urly,
+  #              destfile=paste0('C:/ocean_data/AQUA_MODIS_chla/',sites_buf[i,]$site,'.nc'), mode='wb')
   
-  (res <- griddap("erdMH1chla8day",
-                  time = c('2003-01-05', '2017-12-30'),
-                  latitude = c(beeb$ymin, beeb$ymax),
-                  longitude = c(beeb$xmin, beeb$xmax))) 
+  # PML processed CHL and kd490 data 
+  urly<-paste0('https://coastwatch.pfeg.noaa.gov/erddap/griddap/pmlEsaOCCCI31KD490Weekly.nc?chlor_a[(2000-01-01):1:(2017-12-31)][(',
+               beeb$ymax,'):1:(',beeb$ymin,')][(',beeb$xmin,'):1:(',beeb$xmax,')]')
   
+  
+  err<-try(download.file(url=urly,
+                destfile=paste0('C:/ocean_data/PML_chla/',sites_buf[i,]$site,'.nc'), mode='wb'))
+  
+  while(class(err) == "try-error"){
+    err<-try(download.file(url=urly,
+                           destfile=paste0('C:/ocean_data/PML_chla/',sites_buf[i,]$site,'.nc'), mode='wb'))
+                            } 
+  
+  urly<-paste0('https://coastwatch.pfeg.noaa.gov/erddap/griddap/pmlEsaOCCCI31KD490Weekly.nc?kd_490[(2000-01-01):1:(2017-12-31)][(',
+               beeb$ymax,'):1:(',beeb$ymin,')][(',beeb$xmin,'):1:(',beeb$xmax,')]')
+  
+  
+  err<-try(download.file(url=urly,
+                destfile=paste0('C:/ocean_data/PML_kd490/',sites_buf[i,]$site,'.nc'), mode='wb'))
+  
+  while(class(err) == "try-error"){
+    err<-try(download.file(url=urly,
+                          destfile=paste0('C:/ocean_data/PML_kd490/',sites_buf[i,]$site,'.nc'), mode='wb'))
+                          } 
+ print(i)          
 }
 
 # get list of bboxes for download parameters 
@@ -240,6 +262,10 @@ bbox_list<-sites_buf %>% st_cast('POLYGON') %>% lapply(st_bbox)
 
 
 
+r2<-raster('C:/ocean_data/AQUA_MODIS_chla/JP1.nc', band=2)
+
+as.Date(as.POSIXlt(getZ(r2), origin="1970-01-01", "GMT"))
 
 
-
+https://coastwatch.pfeg.noaa.gov/erddap/griddap/pmlEsaOCCCI31KD490Weekly.nc?chlor_a[(2000-01-01):1:(2017-12-31)][(24.84577202):1:(23.84577202)][(123.189956):1:(124.189956)],kd_490[(2000-01-01):1:(2017-12-31)][(24.84577202):1:(23.84577202)][(123.189956):1:(124.189956)]
+https://coastwatch.pfeg.noaa.gov/erddap/griddap/pmlEsaOCCCI31KD490Weekly.nc?chlor_a[(2000-01-01):1:(2017-12-31)][(24.84577202):1:(23.84577202)][(123.189956):1:(124.189956)],kd_490[(2000-01-01):1:(2017-12-31)][(24.84577202):1:(23.84577202)][(123.189956):1:(124.189956)]
