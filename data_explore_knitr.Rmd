@@ -3,7 +3,6 @@ title: "Trait exploration"
 author: "Mark Miller"
 date: "2 October 2018"
 output: html_document
-runtime: shiny
 ---
 
 
@@ -30,6 +29,7 @@ library(cluster)
 library(factoextra)
 library(Rtsne)
 library(rmdexamples)
+library(shiny)
 
 #setwd("~/leeds_postdoc")
 setwd("M:/coral_fish")
@@ -589,52 +589,183 @@ fviz_silhouette(silhouette(pam1))
 Have a look interactively with PAM clustering
 
 
-```{r}
- vars = names(fishtrait2)
+
+```{r} 
 
   shinyApp(
+    
     ui = fluidPage(
-      fluidRow(style = "padding-bottom: 20px;",
-        column(4, numericInput('clusters', 'Cluster count', 3,
-                               min = 1, max = 9))
-      ),
-      fluidRow(
-        plotOutput('kmeans', height = "400px")
-      )
-    ),
+      titlePanel('Dynamic clustering'),
+      
+      sidebarLayout(position='left',
+                    sidebarPanel('Select Traits',
+                     checkboxInput("HomeRange", "HomeRange", FALSE), 
+                     checkboxInput("MaxLength", "MaxLength", FALSE), 
+                     checkboxInput("PLD_Mean", "PLD_Mean", FALSE), 
+                     checkboxInput("TrophLevel", "TrophLevel", FALSE), 
+                     checkboxInput("Food", "Food", FALSE), 
+                     checkboxInput("Function", "Function", FALSE), 
+                     checkboxInput("Aggregation", "Aggregation", FALSE), 
+                     checkboxInput("Position", "Position", FALSE), 
+                     checkboxInput("SpawnMode", "SpawnMode", FALSE), 
+                     checkboxInput("ParentalMode", "ParentalMode", FALSE), 
+                     checkboxInput("Active", "Active", FALSE), 
+                     sliderInput("clusters","No. of clusters",min=1,max=10,value=1)),
+                    
+                   mainPanel("main panel",
+                          fluidRow(
+                          plotOutput("plotgraph1"), plotOutput("plotgraph2")
+                          ))
+                )),
+   
 
     server = function(input, output, session) {
       
-      
-    
-
-      # Combine the selected variables into a new data frame
    
-
-      clusters = reactive({
-        pam(fishtrait_dist,diss = TRUE, k = input$clusters)
+      mydata=reactive({
+        selnames=NULL
+        if(input$HomeRange){selnames=c(selnames, 1)}
+        if(input$MaxLength){selnames=c(selnames, 2)}
+         if(input$PLD_Mean){selnames=c(selnames, 3)}
+         if(input$TrophLevel){selnames=c(selnames, 4)}
+         if(input$Food){selnames=c(selnames, 5)}
+         if(input$Function){selnames=c(selnames, 6)}
+         if(input$Aggregation){selnames=c(selnames, 7)}
+         if(input$Position){selnames=c(selnames, 8)}
+         if(input$SpawnMode){selnames=c(selnames, 9)}
+         if(input$ParentalMode){selnames=c(selnames, 10)}
+        if(input$Active){selnames=c(selnames, 11)}
+        
+          md=fishtrait2[,selnames]
+          return(md)
+        })
+      
+      fdist=reactive({
+        gowdis(mydata())
       })
       
-
-
+            clusters = reactive({
+        pam(fdist(),diss = TRUE, k = input$clusters)
+      })
+            
+     tsne_obj =reactive({Rtsne(fdist(), is_distance = TRUE) }) 
       
-         selectedData = reactive({
-        tsne_obj$Y %>%
+         p1data = reactive({
+        tsne_obj()$Y %>%
     data.frame() %>%
      setNames(c("X", "Y")) %>% `rownames<-` (row.names(fishtrait2))
       })
+      
+      
+     
+      
+     output$plotgraph1 = renderPlot({
+       res=clusters()
+       qplot(data=p1data(), x=X, y=Y, colour=as.factor(res$clustering))+labs(colour='Cluster')})
+    
+     output$plotgraph2 = renderPlot({
+        res=clusters()
+       fviz_silhouette(silhouette(res))
+        })
+      
+    }   
+  )      
+      
+```
 
-      output$kmeans = renderPlot(height = 400, {
-        res = clusters()
-        par(mar = c(5.1, 4.1, 0, 1))
-        plot(selectedData(),
-             col = res$clustering, pch = 20, cex = 3)
-        points(selectedData()[res$medoids,], pch = 4, cex = 4, lwd = 4)
+
+Now using hierachical clustering
+
+
+```{r} 
+
+gg_color_hue <- function(n) {
+    hues = seq(15, 375, length = n + 1)
+    hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+  shinyApp(
+    
+    ui = fluidPage(
+      titlePanel('Dynamic clustering'),
+      
+      sidebarLayout(position='left',
+                    sidebarPanel('Select Traits',
+                     checkboxInput("HomeRange", "HomeRange", FALSE), 
+                     checkboxInput("MaxLength", "MaxLength", FALSE), 
+                     checkboxInput("PLD_Mean", "PLD_Mean", FALSE), 
+                     checkboxInput("TrophLevel", "TrophLevel", FALSE), 
+                     checkboxInput("Food", "Food", FALSE), 
+                     checkboxInput("Function", "Function", FALSE), 
+                     checkboxInput("Aggregation", "Aggregation", FALSE), 
+                     checkboxInput("Position", "Position", FALSE), 
+                     checkboxInput("SpawnMode", "SpawnMode", FALSE), 
+                     checkboxInput("ParentalMode", "ParentalMode", FALSE), 
+                     checkboxInput("Active", "Active", FALSE), 
+                     sliderInput("clusters","No. of clusters",min=1,max=10,value=1)),
+                    
+                   mainPanel("main panel",
+                          fluidRow(
+                          plotOutput("plotgraph1"), plotOutput("plotgraph2")
+                          ))
+                )),
+   
+
+    server = function(input, output, session) {
+      
+   
+      mydata=reactive({
+        selnames=NULL
+        if(input$HomeRange){selnames=c(selnames, 1)}
+        if(input$MaxLength){selnames=c(selnames, 2)}
+         if(input$PLD_Mean){selnames=c(selnames, 3)}
+         if(input$TrophLevel){selnames=c(selnames, 4)}
+         if(input$Food){selnames=c(selnames, 5)}
+         if(input$Function){selnames=c(selnames, 6)}
+         if(input$Aggregation){selnames=c(selnames, 7)}
+         if(input$Position){selnames=c(selnames, 8)}
+         if(input$SpawnMode){selnames=c(selnames, 9)}
+         if(input$ParentalMode){selnames=c(selnames, 10)}
+        if(input$Active){selnames=c(selnames, 11)}
+        
+          md=fishtrait2[,selnames]
+          return(md)
+        })
+      
+      fdist=reactive({
+        gowdis(mydata())
       })
       
-    
-    },
+      
+      clusters = reactive ({hclust (fdist(), method = "ward.D")}) 
+      
+      phyly= reactive({
+      FDisClus_phy = as.phylo(clusters())
+      labelClust = as.character (row.names(fishtrait2))
+      FDisClus_phy$tip.label = labelClust
+      return(FDisClus_phy)
+      })
 
-    options = list(height = 500)
-  )
+      cutty=reactive ({hcut(fdist(), k=input$clusters, isdiss=T)})
+      
+      cutty2<-reactive({cutree(clusters(), k=input$clusters)})
+
+
+     output$plotgraph1 = renderPlot({
+    colz<-gg_color_hue(input$clusters)
+       cutz<-cutty2()
+       plot(phyly(), type="fan", use.edge.length = TRUE, node.pos = NULL,
+     show.tip.label = TRUE, show.node.label = FALSE, tip.color = colz[cutz] ,
+     edge.width = 1, edge.lty = 1, font = 2, cex = 0.5, label.offset = 0.1)
+      
+       
+       })
+    
+     output$plotgraph2 = renderPlot({
+       fviz_silhouette(cutty())
+        })
+      
+    }   
+  )      
+      
 ```
