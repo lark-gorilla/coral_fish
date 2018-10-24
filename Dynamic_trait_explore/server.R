@@ -25,9 +25,9 @@ gg_color_hue <- function(n) {
   
 # read in coral and fish abundance and trait data
 
-fishdat<-read_excel('M:/coral_fish/data/RMI/RMIfish_siteDepthMeans_ADepth.xlsx', sheet=1)
+fishdat<-read_excel('~/leeds_postdoc/data/RMI/RMIfish_siteDepthMeans_ADepth.xlsx', sheet=1)
 
-fishtrait<-read.csv('M:/coral_fish/data/Traits/RMI_fish_traits4.csv', h=T)
+fishtrait<-read.csv('~/leeds_postdoc/data/Traits/RMI_fish_traits4.csv', h=T)
 
 #test names line up
 
