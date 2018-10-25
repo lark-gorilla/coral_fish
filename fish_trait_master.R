@@ -6,13 +6,17 @@
 library(dplyr)
 library(readxl)
 
+if(Sys.info()['nodename']=="FBS5PCW223"){
+  setwd("M:/coral_fish")}else{
+    setwd("~/leeds_postdoc")}
+
 #****** RMI data ******#
 
 # read in coral and fish abundance and trait data
 
-fishdat<-read_excel('~/leeds_postdoc/data/RMI/RMIfish_siteDepthMeans_ADepth.xlsx', sheet=1)
+fishdat<-read_excel('data/RMI/RMIfish_siteDepthMeans_ADepth.xlsx', sheet=1)
 
-fishtrait<-read.csv('~/leeds_postdoc/data/Traits/RMI_fish_traits4.csv', h=T)
+fishtrait<-read.csv('data/Traits/RMI_fish_traits4.csv', h=T)
 
 #test names line up
 
@@ -35,14 +39,21 @@ filter(ingrid_out, has_trait==F)
 # called Bryaninops natans in trait data - correct
 names(fishdat)[names(fishdat)=='Bryanops natans']<-'Bryaninops natans'
 
+# subset rmi triat data to only include species seen in surveys
+rmi_species<-names(fishdat)
+
+fishtrait<-fishtrait[fishtrait$Species %in% rmi_species,]
+
+
+
 #****** Japan and Australia data ******#
 # code from Katie C
 
 #read in fish survey data japan 
-fish_survey<-read.csv('~/leeds_postdoc/data/Japan/FishData_JP_2016_final.csv')
+fish_survey<-read.csv('data/Japan/FishData_JP_2016_final.csv')
 
 #read in australia survey species
-aus_species_list<-read.csv('~/leeds_postdoc/data/Australia/LongTransect_Subtropical_fish_list.csv')
+aus_species_list<-read.csv('data/Australia/LongTransect_Subtropical_fish_list.csv')
 
 #get list of aus_species names
 aus_species<-aus_species_list$Fish
@@ -86,24 +97,57 @@ aus_species[aus_species=='Apogon limenus']<-'Ostorhinchus limenus'
 
 # read in Australia/Japan trait database
 
-library(readr)
+#library(readr)
 # base read.csv fails so use readr's read_csv
-bigtrait<-read_csv('~/leeds_postdoc/data/Traits/fish_traits.csv')
+#bigtrait<-read_csv('~/leeds_postdoc/data/Traits/fish_traits.csv')
 
-#remove extra columns from fish_trait
-bigtrait<-bigtrait[1:1122,]
+# Updated database from Maria 22 Oct
+
+
+bigtrait<-read_excel('data/Traits/_database_index10_22Oct2018.xlsx', sheet=1, skip=1)
+
+#remove extra rows from fish_trait
+#bigtrait<-bigtrait[1:1122,]
 
 #remove unnecessary traits
 bigtrait<- bigtrait[,c(2, 11,17,21,30,36,38,39,41)]
 
-colnames(bigtrait)
+# combine with RMI triat data
+
+names(bigtrait)
+names(fishtrait)
+fishtrait$Family<-NULL
+fishtrait$HomeRange<-NULL
+fishtrait$PD50<-NULL
+fishtrait$TrophLevel<-NULL
+fishtrait$Food<-NULL
+fishtrait$SpawnMode<-NULL
+fishtrait$Active<-NULL
+fishtrait$Envtemp<-'tropical'
+
+# check which RMI species are already in the japan/aus trait dataset
+
+rmi_sp<- fishtrait$Species[-which(fishtrait$Species %in% bigtrait$Species)]
+
+fishtrait[fishtrait$Species %in% rmi_sp,]
+# all bar two
+
+# checking eac against xlsx file and updating species list name from 
+# survey data to be correct with bigtrait species name
+
+rmi_species[rmi_species=='Chaetodon rafflesi']<-'Chaetodon rafflesii'
+rmi_species[rmi_species=='Zebrasoma veliferum']<-'Zebrasoma velifer'
+
+# note there are some discrepencies between traits (trophic and aggregation)
+# between the aus/japan train master database (bigtrait) and the RMI trait database (fishtrait)
+# for RMI species is the rmi triat  database more accurate?
+
+
+
 
 #rename to better names 
 names(bigtrait)<-c('Species', 'ThermalAffinity', 'BodySize','DepthRange',
                    'PLD', 'Diet', 'Aggregation', 'Position', 'ParentalMode')
-
-
-
 
 #filling in the blanks#
 #first make matrix 
