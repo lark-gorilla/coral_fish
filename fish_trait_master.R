@@ -1,7 +1,7 @@
 # 22/10/2018
 
 # preparation of fish trait and abundance data from Japan, Australia and RMI
-# for several pieces of comparative lab analyses
+# for several pieces of comparative lab analyses 
 
 library(dplyr)
 library(readxl)
