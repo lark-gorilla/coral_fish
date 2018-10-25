@@ -135,14 +135,21 @@ fishtrait[fishtrait$Species %in% rmi_sp,]
 # checking eac against xlsx file and updating species list name from 
 # survey data to be correct with bigtrait species name
 
-rmi_species[rmi_species=='Chaetodon rafflesi']<-'Chaetodon rafflesii'
+'Chaetodon rafflesii' %in% c(fish_survey$SpeciesFish, aus_species) # not in so not altered
+
+'Zebrasoma velifer' %in% c(fish_survey$SpeciesFish, aus_species) # is in so changed
+
 rmi_species[rmi_species=='Zebrasoma veliferum']<-'Zebrasoma velifer'
 
 # note there are some discrepencies between traits (trophic and aggregation)
 # between the aus/japan train master database (bigtrait) and the RMI trait database (fishtrait)
-# for RMI species is the rmi triat  database more accurate?
+# for RMI species that DO NOT occur in the aus/japan data we use
+# the RMI triats, for shared species we use the master trait dataset
 
+# subset rmi_traits to only rmi species outstanding from jap/aus surveys
+rmi_only<-rmi_species[-which(rmi_species %in% c(fish_survey$SpeciesFish, aus_species))]
 
+fishtrait_rmi<-filter(fishtrait, Species %in% rmi_only)
 
 
 #rename to better names 
