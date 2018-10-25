@@ -115,15 +115,10 @@ bigtrait<- bigtrait[,c(2, 11,17,21,30,36,38,39,41)]
 # combine with RMI triat data
 
 names(bigtrait)
-names(fishtrait)
-fishtrait$Family<-NULL
-fishtrait$HomeRange<-NULL
-fishtrait$PD50<-NULL
-fishtrait$TrophLevel<-NULL
-fishtrait$Food<-NULL
-fishtrait$SpawnMode<-NULL
-fishtrait$Active<-NULL
-fishtrait$Envtemp<-'tropical'
+#rename to better names 
+names(bigtrait)<-c('Species', 'ThermalAffinity', 'BodySize','DepthRange',
+                   'PLD', 'Diet', 'Aggregation', 'Position', 'ParentalMode')
+
 
 # check which RMI species are already in the japan/aus trait dataset
 
@@ -135,108 +130,50 @@ fishtrait[fishtrait$Species %in% rmi_sp,]
 # checking eac against xlsx file and updating species list name from 
 # survey data to be correct with bigtrait species name
 
-'Chaetodon rafflesii' %in% c(fish_survey$SpeciesFish, aus_species) # not in so not altered
-
-'Zebrasoma velifer' %in% c(fish_survey$SpeciesFish, aus_species) # is in so changed
-
+rmi_species[rmi_species=='Chaetodon rafflesi']<-'Chaetodon rafflesii'
 rmi_species[rmi_species=='Zebrasoma veliferum']<-'Zebrasoma velifer'
 
 # note there are some discrepencies between traits (trophic and aggregation)
 # between the aus/japan train master database (bigtrait) and the RMI trait database (fishtrait)
-# for RMI species that DO NOT occur in the aus/japan data we use
-# the RMI triats, for shared species we use the master trait dataset
+# however RMI triats do not include depth. For simplicity we take all species traits from 
+# the master dataset (bigtrait)
 
-# subset rmi_traits to only rmi species outstanding from jap/aus surveys
-rmi_only<-rmi_species[-which(rmi_species %in% c(fish_survey$SpeciesFish, aus_species))]
+# Add columns for each survey region
 
-fishtrait_rmi<-filter(fishtrait, Species %in% rmi_only)
+bigtrait$JPN_sp<-ifelse(bigtrait$Species %in% fish_survey$SpeciesFish, 1, 0)
+bigtrait$AUS_sp<-ifelse(bigtrait$Species %in% aus_species, 1, 0)
+bigtrait$RMI_sp<-ifelse(bigtrait$Species %in% rmi_species, 1, 0)
 
+# subset to only spcies in one of the tree regions
 
-#rename to better names 
-names(bigtrait)<-c('Species', 'ThermalAffinity', 'BodySize','DepthRange',
-                   'PLD', 'Diet', 'Aggregation', 'Position', 'ParentalMode')
+bigtrait2<-bigtrait[which(rowSums(bigtrait[,10:12])>0),]
 
-#filling in the blanks#
-#first make matrix 
-rownames(fish_trait_c)<-fish_trait$Species
+# Now to tidy the data
 
-#fill in blanks with NA
-fish_trait_c[fish_trait_c == '']<-NA
-fish_trait_c[fish_trait_c == ' ']<-NA
+table(bigtrait2$ThermalAffinity)
 
+bigtrait2[bigtrait2$ThermalAffinity=='tropical/subtropical',]$ThermalAffinity<-'subtropical/tropical'
 
-#make into numeric/ factor/ character
-sapply(fish_trait_c, class) #ok
-########
+table(bigtrait2$BodySize)
+summary(bigtrait2$BodySize)
 
-###do traits## 
+table(bigtrait2$DepthRange)
+summary(bigtrait2$DepthRange)
 
-#filter for just japan species 
-jp_species<-c(colnames(fish_matrix))
-jp_species<-factor(jp_species)
+table(bigtrait2$PLD)
+summary(bigtrait2$PLD)
 
-fish_trait<- filter(fish_trait, Species %in% jp_species )
+table(bigtrait2$Diet)
 
-tropicalising_japan<- filter(tropicalising_species, species %in% jp_species)
+table(bigtrait2$Aggregation)
+bigtrait2[which(bigtrait2$Aggregation=='harems'),]$Aggregation<-'groups'
 
-#Mouillot traits + extra relevant 
-colnames(fish_trait)
+table(bigtrait2$Position)
 
+table(bigtrait2$ParentalMode)
+bigtrait2[which(bigtrait2$ParentalMode=='Brooders'),]$ParentalMode<-'brooders'
+bigtrait2[which(bigtrait2$ParentalMode=='nesters'),]$ParentalMode<-'Nesters'
 
+# save file
 
-
-
-#check for errors in the factors
-fish_trait_c$Diet<-factor(fish_trait_c$Diet)
-levels(fish_trait_c$Diet) 
-
-fish_trait_c$Position<-factor(fish_trait_c$Position)
-levels(fish_trait_c$Position)
-
-fish_trait_c$Aggregation<-factor(fish_trait_c$Aggregation)
-levels(fish_trait_c$Aggregation)
-
-fish_trait_c$Aggregation[fish_trait_c$Aggregation =='harems']<-'groups'
-fish_trait_c$Aggregation<-factor(fish_trait_c$Aggregation)
-
-fish_trait_c$ParentalMode<-factor(fish_trait_c$ParentalMode)
-levels(fish_trait_c$ParentalMode)
-which(fish_trait_c$ParentalMode=='Nesters') #right one
-which(fish_trait_c$ParentalMode=='nesters')
-fish_trait_c$ParentalMode[fish_trait_c$ParentalMode=='nesters']<-'Nesters'
-fish_trait_c$ParentalMode<-factor(fish_trait_c$ParentalMode)
-
-fish_trait_c$ThermalAffinity<-factor(fish_trait_c$ThermalAffinity)
-levels(fish_trait_c$ThermalAffinity)
-
-
-#check species are identical to fish matrix
-which(rownames(fish_trait_c) %in% colnames(fish_matrix))
-
-identical(rownames(fish_trait_c), colnames(fish_matrix)) #not identical
-
-fish_trait_c<-fish_trait_c[ order(rownames(fish_trait_c)),]
-
-
-identical(rownames(fish_trait_c), colnames(fish_matrix)) #true
-
-
-
-
-
-
-
-# Subsetting to only include traits from species from the three regions
-
-# filter to only include traits that are in abundance data
-
-fishtrait2<-filter(fishtrait, Species%in% names(fishdat))
-
-row.names(fishtrait2)<-fishtrait2$Species
-
-# drop trait 'PD50' as seems to cock up calculaion
-fishtrait2<-fishtrait2[,c(3:5,7:length(fishtrait2))]
-# could also drop 'Function' as coarse representative of 'Food'?
-
-
-##~~~
+write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_trait_master.csv', quote=F, row.names=F)

@@ -14,24 +14,22 @@ shinyUI(fluidPage(
   titlePanel('Dynamic clustering'),
   
   sidebarLayout(position='left',
-                sidebarPanel('Select region and traits',
-                            checkboxInput("JPN", "Japan", FALSE), 
-                            checkboxInput("AUS", "Australia", FALSE), 
-                            checkboxInput("RMI", "RMI", FALSE), 
-                  
-                            'Select Traits',
-                             checkboxInput("ThermalAffinity", "ThermalAffinity", FALSE), 
-                             checkboxInput("BodySize", "BodySize", FALSE), 
-                             checkboxInput("DepthRange", "DepthRange", FALSE), 
-                             checkboxInput("PLD", "PLD", FALSE), 
-                             checkboxInput("Diet", "Diet", FALSE), 
-                             checkboxInput("Aggregation", "Aggregation", FALSE), 
-                             checkboxInput("Position", "Position", FALSE), 
-                             checkboxInput("ParentalMode", "ParentalMode", FALSE), 
+                sidebarPanel( checkboxGroupInput('reg_dat', 'Select region',
+                                                 c('Japan' = 'JPN_sp',
+                                                   'Australia'= 'AUS_sp',
+                                                   'RMI' = 'RMI_sp')),
+                             checkboxGroupInput('trait_dat', 'Select traits',
+                                                 c('Thermal Affinity' = 'ThermalAffinity',
+                                                   'Body Size'= 'BodySize',
+                                                    'PLD' = 'PLD',
+                                                   'Diet' = 'Diet',
+                                                   'Aggregation' = 'Aggregation',
+                                                   'Position' = 'Position',
+                                                   'Parental Mode' = 'ParentalMode')),
                         
                              sliderInput("clusters","No. of clusters",min=1,max=10,value=1)),
                 
-                mainPanel("main panel",
+                mainPanel("Hierarchical clustering ring",
                           fluidRow(
                             plotOutput("plotgraph1", height='550px'), plotOutput("plotgraph2", height = '250px')
                             ))
