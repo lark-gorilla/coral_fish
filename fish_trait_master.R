@@ -173,4 +173,5 @@ bigtrait2[which(bigtrait2$ParentalMode=='nesters'),]$ParentalMode<-'Nesters'
 
 # save file
 
-write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_trait_master.csv', quote=F, row.names=F)
+write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_trait_master.csv', quote=F, row.names=F) 
+
