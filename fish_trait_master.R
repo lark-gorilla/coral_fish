@@ -6,9 +6,8 @@
 library(dplyr)
 library(readxl)
 
-if(Sys.info()['nodename']=="FBS5PCW223"){
-  setwd("M:/coral_fish")}else{
-    setwd("~/leeds_postdoc")}
+
+setwd("M:/coral_fish")
 
 #****** RMI data ******#
 
@@ -104,7 +103,7 @@ aus_species[aus_species=='Apogon limenus']<-'Ostorhinchus limenus'
 # Updated database from Maria 22 Oct
 
 
-bigtrait<-read_excel('data/Traits/_database_index10_22Oct2018.xlsx', sheet=1, skip=1)
+bigtrait<-read_excel('data/Traits/_database_index10_25Oct2018.xlsx', sheet=1, skip=1)
 
 #remove extra rows from fish_trait
 #bigtrait<-bigtrait[1:1122,]
@@ -144,15 +143,13 @@ bigtrait$JPN_sp<-ifelse(bigtrait$Species %in% fish_survey$SpeciesFish, 1, 0)
 bigtrait$AUS_sp<-ifelse(bigtrait$Species %in% aus_species, 1, 0)
 bigtrait$RMI_sp<-ifelse(bigtrait$Species %in% rmi_species, 1, 0)
 
-# subset to only spcies in one of the tree regions
+# subset to only spcies in one of the three regions
 
 bigtrait2<-bigtrait[which(rowSums(bigtrait[,10:12])>0),]
 
 # Now to tidy the data
 
 table(bigtrait2$ThermalAffinity)
-
-bigtrait2[bigtrait2$ThermalAffinity=='tropical/subtropical',]$ThermalAffinity<-'subtropical/tropical'
 
 table(bigtrait2$BodySize)
 summary(bigtrait2$BodySize)
