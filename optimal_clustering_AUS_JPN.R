@@ -25,17 +25,17 @@ qplot(data=dat, x=BodySize, geom='histogram')
 dat[dat$BodySize>350,] # a ray and Manta, and something else
 
 # dat2 is outlier-removed data
-dat2<-dat[which(dat$BodySize<350),]
+dat2<-filter(dat, BodySize<350)
 
 qplot(data=dat, x=DepthRange, geom='histogram')
 
 dat[which(dat$DepthRange>600),] # 3 species
-dat2<-dat2[which(dat2$DepthRange<600),]
+dat2<-filter(dat2, DepthRange<=600)
 
 qplot(data=dat, x=PLD, geom='histogram')
 
 dat[which(dat$PLD>200),] # 10 species
-dat2<-dat2[which(dat2$PLD<200),]
+dat2<-filter(dat2, PLD<200)
 
 vif(lm(1:nrow(dat)~ThermalAffinity+BodySize+DepthRange+PLD+Diet+
          Aggregation+Position+ParentalMode, data=dat, na.action=na.omit))
@@ -71,8 +71,21 @@ grid.arrange(pd1, pd2, pd3) # look quite different.
 # OK so outliers have an impact but scaling doesn't
 # seem to that much (as continouos variables are already on similar scale)
 # If we want to keep outlier species in then we need to think about best
-# clustering method and/or algorithm
+# clustering method and/or algorithm OR try variable transformation.
 
+#Now look at categorial levels and NA species rows
+
+table(dat$ThermalAffinity)
+table(dat$Diet)
+table(dat$Aggregation)
+table(dat$Position)
+table(dat$ParentalMode)
+
+# some variables have levels with only a few species which could
+# be problematic?
+
+dat[which(apply(is.na(dat[,2:9]), 1, sum)>1),]
+# only ~ 10 species with two NAs, only 1, (Ostracion) that has 3.
 
 # Ok lets make a quick PCoA to visulise the trait space
 
@@ -97,7 +110,7 @@ pc2.dfs <- data.frame(pc2$li, dat)
 ppp + geom_point(data=pc2.dfs, aes(x=A1, y=A2))
 
 ppp + geom_point(data=pc2.dfs, aes(x=A3, y=A4))
-#doesn't seem to be mush in the way of clustering - possibly an impact 
+#doesn't seem to be much in the way of clustering - possibly an impact 
 # of correcting the distance data?
 
 # check clustering in each variable individually
@@ -122,4 +135,26 @@ p8<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat[,2:8])),
 grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8, ncol=4, nrow=2)
 # dropping parental mode looks nice..
 
-summary(dat$ParentalMode)
+### Now look at outlier removed data
+
+# check clustering in each variable individually
+
+p1<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat2[,3:9])),
+scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle(paste('dropped',names(dat2)[2]))
+p2<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat2[,c(2, 4:9)])),
+scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle(paste('dropped',names(dat2)[3]))
+p3<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat2[,c(2:3, 5:9)])),
+scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle(paste('dropped',names(dat2)[4]))
+p4<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat2[,c(2:4, 6:9)])),
+scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle(paste('dropped',names(dat2)[5]))
+p5<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat2[,c(2:5, 7:9)])),
+scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle(paste('dropped',names(dat2)[6]))
+p6<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat2[,c(2:6, 8:9)])),
+scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle(paste('dropped',names(dat2)[7]))
+p7<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat2[,c(2:7, 9)])),
+scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle(paste('dropped',names(dat2)[8]))
+p8<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat2[,2:8])),
+scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle(paste('dropped',names(dat2)[9]))
+
+grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8, ncol=4, nrow=2)
+
