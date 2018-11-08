@@ -25,17 +25,17 @@ qplot(data=dat, x=BodySize, geom='histogram')
 dat[dat$BodySize>350,] # a ray and Manta, and something else
 
 # dat2 is outlier-removed data
-dat2<-filter(dat, BodySize<350)
+dat2<-filter(dat, BodySize<350 | is.na(BodySize))
 
 qplot(data=dat, x=DepthRange, geom='histogram')
 
 dat[which(dat$DepthRange>600),] # 3 species
-dat2<-filter(dat2, DepthRange<=600)
+dat2<-filter(dat2, DepthRange<=600 | is.na(DepthRange)) # allows species with NA depth through
 
 qplot(data=dat, x=PLD, geom='histogram')
 
 dat[which(dat$PLD>200),] # 10 species
-dat2<-filter(dat2, PLD<200)
+dat2<-filter(dat2, PLD<200| is.na(PLD))
 
 vif(lm(1:nrow(dat)~ThermalAffinity+BodySize+DepthRange+PLD+Diet+
          Aggregation+Position+ParentalMode, data=dat, na.action=na.omit))
@@ -62,11 +62,19 @@ dat3<-dat2
 dat3[,3:5]<-scale(dat3[,3:5])
 dist3<-gowdis(dat3[,2:9])
 
+# what about transformation
+dat4<-dat
+dat4$BodySize<-log(dat4$BodySize)
+dat4$DepthRange<-log(dat4$DepthRange)
+dat4$PLD<-log(dat4$PLD)
+dist4<-gowdis(dat4[,2:9])
+
 pd1<-fviz_dist(dist1, order = TRUE, show_labels = TRUE, lab_size = 4)
 pd2<-fviz_dist(dist2, order = TRUE, show_labels = TRUE, lab_size = 4)
-pd3<-fviz_dist(dist3, order = TRUE, show_labels = TRUE, lab_size = 4)
+#pd3<-fviz_dist(dist3, order = TRUE, show_labels = TRUE, lab_size = 4)# scaled makes little difference
+pd4<-fviz_dist(dist4, order = TRUE, show_labels = TRUE, lab_size = 4)
 
-grid.arrange(pd1, pd2, pd3) # look quite different.
+grid.arrange(pd1, pd2, pd4) # Definately some differences.
 
 # OK so outliers have an impact but scaling doesn't
 # seem to that much (as continouos variables are already on similar scale)
@@ -94,7 +102,7 @@ dist_euc2 <- lingoes(dist1)
 
 pd2<-fviz_dist(dist_euc, order = TRUE, show_labels = TRUE, lab_size = 4)
 
-grid.arrange(pd1, pd2) # check if euclid corrected bdistance 
+grid.arrange(pd1, pd2) # check if euclid corrected distance 
 # still is same as Gower product - kinda
 
 pc2<-dudi.pco(d = dist_euc, scannf = FALSE, nf = 4)
