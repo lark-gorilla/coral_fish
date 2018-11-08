@@ -47,6 +47,9 @@ vif(lm(1:nrow(dat)~ThermalAffinity+BodySize+DepthRange+PLD+Diet+
 
 dist1<-gowdis(dat[,2:9])
 dist2<-daisy(dat[,2:9],metric = "gower", stand = FALSE)
+# there is essentially no difference between theses functions
+# gowdis is more flexible as you can include weights and it better handles nominal data
+# but neither apply to this analyses.
 
 dist1==dist2 # not the same
 
@@ -57,27 +60,35 @@ diff(c(as.matrix(dist1)[2],as.matrix(dist2)[2]))
 
 dist1<-gowdis(dat[,2:9])
 dist2<-gowdis(dat2[,2:9])
-# and what happens if we scale continuous variables also
-dat3<-dat2
-dat3[,3:5]<-scale(dat3[,3:5])
-dist3<-gowdis(dat3[,2:9])
 
 # what about transformation
 dat4<-dat
-dat4$BodySize<-log(dat4$BodySize)
-dat4$DepthRange<-log(dat4$DepthRange)
-dat4$PLD<-log(dat4$PLD)
+dat4$BodySize<-log10(dat4$BodySize)
+dat4$DepthRange<-log10(dat4$DepthRange)
+dat4$PLD<-log10(dat4$PLD)
 dist4<-gowdis(dat4[,2:9])
+# can be done with daisy
+dist4d<-daisy(dat[,2:9],metric = "gower", type = list(logratio = c(2,3,4)))
+
+#optimal solution would be transformation on outlier removed data
+dat5<-dat2
+dat5$BodySize<-log10(dat5$BodySize)
+dat5$DepthRange<-log10(dat5$DepthRange)
+dat5$PLD<-log10(dat5$PLD)
+dist5<-gowdis(dat5[,2:9])
+
 
 pd1<-fviz_dist(dist1, order = TRUE, show_labels = TRUE, lab_size = 4)
 pd2<-fviz_dist(dist2, order = TRUE, show_labels = TRUE, lab_size = 4)
-#pd3<-fviz_dist(dist3, order = TRUE, show_labels = TRUE, lab_size = 4)# scaled makes little difference
 pd4<-fviz_dist(dist4, order = TRUE, show_labels = TRUE, lab_size = 4)
+pd4d<-fviz_dist(dist4d, order = TRUE, show_labels = TRUE, lab_size = 4)
 
-grid.arrange(pd1, pd2, pd4) # Definately some differences.
+grid.arrange(pd1, pd2, pd4) # Definately some differences. - but remember this uses hclust internally
 
-# OK so outliers have an impact but scaling doesn't
-# seem to that much (as continouos variables are already on similar scale)
+grid.arrange(pd4, pd4d) # Just to check differnce in logging data
+
+# OK so outliers have an impact but so does normality, see: https://www.r-bloggers.com/clustering-mixed-data-types-in-r/
+# scaling is done internally by Gower, also continuous variables are already on similar scale.
 # If we want to keep outlier species in then we need to think about best
 # clustering method and/or algorithm OR try variable transformation.
 
@@ -105,19 +116,26 @@ pd2<-fviz_dist(dist_euc, order = TRUE, show_labels = TRUE, lab_size = 4)
 grid.arrange(pd1, pd2) # check if euclid corrected distance 
 # still is same as Gower product - kinda
 
-pc2<-dudi.pco(d = dist_euc, scannf = FALSE, nf = 4)
-
 ppp <- ggplot() + coord_fixed() + 
   labs(x="Comp1, Axis1", y="Comp2, Axis2") +
   geom_hline(yintercept=0, col="darkgrey") + 
   geom_vline(xintercept=0, col="darkgrey")
 
-pc2.dfs <- data.frame(pc2$li, dat)
+# compare the different distance matrixes in PCoA space
 
-#plot pcoa
-ppp + geom_point(data=pc2.dfs, aes(x=A1, y=A2))
+p1<-ppp+geom_point(data=dudi.pco(d = cailliez(dist1),
+     scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('raw')
+p2<-ppp+geom_point(data=dudi.pco(d = cailliez(dist2),
+    scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('outlier removed')
+p3<-ppp+geom_point(data=dudi.pco(d = cailliez(dist4),
+     scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('log gowdis')
+p4<-ppp+geom_point(data=dudi.pco(d = cailliez(dist4d),
+    scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('log daisy')
+p5<-ppp+geom_point(data=dudi.pco(d = cailliez(dist5),
+    scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('log outlier removed')
 
-ppp + geom_point(data=pc2.dfs, aes(x=A3, y=A4))
+grid.arrange(p1,p2,p3,p4,p5) # ok so differences are shown
+
 #doesn't seem to be much in the way of clustering - possibly an impact 
 # of correcting the distance data?
 
@@ -165,4 +183,95 @@ p8<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat2[,2:8])),
 scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle(paste('dropped',names(dat2)[9]))
 
 grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8, ncol=4, nrow=2)
+
+# same story as raw data - ok so check what heppens if we reclass the categorial outliers
+
+table(dat2$ThermalAffinity)
+table(dat2$Diet)
+table(dat2$Aggregation)
+table(dat2$Position)
+table(dat2$ParentalMode)
+
+dat2_trial<-dat2
+
+dat2_trial$Position<-as.character(dat2_trial$Position)
+
+dat2_trial[dat2_trial$Position=='AlgaeAssociated' |
+             dat2_trial$Position== 'EchinodermAssociated'|
+             dat2_trial$Position== 'SandAssociated',]$Position<-'other'
+
+dat2_trial$ParentalMode<-as.character(dat2_trial$ParentalMode)
+
+dat2_trial[which(dat2_trial$ParentalMode=='demersal' |
+             dat2_trial$ParentalMode== 'Viviparous'),]$ParentalMode<-'brooders'
+
+p9<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat2_trial[,c(2:9)])),
+                                 scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))
+
+grid.arrange(p7,p8,p9) # Hmm not sure whats going on here, should be better than that..
+
+## maybe Position and Parental Mode just have lots of different combinations
+
+sort(table(paste(dat2$Position, dat2$ParentalMode)))
+
+
+length(table(paste(dat2$Position, dat2$ParentalMode)))
+
+nrow(expand.grid(paste(dat2$Position, dat2$ParentalMode)))
+
+#####################################
+Hierarchical clustering
+#####################################
+
+
+hc_av<-hclust(d=dist5, method='average')
+hc_si<-hclust(d=dist5,  method='single')
+hc_co<-hclust(d=dist5,  method='complete')
+hc_w1<-hclust(d=dist5,  method='ward.D')
+hc_w2<-hclust(d=dist5,  method='ward.D2')
+hc_mc<-hclust(d=dist5,  method='mcquitty')
+hc_me<-hclust(d=dist5,  method='median')
+hc_ce<-hclust(d=dist5,  method='centroid')
+
+
+
+ar <- agnes(ruspini)
+si3 <- silhouette(cutree(ar, k = 5)
+
+# number of clusters
+
+# nbclust not useful for gower distance data
+
+outdat<-NULL
+
+for(i in 2:20){
+  
+  ## remember dist is set to dist5 here!!!
+  mnz<-list((as.data.frame(silhouette(cutree(hc_av, k=i), dist5)[,1:3])$sil_width),
+    (as.data.frame(silhouette(cutree(hc_si, k=i), dist5)[,1:3])$sil_width),
+    (as.data.frame(silhouette(cutree(hc_co, k=i), dist5)[,1:3])$sil_width),
+    (as.data.frame(silhouette(cutree(hc_w1, k=i), dist5)[,1:3])$sil_width),
+    (as.data.frame(silhouette(cutree(hc_w2, k=i), dist5)[,1:3])$sil_width),
+    (as.data.frame(silhouette(cutree(hc_mc, k=i), dist5)[,1:3])$sil_width),
+    (as.data.frame(silhouette(cutree(hc_me, k=i), dist5)[,1:3])$sil_width),
+    (as.data.frame(silhouette(cutree(hc_ce, k=i), dist5)[,1:3])$sil_width))
+    
+  
+  out<-data.frame(nclust=i, method=c('average','single','complete','ward.D',
+                                     'ward.D2','mcquitty','median','centroid'),
+                   mean_sil_width=c(mean(mnz[[1]]),mean(mnz[[2]]),mean(mnz[[3]]),mean(mnz[[4]]),
+                                    mean(mnz[[5]]),mean(mnz[[6]]),mean(mnz[[7]]),mean(mnz[[8]])),
+                  sd_sil_width=c(sd(mnz[[1]]),sd(mnz[[2]]),sd(mnz[[3]]),sd(mnz[[4]]),
+                                 sd(mnz[[5]]),sd(mnz[[6]]),sd(mnz[[7]]),sd(mnz[[8]])))
+  outdat<-rbind(outdat, out)
+}
+
+# Plot sihouette width (higher is better)
+
+qplot(data=outdat, x=nclust, y=mean_sil_width, colour=method)+labs(x="Number of clusters", y= "Silhouette Width")+
+  geom_line() +scale_x_continuous(breaks=2:20)
+
+
+fviz_dend(hc_av, cex = 0.6, rect = TRUE)
+
 
