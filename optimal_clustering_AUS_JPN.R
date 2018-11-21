@@ -9,6 +9,7 @@ library(car)
 library(FD)
 library(cluster)
 library(gridExtra)
+library(fpc)
 
 dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_trait_master.csv', h=T)
 
@@ -220,7 +221,7 @@ length(table(paste(dat2$Position, dat2$ParentalMode)))
 nrow(expand.grid(paste(dat2$Position, dat2$ParentalMode)))
 
 #####################################
-Hierarchical clustering
+#    Hierarchical clustering
 #####################################
 
 
@@ -233,11 +234,6 @@ hc_mc<-hclust(d=dist5,  method='mcquitty')
 hc_me<-hclust(d=dist5,  method='median')
 hc_ce<-hclust(d=dist5,  method='centroid')
 
-
-
-ar <- agnes(ruspini)
-si3 <- silhouette(cutree(ar, k = 5)
-
 # number of clusters
 
 # nbclust not useful for gower distance data
@@ -247,30 +243,39 @@ outdat<-NULL
 for(i in 2:20){
   
   ## remember dist is set to dist5 here!!!
-  mnz<-list((as.data.frame(silhouette(cutree(hc_av, k=i), dist5)[,1:3])$sil_width),
-    (as.data.frame(silhouette(cutree(hc_si, k=i), dist5)[,1:3])$sil_width),
-    (as.data.frame(silhouette(cutree(hc_co, k=i), dist5)[,1:3])$sil_width),
-    (as.data.frame(silhouette(cutree(hc_w1, k=i), dist5)[,1:3])$sil_width),
-    (as.data.frame(silhouette(cutree(hc_w2, k=i), dist5)[,1:3])$sil_width),
-    (as.data.frame(silhouette(cutree(hc_mc, k=i), dist5)[,1:3])$sil_width),
-    (as.data.frame(silhouette(cutree(hc_me, k=i), dist5)[,1:3])$sil_width),
-    (as.data.frame(silhouette(cutree(hc_ce, k=i), dist5)[,1:3])$sil_width))
+  mnz<-list(cluster.stats(dist5, cutree(hc_av, k=i)),
+            cluster.stats(dist5, cutree(hc_si, k=i)),
+            cluster.stats(dist5, cutree(hc_co, k=i)),
+            cluster.stats(dist5, cutree(hc_si, k=i)),
+            cluster.stats(dist5, cutree(hc_w1, k=i)),
+            cluster.stats(dist5, cutree(hc_w2, k=i)),
+            cluster.stats(dist5, cutree(hc_mc, k=i)),
+            cluster.stats(dist5, cutree(hc_me, k=i)),
+            cluster.stats(dist5, cutree(hc_ce, k=i)))
     
   
   out<-data.frame(nclust=i, method=c('average','single','complete','ward.D',
                                      'ward.D2','mcquitty','median','centroid'),
-                   mean_sil_width=c(mean(mnz[[1]]),mean(mnz[[2]]),mean(mnz[[3]]),mean(mnz[[4]]),
-                                    mean(mnz[[5]]),mean(mnz[[6]]),mean(mnz[[7]]),mean(mnz[[8]])),
-                  sd_sil_width=c(sd(mnz[[1]]),sd(mnz[[2]]),sd(mnz[[3]]),sd(mnz[[4]]),
-                                 sd(mnz[[5]]),sd(mnz[[6]]),sd(mnz[[7]]),sd(mnz[[8]])))
+                   av_sil_width=c(mnz[[1]]$avg.silwidth,mnz[[2]]$avg.silwidth,mnz[[3]]$avg.silwidth,
+                                  mnz[[4]]$avg.silwidth,mnz[[5]]$avg.silwidth,mnz[[6]]$avg.silwidth,
+                                  mnz[[7]]$avg.silwidth,mnz[[8]]$avg.silwidth),
+                  wb_ratio=c(mnz[[1]]$wb.ratio,mnz[[2]]$wb.ratio,mnz[[3]]$wb.ratio,
+                             mnz[[4]]$wb.ratio,mnz[[5]]$wb.ratio,mnz[[6]]$wb.ratio,
+                             mnz[[7]]$wb.ratio,mnz[[8]]$wb.ratio))
+  
   outdat<-rbind(outdat, out)
 }
 
 # Plot sihouette width (higher is better)
 
-qplot(data=outdat, x=nclust, y=mean_sil_width, colour=method)+labs(x="Number of clusters", y= "Silhouette Width")+
+qplot(data=outdat, x=nclust, y=av_sil_width, colour=method)+labs(x="Number of clusters", y= "Silhouette Width")+
   geom_line() +scale_x_continuous(breaks=2:20)
 
+
+ggplot(data=outdat, aes(x=nclust))+labs(x="Number of clusters", y= "Silhouette Width/WB ratio")+
+  geom_line(aes(y=av_sil_width), colour='red')+geom_point(aes(y=av_sil_width), colour='red')+
+    geom_line(aes(y=wb_ratio), colour='black')+geom_point(aes(y=wb_ratio), colour='black')+
+    scale_x_continuous(breaks=2:20)+facet_wrap(~method, ncol=2)
 
 fviz_dend(hc_av, cex = 0.6, rect = TRUE)
 
