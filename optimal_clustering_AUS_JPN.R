@@ -281,7 +281,6 @@ outdat<-NULL
 
 for(i in 2:20){
   
-  ## remember dist is set to mydist here!!!
   mnz<-list(cluster.stats(mydist, cutree(hc_av, k=i)),
             cluster.stats(mydist, cutree(hc_si, k=i)),
             cluster.stats(mydist, cutree(hc_co, k=i)),
@@ -337,23 +336,56 @@ for(i in 2:8)
     print(paste('ERROR', names(dfz[[j]])));next}
     
   hc_av<-hclust(d=mydist, method='average')
+  hc_si<-hclust(d=mydist,  method='single')
+  hc_co<-hclust(d=mydist,  method='complete')
+  hc_w1<-hclust(d=mydist,  method='ward.D')
+  hc_w2<-hclust(d=mydist,  method='ward.D2')
+  hc_mc<-hclust(d=mydist,  method='mcquitty')
+  hc_me<-hclust(d=mydist,  method='median')
+  hc_ce<-hclust(d=mydist,  method='centroid')
   
   out1<-NULL
   for(m in 4:14)
   {
-  cls<-cluster.stats(mydist, cutree(hc_av, k=m))
-  
-  out<-data.frame(nvar=i, nclust=m, 
-             av_sil_width=cls$avg.silwidth,
-             wb_ratio=cls$wb.ratio, vars=paste(names(dfz[[j]]), collapse=" ") )
+    mnz<-list(cluster.stats(mydist, cutree(hc_av, k=m)),
+              cluster.stats(mydist, cutree(hc_si, k=m)),
+              cluster.stats(mydist, cutree(hc_co, k=m)),
+              cluster.stats(mydist, cutree(hc_si, k=m)),
+              cluster.stats(mydist, cutree(hc_w1, k=m)),
+              cluster.stats(mydist, cutree(hc_w2, k=m)),
+              cluster.stats(mydist, cutree(hc_mc, k=m)),
+              cluster.stats(mydist, cutree(hc_me, k=m)),
+              cluster.stats(mydist, cutree(hc_ce, k=m)))
+    
+    
+    out<-data.frame(nvar=i,nclust=m,
+                    method=c('average','single','complete','ward.D',
+                                       'ward.D2','mcquitty','median','centroid'),
+                    av_sil_width=c(mnz[[1]]$avg.silwidth,mnz[[2]]$avg.silwidth,mnz[[3]]$avg.silwidth,
+                                   mnz[[4]]$avg.silwidth,mnz[[5]]$avg.silwidth,mnz[[6]]$avg.silwidth,
+                                   mnz[[7]]$avg.silwidth,mnz[[8]]$avg.silwidth),
+                    wb_ratio=c(mnz[[1]]$wb.ratio,mnz[[2]]$wb.ratio,mnz[[3]]$wb.ratio,
+                               mnz[[4]]$wb.ratio,mnz[[5]]$wb.ratio,mnz[[6]]$wb.ratio,
+                               mnz[[7]]$wb.ratio,mnz[[8]]$wb.ratio),
+                    vars=paste(names(dfz[[j]]), collapse=" "))
+    
   out1<-rbind(out1, out)
   }
   
   #print(names(dfz[[j]]))
   #print(out1)
   bigout<-rbind(bigout, out1)
-}
+  }
+  print(i)
 }    
 
-qplot(data=bigout[bigout$nvar==6,], y=av_sil_width, x=nclust, colour=vars, geom='line' )+guides(colour=guide_legend(ncol=1))
+# visualise
+qplot(data=bigout[bigout$nvar==6,], y=av_sil_width, x=nclust, colour=vars, geom='line' )+
+  guides(colour=guide_legend(ncol=1))+facet_wrap(~method)
+
+
+write.csv(bigout, 'c:/coral_fish/data/Traits/cluster_combinations.csv', quote=F, row.names=F)
+
+
+####### Validation attempt / alternate approach  
 
