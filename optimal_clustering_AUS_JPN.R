@@ -15,6 +15,29 @@ dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_trait_master.csv', h=T)
 
 dat<-dat[which((dat$JPN_sp+dat$AUS_sp)>0),] # keeps AUS and JPN combined, can splt and test later
 
+## Edit to some trait values from MB 25/10/18
+
+dat[dat$Species=='Brotula multibarbata',]$DepthRange<-219
+dat[dat$Species=='Manta birostris',]$BodySize<-450
+dat[dat$Species=='Amphiprion sandaracinos',]$BodySize<-14
+
+########
+
+### The warnings of 0 dist in is.euclid are due to functionally identical species
+
+dat_temp<-dat
+dat_temp<-mutate(dat_temp, key=paste(ThermalAffinity, BodySize,DepthRange, PLD, Diet, Aggregation, Position, ParentalMode))
+dat_temp[which(duplicated(dat_temp$key)),]
+#have a look at each
+filter(dat_temp, key=='tropical 290 100 0 Piscivore solitary Demersal Live bearers' |
+         key=='tropical 30 23 29 Herbivore solitary UpperBenthic scatterers' |
+         key=='tropical 83 297 25.2 Predator solitary UpperBenthic scatterers')
+
+# remove duplicates
+dat<-dat[-which(dat$Species == 'Orectolobus sp.' |dat$Species == 'Scarus spinus' |
+                  dat$Species == 'Variola sp.' ),]
+
+
 #check if scaling is needed for numeric variables
 
 summary(dat[,3:5]) # looks ok, but some big values
@@ -115,7 +138,7 @@ dist_euc2 <- lingoes(dist1)
 pd2<-fviz_dist(dist_euc, order = TRUE, show_labels = TRUE, lab_size = 4)
 
 grid.arrange(pd1, pd2) # check if euclid corrected distance 
-# still is same as Gower product - kinda
+# still is same as Gower product - kinda - not sure if this is necessary
 
 ppp <- ggplot() + coord_fixed() + 
   labs(x="Comp1, Axis1", y="Comp2, Axis2") +
@@ -129,7 +152,7 @@ p1<-ppp+geom_point(data=dudi.pco(d = cailliez(dist1),
 p2<-ppp+geom_point(data=dudi.pco(d = cailliez(dist2),
     scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('outlier removed')
 p3<-ppp+geom_point(data=dudi.pco(d = cailliez(dist4),
-     scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('log gowdis')
+    scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('log gowdis')
 p4<-ppp+geom_point(data=dudi.pco(d = cailliez(dist4d),
     scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('log daisy')
 p5<-ppp+geom_point(data=dudi.pco(d = cailliez(dist5),
@@ -187,6 +210,21 @@ grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8, ncol=4, nrow=2)
 
 # same story as raw data - ok so check what heppens if we reclass the categorial outliers
 
+# quick comparison of dropped parental model between different datasets
+
+p1<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat[,2:8])),
+    scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('raw')
+p2<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat2[,2:8])),
+    scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('outlier removed')
+p3<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat4[,2:8])),
+    scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('log gowdis')
+p5<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat5[,2:8])),
+    scannf = FALSE, nf = 2)$li, aes(x=A1, y=A2))+ggtitle('log outlier removed')
+
+grid.arrange(p1,p2,p3,p5) #maybe don't use log transformations
+# Maybe don't get too hung up on PCO visualisation
+
+
 table(dat2$ThermalAffinity)
 table(dat2$Diet)
 table(dat2$Aggregation)
@@ -224,15 +262,16 @@ nrow(expand.grid(paste(dat2$Position, dat2$ParentalMode)))
 #    Hierarchical clustering
 #####################################
 
+mydist<-gowdis(dat[,c(2:3)])
 
-hc_av<-hclust(d=dist5, method='average')
-hc_si<-hclust(d=dist5,  method='single')
-hc_co<-hclust(d=dist5,  method='complete')
-hc_w1<-hclust(d=dist5,  method='ward.D')
-hc_w2<-hclust(d=dist5,  method='ward.D2')
-hc_mc<-hclust(d=dist5,  method='mcquitty')
-hc_me<-hclust(d=dist5,  method='median')
-hc_ce<-hclust(d=dist5,  method='centroid')
+hc_av<-hclust(d=mydist, method='average')
+hc_si<-hclust(d=mydist,  method='single')
+hc_co<-hclust(d=mydist,  method='complete')
+hc_w1<-hclust(d=mydist,  method='ward.D')
+hc_w2<-hclust(d=mydist,  method='ward.D2')
+hc_mc<-hclust(d=mydist,  method='mcquitty')
+hc_me<-hclust(d=mydist,  method='median')
+hc_ce<-hclust(d=mydist,  method='centroid')
 
 # number of clusters
 
@@ -242,16 +281,16 @@ outdat<-NULL
 
 for(i in 2:20){
   
-  ## remember dist is set to dist5 here!!!
-  mnz<-list(cluster.stats(dist5, cutree(hc_av, k=i)),
-            cluster.stats(dist5, cutree(hc_si, k=i)),
-            cluster.stats(dist5, cutree(hc_co, k=i)),
-            cluster.stats(dist5, cutree(hc_si, k=i)),
-            cluster.stats(dist5, cutree(hc_w1, k=i)),
-            cluster.stats(dist5, cutree(hc_w2, k=i)),
-            cluster.stats(dist5, cutree(hc_mc, k=i)),
-            cluster.stats(dist5, cutree(hc_me, k=i)),
-            cluster.stats(dist5, cutree(hc_ce, k=i)))
+  ## remember dist is set to mydist here!!!
+  mnz<-list(cluster.stats(mydist, cutree(hc_av, k=i)),
+            cluster.stats(mydist, cutree(hc_si, k=i)),
+            cluster.stats(mydist, cutree(hc_co, k=i)),
+            cluster.stats(mydist, cutree(hc_si, k=i)),
+            cluster.stats(mydist, cutree(hc_w1, k=i)),
+            cluster.stats(mydist, cutree(hc_w2, k=i)),
+            cluster.stats(mydist, cutree(hc_mc, k=i)),
+            cluster.stats(mydist, cutree(hc_me, k=i)),
+            cluster.stats(mydist, cutree(hc_ce, k=i)))
     
   
   out<-data.frame(nclust=i, method=c('average','single','complete','ward.D',
@@ -264,6 +303,7 @@ for(i in 2:20){
                              mnz[[7]]$wb.ratio,mnz[[8]]$wb.ratio))
   
   outdat<-rbind(outdat, out)
+  print(i)
 }
 
 # Plot sihouette width (higher is better)
@@ -279,4 +319,41 @@ ggplot(data=outdat, aes(x=nclust))+labs(x="Number of clusters", y= "Silhouette W
 
 fviz_dend(hc_av, cex = 0.6, rect = TRUE)
 
+fviz_silhouette(silhouette(kmeans(mydist, 8)$cluster, dist=mydist))
+fviz_silhouette(silhouette(dist=mydist,cutree(hclust(d=mydist, method='average'), k=8)))
+
+#trial of different combinations of variables
+
+bigout<-NULL
+for(i in 2:8)
+{
+  dfz<-combn(dat[c(2:9)], i, simplify = F)
+  
+  for(j in 1:length(dfz))
+  {  
+  mydist<-gowdis(dfz[[j]])
+  
+  if(class(try(hclust(d=mydist, method='average'), silent = T))== "try-error"){
+    print(paste('ERROR', names(dfz[[j]])));next}
+    
+  hc_av<-hclust(d=mydist, method='average')
+  
+  out1<-NULL
+  for(m in 4:14)
+  {
+  cls<-cluster.stats(mydist, cutree(hc_av, k=m))
+  
+  out<-data.frame(nvar=i, nclust=m, 
+             av_sil_width=cls$avg.silwidth,
+             wb_ratio=cls$wb.ratio, vars=paste(names(dfz[[j]]), collapse=" ") )
+  out1<-rbind(out1, out)
+  }
+  
+  #print(names(dfz[[j]]))
+  #print(out1)
+  bigout<-rbind(bigout, out1)
+}
+}    
+
+qplot(data=bigout[bigout$nvar==6,], y=av_sil_width, x=nclust, colour=vars, geom='line' )+guides(colour=guide_legend(ncol=1))
 
