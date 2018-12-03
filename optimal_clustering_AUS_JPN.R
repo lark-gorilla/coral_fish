@@ -224,6 +224,68 @@ p5<-ppp+geom_point(data=dudi.pco(d = cailliez(gowdis(dat5[,2:8])),
 grid.arrange(p1,p2,p3,p5) #maybe don't use log transformations
 # Maybe don't get too hung up on PCO visualisation
 
+# Update to PCO visusalisation
+
+# Investigating negative eigenvalues
+
+pco1<-dudi.pco(d = gowdis(dat[, c(2:5, 7, 9)]), scannf = T)
+pco2<-dudi.pco(d = sqrt(gowdis(dat[, c(2:5, 7, 9)])), scannf = T)
+pco3<-dudi.pco(d = cailliez(gowdis(dat[, c(2:5, 7, 9)])), scannf = T)
+pco4<-dudi.pco(d = lingoes(gowdis(dat[, c(2:5, 7, 9)])), scannf = T)
+
+# dudi.pco only returns positive eigenvals
+nrow(dat[, c(2:5, 7, 9)])
+length(eigenvals(pco1))
+length(eigenvals(pco2))
+length(eigenvals(pco3))
+length(eigenvals(pco4))
+
+# plot with cmdscale to get all eigenvals (even the negative ones)
+
+pco1_c<-cmdscale( gowdis(dat[, c(2:5, 7, 9)]), k=652, eig = TRUE)
+pco2_c<-cmdscale( sqrt(gowdis(dat[, c(2:5, 7, 9)])), k=652, eig = TRUE)
+pco3_c<-cmdscale( cailliez(gowdis(dat[, c(2:5, 7, 9)])), k=652, eig = TRUE)
+pco4_c<-cmdscale( lingoes(gowdis(dat[, c(2:5, 7, 9)])), k=652, eig = TRUE)
+
+df<-data.frame(eigenvals=rep(1:653,4), eigenval_unit=c(pco1_c$eig, 
+                                                       pco2_c$eig,
+                                                       pco3_c$eig,
+                                                       pco4_c$eig),
+               Method=c(rep('raw', 653), rep('sqrt', 653), 
+                        rep('cailliez', 653), rep('lingoes', 653)))
+
+qplot(data=df, x=eigenvals, y=eigenval_unit, colour=Method, geom='line')+
+  facet_wrap(~Method, scales='free_y')+
+  geom_point(data=df[df$eigenval_unit<0,],  aes(x=eigenvals, y=eigenval_unit), shape=1)
+# same as above, just different scaling
+df<-data.frame(eigenvals=c(1:176, 1:436, 1:647, 1:642), eigenval_unit=c(pco1$eig, 
+                                                       pco2$eig,
+                                                       pco3$eig,
+                                                       pco4$eig),
+               Method=c(rep('raw', 176), rep('sqrt', 436), 
+                        rep('cailliez', 647), rep('lingoes', 642)))
+
+qplot(data=df, x=eigenvals, y=eigenval_unit, colour=Method, geom='line')+
+  facet_wrap(~Method, scales='free_y')
+
+# No correction method fully removes negative eigenvals
+
+# check proportion of variance explained by first 4 axes
+
+sum(eigenvals(pco1_c)[1:4])/sum(eigenvals(pco1_c)[which(eigenvals(pco1_c)>0)])
+sum(eigenvals(pco1)[1:4])/sum(eigenvals(pco1))
+
+sum(eigenvals(pco2)[1:4])/sum(eigenvals(pco2))
+sum(eigenvals(pco3)[1:4])/sum(eigenvals(pco3))
+sum(eigenvals(pco4)[1:4])/sum(eigenvals(pco4))
+
+# basically the cailliez and lingoez correction aren't really doing anything.
+# best stick with raw or sqrt for PCO plotting.
+
+
+#http://r-sig-ecology.471788.n2.nabble.com/Variability-explanations-for-the-PCO-axes-as-in-Anderson-and-Willis-2003-td6429547.html
+
+
 
 table(dat2$ThermalAffinity)
 table(dat2$Diet)
@@ -284,7 +346,6 @@ for(i in 2:20){
   mnz<-list(cluster.stats(mydist, cutree(hc_av, k=i)),
             cluster.stats(mydist, cutree(hc_si, k=i)),
             cluster.stats(mydist, cutree(hc_co, k=i)),
-            cluster.stats(mydist, cutree(hc_si, k=i)),
             cluster.stats(mydist, cutree(hc_w1, k=i)),
             cluster.stats(mydist, cutree(hc_w2, k=i)),
             cluster.stats(mydist, cutree(hc_mc, k=i)),
@@ -350,7 +411,6 @@ for(i in 2:8)
     mnz<-list(cluster.stats(mydist, cutree(hc_av, k=m)),
               cluster.stats(mydist, cutree(hc_si, k=m)),
               cluster.stats(mydist, cutree(hc_co, k=m)),
-              cluster.stats(mydist, cutree(hc_si, k=m)),
               cluster.stats(mydist, cutree(hc_w1, k=m)),
               cluster.stats(mydist, cutree(hc_w2, k=m)),
               cluster.stats(mydist, cutree(hc_mc, k=m)),
@@ -379,13 +439,51 @@ for(i in 2:8)
   print(i)
 }    
 
+#write out
+#write.csv(bigout, 'c:/coral_fish/data/Traits/cluster_combinations.csv', quote=F, row.names=F)
+
+
 # visualise
+# 7 variables...
+qplot(data=bigout[bigout$nvar==7,], y=av_sil_width, x=nclust, colour=vars, geom='line' )+
+  guides(colour=guide_legend(ncol=1))+facet_wrap(~method)
+
+mydist<-gowdis(dat[,c(2:7,9)])
+
+fviz_silhouette(silhouette(dist=mydist,cutree(hclust(d=mydist, method='ward.D2'), k=10)))
+
+## 6 variables
 qplot(data=bigout[bigout$nvar==6,], y=av_sil_width, x=nclust, colour=vars, geom='line' )+
   guides(colour=guide_legend(ncol=1))+facet_wrap(~method)
 
 
-write.csv(bigout, 'c:/coral_fish/data/Traits/cluster_combinations.csv', quote=F, row.names=F)
+mydist<-gowdis(dat[,c(2:5,7,9)]) # dropped diet and position
 
+# best option mcquitty =0.588 @ 10 clusters
+fviz_silhouette(silhouette(dist=mydist,cutree(hclust(d=mydist, method='mcquitty'), k=10)))
+
+# Identical with Ward.D2 @ 10 clusters but no clear peak at k=10
+fviz_silhouette(silhouette(dist=mydist,cutree(hclust(d=mydist, method='ward.D2'), k=10)))
+
+# another contender, 'better' variables but weaker
+
+mydist<-gowdis(dat[,c(3:7,9)]) # dropped diet and position
+
+# best option ward.D2 =0.49 @ 6 clusters
+fviz_silhouette(silhouette(dist=mydist,cutree(hclust(d=mydist, method='ward.D2'), k=6)))
+
+# second option average =0.42 @ 7 clusters
+fviz_silhouette(silhouette(dist=mydist,cutree(hclust(d=mydist, method='average'), k=7)))
+
+# joint second option average =0.43 @ 8 clusters
+fviz_silhouette(silhouette(dist=mydist,cutree(hclust(d=mydist, method='complete'), k=8)))
+
+# have a look at option 1
+fviz_dend(hclust(d=mydist, method='ward.D2'), cex = 0.6, rect = TRUE)
+
+fviz_dend(hclust(d=mydist, method='ward.D2'), k=6, cex = 0.6, rect = TRUE)
+
+fviz_dend(hclust(d=mydist, method='ward.D2'), k=6, color_labels_by_k = TRUE, type='circular')
 
 ####### Validation attempt / alternate approach  
 
