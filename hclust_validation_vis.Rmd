@@ -1,0 +1,98 @@
+---
+title: "hclust_validation_vis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(dendextend)
+library(corrplot)
+library(FD)
+
+dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_trait_master.csv', h=T)
+
+dat<-dat[which((dat$JPN_sp+dat$AUS_sp)>0),] # keeps AUS and JPN combined, can splt and test later
+
+## Edit to some trait values from MB 25/10/18
+
+dat[dat$Species=='Brotula multibarbata',]$DepthRange<-219
+dat[dat$Species=='Manta birostris',]$BodySize<-450
+dat[dat$Species=='Amphiprion sandaracinos',]$BodySize<-14
+
+########
+
+### The warnings of 0 dist in is.euclid are due to functionally identical species
+
+dat_temp<-dat
+dat_temp<-mutate(dat_temp, key=paste(ThermalAffinity, BodySize,DepthRange, PLD, Diet, Aggregation, Position, ParentalMode))
+dat_temp[which(duplicated(dat_temp$key)),]
+#have a look at each
+filter(dat_temp, key=='tropical 290 100 0 Piscivore solitary Demersal Live bearers' |
+         key=='tropical 30 23 29 Herbivore solitary UpperBenthic scatterers' |
+         key=='tropical 83 297 25.2 Predator solitary UpperBenthic scatterers')
+
+# remove duplicates
+dat<-dat[-which(dat$Species == 'Orectolobus sp.' |dat$Species == 'Scarus spinus' |
+                  dat$Species == 'Variola sp.' ),]
+
+
+```
+
+Loop 1 plot copophenetic distance correlations
+
+```{r, echo=FALSE}
+bigout<-NULL
+for(i in 6:8)
+{
+  dfz<-combn(dat[c(2:9)], i, simplify = F)
+  
+  for(j in 1:length(dfz))
+  {  
+  mydist<-gowdis(dfz[[j]])
+  
+  if(class(try(hclust(d=mydist, method='average'), silent = T))== "try-error"){
+    print(paste('ERROR', names(dfz[[j]])));next}
+    
+hc_av<-hclust(d=mydist, method='average') 
+hc_si<-hclust(d=mydist,  method='single')
+hc_co<-hclust(d=mydist,  method='complete')
+hc_w1<-hclust(d=mydist,  method='ward.D')
+hc_w2<-hclust(d=mydist,  method='ward.D2')
+hc_mc<-hclust(d=mydist,  method='mcquitty')
+hc_me<-hclust(d=mydist,  method='median')
+hc_ce<-hclust(d=mydist,  method='centroid')
+
+dend1234 <- dendlist('average'=hc_av%>%as.dendrogram(),'single'=hc_si%>%as.dendrogram(),
+                     'complete'=hc_co%>%as.dendrogram(),'ward.D'=hc_w1%>%as.dendrogram(),
+'ward.D2'=hc_w2%>%as.dendrogram(),'mcquitty'=hc_mc%>%as.dendrogram(),
+'median'=hc_me%>%as.dendrogram(),'centroid'=hc_ce%>%as.dendrogram())
+
+# cophenetic correlation between different approaches
+cor_d<-cor.dendlist(dend1234)
+
+# cophenetic correlation with raw data
+data_dist<-lapply(list('average'=hc_av,'single'=hc_si,'complete'=hc_co,'ward.D'=hc_w1,
+'ward.D2'=hc_w2,'mcquitty'=hc_mc,'median'=hc_me,'centroid'=hc_ce),
+function(x){cor(mydist, cophenetic(x))})
+
+cor_d<-rbind(cor_d, unlist(data_dist))
+cor_d<-cbind(cor_d, c(unlist(data_dist), 1))
+dimnames(cor_d)[[1]][9]<-'data.dist'
+dimnames(cor_d)[[2]][9]<-'data.dist'
+
+print(paste('Variables included:', paste(names(dfz[[j]]), collapse=" ")))
+
+corrplot(cor_d, "pie", "lower", cl.lim=c(0,1))
+  }
+}  
+
+
+```
+
+
+
+```{r, echo=FALSE}
+
+```

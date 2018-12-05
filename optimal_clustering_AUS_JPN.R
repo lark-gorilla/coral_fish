@@ -281,11 +281,20 @@ sum(eigenvals(pco4)[1:4])/sum(eigenvals(pco4))
 
 # basically the cailliez and lingoez correction aren't really doing anything.
 # best stick with raw or sqrt for PCO plotting.
+# FYI plots aren't that much different for full dataset
 
-
+# See here for info 
 #http://r-sig-ecology.471788.n2.nabble.com/Variability-explanations-for-the-PCO-axes-as-in-Anderson-and-Willis-2003-td6429547.html
 
+# validation of n PCoA axis to represent original data, as per Mouillot et al. (2014)
 
+d1<-gowdis(dat[, c(2:5, 7, 9)])
+d2<-dist(pco1$li) #(assuming pco1 has k=4)
+qplot(x=d1, y=d2)
+# Do mantel test to get correlation coefficient and p val
+mantel(d1, d2)
+
+# could compare results between other corrections to see best r2
 
 table(dat2$ThermalAffinity)
 table(dat2$Diet)
@@ -384,6 +393,7 @@ fviz_silhouette(silhouette(dist=mydist,cutree(hclust(d=mydist, method='average')
 
 #trial of different combinations of variables
 
+
 bigout<-NULL
 for(i in 2:8)
 {
@@ -417,6 +427,15 @@ for(i in 2:8)
               cluster.stats(mydist, cutree(hc_me, k=m)),
               cluster.stats(mydist, cutree(hc_ce, k=m)))
     
+    corz<-c(cor(mydist, dist(cutree(hc_av, k=m))),
+           cor(mydist, dist(cutree(hc_si, k=m))),
+           cor(mydist, dist(cutree(hc_co, k=m))),
+           cor(mydist, dist(cutree(hc_w1, k=m))),
+           cor(mydist, dist(cutree(hc_w2, k=m))),
+           cor(mydist, dist(cutree(hc_mc, k=m))),
+           cor(mydist, dist(cutree(hc_me, k=m))),
+           cor(mydist, dist(cutree(hc_ce, k=m))))
+    
     
     out<-data.frame(nvar=i,nclust=m,
                     method=c('average','single','complete','ward.D',
@@ -427,6 +446,7 @@ for(i in 2:8)
                     wb_ratio=c(mnz[[1]]$wb.ratio,mnz[[2]]$wb.ratio,mnz[[3]]$wb.ratio,
                                mnz[[4]]$wb.ratio,mnz[[5]]$wb.ratio,mnz[[6]]$wb.ratio,
                                mnz[[7]]$wb.ratio,mnz[[8]]$wb.ratio),
+                    clust_d_cor=corz,
                     vars=paste(names(dfz[[j]]), collapse=" "))
     
   out1<-rbind(out1, out)
@@ -442,6 +462,7 @@ for(i in 2:8)
 #write out
 #write.csv(bigout, 'c:/coral_fish/data/Traits/cluster_combinations.csv', quote=F, row.names=F)
 
+bigout<-read.csv('c:/coral_fish/data/Traits/cluster_combinations.csv', h=T)
 
 # visualise
 # 7 variables...
@@ -485,5 +506,101 @@ fviz_dend(hclust(d=mydist, method='ward.D2'), k=6, cex = 0.6, rect = TRUE)
 
 fviz_dend(hclust(d=mydist, method='ward.D2'), k=6, color_labels_by_k = TRUE, type='circular')
 
+# Validation using cophenetic distances of cluster solutions
+# See here for explanation 
+#https://people.revoledu.com/kardi/tutorial/Clustering/Cophenetic.htm
+
+hc_av<-hclust(d=mydist, method='average')
+hc_si<-hclust(d=mydist,  method='single')
+
+fviz_dend(hc_av, cex = 0.6, rect = TRUE)
+
+# cophenetic distances of species based on cluster nodes
+hc_av_cop<-cophenetic(hc_av)
+
+# distances calculated between species based on species assigned to 1 of 10 clusters
+cutty<-cutree(hc_av, k=10)
+hc_av_group<-dist(cutty)
+
+mantel(mydist, hc_av_cop) # gives p value to r2 correlation metric
+
+mantel(mydist, hc_av_group) # unsurprisingly grouped data does not correlate as well
+
 ####### Validation attempt / alternate approach  
+
+library(dendextend) # watch out for functions sharing the same name e.g. cutree
+
+mydist<-gowdis(dat[,c(3:7,9)]) # dropped diet and position
+
+hc_av<-hclust(d=mydist, method='average') %>% as.dendrogram()
+hc_si<-hclust(d=mydist,  method='single')%>% as.dendrogram()
+hc_co<-hclust(d=mydist,  method='complete')%>% as.dendrogram()
+hc_w1<-hclust(d=mydist,  method='ward.D')%>% as.dendrogram()
+hc_w2<-hclust(d=mydist,  method='ward.D2')%>% as.dendrogram()
+hc_mc<-hclust(d=mydist,  method='mcquitty')%>% as.dendrogram()
+hc_me<-hclust(d=mydist,  method='median')%>% as.dendrogram()
+hc_ce<-hclust(d=mydist,  method='centroid')%>% as.dendrogram()
+
+dend1234 <- dendlist('average'=hc_av,'single'=hc_si,'complete'=hc_co,'ward.D'=hc_w1,
+'ward.D2'=hc_w2,'mcquitty'=hc_mc,'median'=hc_me,'centroid'=hc_ce)
+
+cor_d<-cor.dendlist(dend1234)
+# cophenetic correlation between different approaches
+
+library(corrplot)
+corrplot(cor_d, "pie", "lower")
+# Ward alorithms seem least correlated with other methods
+
+dend_FM <- dendlist('average'=cutree(hc_av, k=m),'single'=cutree(hc_si, k=m),'complete'=cutree(hc_co, k=m),'ward.D'=cutree(hc_w1, k=m),
+                     'ward.D2'=cutree(hc_w2, k=m),'mcquitty'=cutree(hc_mc, k=m),'median'=cutree(hc_me, k=m),'centroid'=cutree(hc_ce, k=m))
+
+
+# wow..
+tanglegram(hc_av, hc_si)
+
+FM_index(cutree(hc_av, k=3), cutree(hc_si, k=3), assume_sorted_vectors = T) 
+
+
+
+### To view clusters with env data gradients
+
+some_col_func <- function(n) rev(colorspace::heat_hcl(n, c = c(80, 30), l = c(30, 90), power = c(1/5, 1.5)))
+
+library(gplots)
+heatmap.2(as.matrix(iris2), 
+          main = "Heatmap for the Iris data set",
+          srtCol = 20,
+          dendrogram = "row",
+          Rowv = dend,
+          Colv = "NA", 
+          trace="none",          
+          margins =c(5,0.1),      
+          key.xlab = "Cm",
+          denscol = "grey",
+          density.info = "density",
+          RowSideColors = rev(labels_colors(dend)), 
+          col = some_col_func)
+
+# http://www.ams.med.uni-goettingen.de/download/Steffen-Unkel/cluster1.html
+
+
+
+## Or try this
+temp<-dat[,c(3:5)]
+row.names(temp)<-dat$Species
+x  <- as.matrix(temp)
+
+# d3heatmap(x)
+# now let's spice up the dendrograms a bit:
+Rowv  <- x %>% dist %>% hclust %>% as.dendrogram %>%
+  set("branches_k_color", k = 3) %>% set("branches_lwd", 4) %>%
+  ladderize
+#    rotate_DendSer(ser_weight = dist(x))
+Colv  <- x %>% t %>% dist %>% hclust %>% as.dendrogram %>%
+  set("branches_k_color", k = 2) %>% set("branches_lwd", 4) %>%
+  ladderize
+#    rotate_DendSer(ser_weight = dist(t(x)))
+
+  library(d3heatmap)
+d3heatmap(x, Rowv = Rowv, Colv = Colv)
 
