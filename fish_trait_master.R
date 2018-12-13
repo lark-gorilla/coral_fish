@@ -7,7 +7,7 @@ library(dplyr)
 library(readxl)
 
 
-setwd("M:/coral_fish")
+setwd("C:/coral_fish")
 
 #****** RMI data ******#
 
@@ -101,11 +101,26 @@ aus_species[aus_species=='Apogon limenus']<-'Ostorhinchus limenus'
 chuuk_species_list<-read.csv('data/Chuuk/ChuukFishSpp.csv', h=T)
 # and non-database species
 chuuk_nonDB<-read.csv('data/Chuuk/UniqueFishChuuk.csv', h=T)
+
+chuuk_species<-chuuk_species_list$x
+
+chuuk_nonDB
+
+chuuk_species<-c(as.character(chuuk_species), 'Parupeneus trifasciatus') # added fom non-bd species list
 # note they may be in RMI trait database
 
 #****** East Timor data ******#
 
+timor_species_list<-read_excel('data/Etimor/FishData_Maldives_Mar2015_list.xlsx', sheet=1)
+
+timor_species<-timor_species_list$Species
+
 #****** Maldives data ******#
+
+maldives_species_list<-read_excel('data/Maldives/FishData_Maldives_Mar2015_list.xlsx', sheet=1)
+
+maldives_species<-maldives_species_list$Species
+#preliminary test shows all maldives species are in the trait database
 
 # read in Australia/Japan trait database
 
@@ -155,7 +170,9 @@ rmi_species[rmi_species=='Zebrasoma veliferum']<-'Zebrasoma velifer'
 bigtrait$JPN_sp<-ifelse(bigtrait$Species %in% fish_survey$SpeciesFish, 1, 0)
 bigtrait$AUS_sp<-ifelse(bigtrait$Species %in% aus_species, 1, 0)
 bigtrait$RMI_sp<-ifelse(bigtrait$Species %in% rmi_species, 1, 0)
-
+bigtrait$CHK_sp<-ifelse(bigtrait$Species %in% chuuk_species, 1, 0)
+bigtrait$MLD_sp<-ifelse(bigtrait$Species %in% maldives_species, 1, 0)
+bigtrait$TMR_sp<-ifelse(bigtrait$Species %in% timor_species, 1, 0)
 # subset to only spcies in one of the three regions
 
 bigtrait2<-bigtrait[which(rowSums(bigtrait[,10:12])>0),]
@@ -186,7 +203,7 @@ bigtrait2[which(bigtrait2$ParentalMode=='nesters'),]$ParentalMode<-'Nesters'
 
 # save file
 
-write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_trait_master.csv', quote=F, row.names=F) 
+write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master.csv', quote=F, row.names=F) 
 
 
 
