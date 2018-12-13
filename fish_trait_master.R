@@ -94,14 +94,26 @@ aus_species[aus_species=='Cheilinus aerenatus']<-'Oxycheilinus arenatus'
 aus_species[aus_species=='Archamia fucata']<-'Taeniamia fucata'
 aus_species[aus_species=='Apogon limenus']<-'Ostorhinchus limenus'
 
+#****** Chuuk data ******#
+
+# read in Louise's 2016 Chuuk survey data, note these are mainly food-fish species so 
+# do not fully represent community
+chuuk_species_list<-read.csv('data/Chuuk/ChuukFishSpp.csv', h=T)
+# and non-database species
+chuuk_nonDB<-read.csv('data/Chuuk/UniqueFishChuuk.csv', h=T)
+# note they may be in RMI trait database
+
+#****** East Timor data ******#
+
+#****** Maldives data ******#
+
 # read in Australia/Japan trait database
 
 #library(readr)
 # base read.csv fails so use readr's read_csv
 #bigtrait<-read_csv('~/leeds_postdoc/data/Traits/fish_traits.csv')
 
-# Updated database from Maria 22 Oct
-
+# Updated database from Maria 25 Oct
 
 bigtrait<-read_excel('data/Traits/_database_index10_25Oct2018.xlsx', sheet=1, skip=1)
 
@@ -134,8 +146,9 @@ rmi_species[rmi_species=='Zebrasoma veliferum']<-'Zebrasoma velifer'
 
 # note there are some discrepencies between traits (trophic and aggregation)
 # between the aus/japan train master database (bigtrait) and the RMI trait database (fishtrait)
-# however RMI triats do not include depth. For simplicity we take all species traits from 
-# the master dataset (bigtrait)
+# however RMI traits do not include depth. For simplicity we take all species traits from 
+# the master dataset (bigtrait) - furthermore this hs been manually corrected in places where the former
+# has not.
 
 # Add columns for each survey region
 
