@@ -521,6 +521,17 @@ hc_av_cop<-cophenetic(hc_av)
 # distances calculated between species based on species assigned to 1 of 10 clusters
 cutty<-cutree(hc_av, k=10)
 hc_av_group<-dist(cutty)
+# so I think this is the correct approach. By calculating dist on each cluster
+# as a numeirc object it gives clusters with bigger differences in their 'name'/number
+# a bigger distance e.g. further apart. I think this is correct, - no its not!!
+
+mydist<-gowdis(dat[,c(3:7,9)]) 
+attr(mydist, 'Labels')<-paste(cutty) # bodge
+hc_co<-hclust(d=mydist,  method='complete')
+cutty<-cutree(hc_co, k=6)
+plot(hc_co)
+rect.hclust(hc_co, k=6, border=c(6,3,5,2,4,1)) # make colours line up
+# ok so labelling from cutree doesnt follow dendrogram plot clustering structure
 
 mantel(mydist, hc_av_cop) # gives p value to r2 correlation metric
 
