@@ -37,6 +37,8 @@ filter(dat_temp, key=='tropical 290 100 0 Piscivore solitary Demersal Live beare
 dat<-dat[-which(dat$Species == 'Orectolobus sp.' |dat$Species == 'Scarus spinus' |
                   dat$Species == 'Variola sp.' ),]
 
+# add species as row names - bit annoying later (space-wise) but handy
+row.names(dat)<-dat$Species
 
 #check if scaling is needed for numeric variables
 
@@ -427,14 +429,23 @@ for(i in 2:8)
               cluster.stats(mydist, cutree(hc_me, k=m)),
               cluster.stats(mydist, cutree(hc_ce, k=m)))
     
-    corz<-c(cor(mydist, dist(cutree(hc_av, k=m))),
-           cor(mydist, dist(cutree(hc_si, k=m))),
-           cor(mydist, dist(cutree(hc_co, k=m))),
-           cor(mydist, dist(cutree(hc_w1, k=m))),
-           cor(mydist, dist(cutree(hc_w2, k=m))),
-           cor(mydist, dist(cutree(hc_mc, k=m))),
-           cor(mydist, dist(cutree(hc_me, k=m))),
-           cor(mydist, dist(cutree(hc_ce, k=m))))
+    copo<-c(cor(mydist, cophenetic(hc_av)),
+            cor(mydist, cophenetic(hc_si)),
+            cor(mydist, cophenetic(hc_co)),
+            cor(mydist, cophenetic(hc_w1)),
+            cor(mydist, cophenetic(hc_w2)),
+            cor(mydist, cophenetic(hc_mc)),
+            cor(mydist, cophenetic(hc_me)),
+            cor(mydist, cophenetic(hc_ce)))
+    
+    corz<-c(cor(mydist, as.matrix(dist(cutree(hc_av, k=m))) %>% replace(.>0, 1)%>% as.dist()),
+           cor(mydist, as.matrix(dist(cutree(hc_si, k=m))) %>% replace(.>0, 1)%>% as.dist()),
+           cor(mydist, as.matrix(dist(cutree(hc_co, k=m))) %>% replace(.>0, 1)%>% as.dist()),
+           cor(mydist, as.matrix(dist(cutree(hc_w1, k=m))) %>% replace(.>0, 1)%>% as.dist()),
+           cor(mydist, as.matrix(dist(cutree(hc_w2, k=m))) %>% replace(.>0, 1)%>% as.dist()),
+           cor(mydist, as.matrix(dist(cutree(hc_mc, k=m))) %>% replace(.>0, 1)%>% as.dist()),
+           cor(mydist, as.matrix(dist(cutree(hc_me, k=m))) %>% replace(.>0, 1)%>% as.dist()),
+           cor(mydist, as.matrix(dist(cutree(hc_ce, k=m))) %>% replace(.>0, 1)%>% as.dist()))
     
     
     out<-data.frame(nvar=i,nclust=m,
@@ -446,6 +457,7 @@ for(i in 2:8)
                     wb_ratio=c(mnz[[1]]$wb.ratio,mnz[[2]]$wb.ratio,mnz[[3]]$wb.ratio,
                                mnz[[4]]$wb.ratio,mnz[[5]]$wb.ratio,mnz[[6]]$wb.ratio,
                                mnz[[7]]$wb.ratio,mnz[[8]]$wb.ratio),
+                    cophenetic_cor=copo,
                     clust_d_cor=corz,
                     vars=paste(names(dfz[[j]]), collapse=" "))
     
@@ -465,6 +477,18 @@ for(i in 2:8)
 bigout<-read.csv('c:/coral_fish/data/Traits/cluster_combinations.csv', h=T)
 
 # visualise
+
+# comparing cophenetic and clustering correlation
+
+qplot(data=bigout, x=cophenetic_cor, y=clust_d_cor, colour=method)+xlim(0, 1)+ylim(0, 1)+
+  geom_abline(intercept=0,slope=1)
+
+qplot(data=bigout, x=cophenetic_cor, y=clust_d_cor, colour=nclust)+xlim(0, 1)+ylim(0, 1)+
+  geom_abline(intercept=0,slope=1)+facet_wrap(~method)+geom_smooth(method='lm')
+
+qplot(data=bigout, y=clust_d_cor, x=nclust)+ylim(0, 1)+
+     geom_abline(intercept=0,slope=1)+facet_wrap(~method)+geom_smooth()
+
 # 7 variables...
 qplot(data=bigout[bigout$nvar==7,], y=av_sil_width, x=nclust, colour=vars, geom='line' )+
   guides(colour=guide_legend(ncol=1))+facet_wrap(~method)
@@ -521,21 +545,19 @@ hc_av_cop<-cophenetic(hc_av)
 # distances calculated between species based on species assigned to 1 of 10 clusters
 cutty<-cutree(hc_av, k=10)
 hc_av_group<-dist(cutty)
-# so I think this is the correct approach. By calculating dist on each cluster
-# as a numeirc object it gives clusters with bigger differences in their 'name'/number
-# a bigger distance e.g. further apart. I think this is correct, - no its not!!
+# this makes distances based on cluster ID e.g. 1-10, we want either 0 = in same cluster, 
+# or 1 = in differnet cluster for each pair of species
+hc_av_group<-as.matrix(hc_av_group)
 
-mydist<-gowdis(dat[,c(3:7,9)]) 
-attr(mydist, 'Labels')<-paste(cutty) # bodge
-hc_co<-hclust(d=mydist,  method='complete')
-cutty<-cutree(hc_co, k=6)
-plot(hc_co)
-rect.hclust(hc_co, k=6, border=c(6,3,5,2,4,1)) # make colours line up
-# ok so labelling from cutree doesnt follow dendrogram plot clustering structure
+head(cutty, 10)
+hc_av_group[1:10, 1:10] 
 
-mantel(mydist, hc_av_cop) # gives p value to r2 correlation metric
+hc_av_group [hc_av_group>0]<-1 # set all non-grouped distances to 1, removes any magnitude
+# in differences between clusters
 
-mantel(mydist, hc_av_group) # unsurprisingly grouped data does not correlate as well
+mantel(mydist, hc_av_cop) # gives p value to r2 correlation metric 0.75
+
+mantel(mydist, hc_av_group) # unsurprisingly grouped data does not correlate as well 0.64
 
 ####### Validation attempt / alternate approach  
 
@@ -571,7 +593,97 @@ tanglegram(hc_av, hc_si)
 
 FM_index(cutree(hc_av, k=3), cutree(hc_si, k=3), assume_sorted_vectors = T) 
 
+## experiment with the clue package
+library(clue)
 
+hclust_methods <-
+  c("ward.D", "ward.D2", "single", "complete", "average", "mcquitty") # median and centroid dont work
+hclust_results <- lapply(hclust_methods, function(m) hclust(dist1, m))
+names(hclust_results) <- hclust_methods 
+## Now create an ensemble from the results.
+hens <- cl_ensemble(list = hclust_results)
+hens
+## Subscripting.
+hens[1 : 3]
+
+## Plotting.
+plot(hens, main = names(hens))
+## And continue to analyze the ensemble, e.g.
+tree_agg<-cl_agreement(hens, dist1, method = "cophenetic") # this just calcs cophenetic corr 
+tree_agg
+# between deondrograms - but there are lots of different methods
+e.g. 
+lapply(hens, function(x){cor(cophenetic(x), dist1)})
+# also between each other
+cl_agreement(hens, method = "cophenetic")
+# or disagreement
+cl_dissimilarity(hens, method = "cophenetic")
+# get consensus tree
+constree<-cl_consensus(hens)
+# add to list
+hens[[7]]<-constree
+# not better than all
+cl_agreement(hens, dist1, method = "cophenetic")
+# try weighting by agreement
+constree2<-cl_consensus(hens[1:6], weights = as.vector(tree_agg))
+hens[[8]]<-constree2#
+cl_agreement(hens, dist1, method = "cophenetic") # better but not by much
+plot(hens,main = names(hens))
+
+# Trialling betadisper and options to calc distance between pointsnin PCOA space
+
+library(vegan)
+
+# my data has categorial variables so I'll use gower with the iris dataset for example
+mydist<-dist(iris[,1:4])
+# Pull, out 3 clusters
+hc_av<-hclust(d=mydist, method='average')
+my_cut<-cutree(hc_av, 3)
+# calc distance to cluster centre
+mod<-betadisper(mydist, my_cut)
+mod
+plot(mod)
+
+# randomly remove 5% of data and recalc as above - this would be bootstrapped
+
+mydist2<-dist(iris[sort(sample(1:150, 145)),1:4])
+# Pull, out 3 clusters
+hc_av2<-hclust(d=mydist2, method='average')
+my_cut2<-cutree(hc_av2, 3)
+# calc distance to cluster centre
+mod2<-betadisper(mydist2, my_cut2)
+mod2
+par(mfrow=c(1,2))
+plot(mod, main='full model'); plot(mod2, main='subset')
+# How can I to calculate the distance each cluster centroid has moved when subsampling the 
+# data relative to the full model?
+
+
+## proof of concept with adonis
+
+library(vegan)
+library(FD)
+
+# my data has categorial variables so I'll use gower with the iris dataset for example
+mydist<-gowdis(iris[,1:4])
+# Pull, out 3 clusters
+hc_av<-hclust(d=mydist, method='average')
+my_cut<-data.frame(cutxor=cutree(hc_av, 3))
+
+ad1<-adonis(mydist~cutxor, data=my_cut)
+# hmmm
+
+mydist<-gowdis(dat[,3:9])
+pco1<-cmdscale( mydist, eig = TRUE)
+hc_av<-hclust(d=mydist, method='average')
+my_cut<-cutree(hc_av, 6)
+
+ordiplot(pco1)
+ordicluster(pco1, hc_av, col=2)
+
+ordiplot(pco1)
+ordihull(pco1, my_cut)
+ordispider(pco1, my_cut, col=2)
 
 ### To view clusters with env data gradients
 
