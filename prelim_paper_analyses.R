@@ -4,23 +4,31 @@
 
 library(cluster)
 library(clue)
+library(fpc)
+library(ggplot2)
+library(dendextend)
+library(circlize)
 
 #################### data clean and distance matrix calculation ##########################
 ##########################################################################################
 
-dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_trait_master.csv', h=T)
+dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
 
 dat<-dat[which(dat$AUS_sp>0),] # we will focus on Australia for this prelim
 
-row.names(dat)<-unlist(strsplit(as.character(dat$Species), ' '))[seq(1,(nrow(dat)-1),2)]
+row.names(dat)<-paste(unlist(strsplit(as.character(dat$Species), ' '))[seq(1,((nrow(dat)*2)-1),2)], 1:nrow(dat), sep='@')
 
 
 ## Edit to some trait values from MB 25/10/18
-#dat[dat$Species=='Brotula multibarbata',]$DepthRange<-219
+dat[dat$Species=='Brotula multibarbata',]$DepthRange<-219
 dat[dat$Species=='Manta birostris',]$BodySize<-450
-#dat[dat$Species=='Amphiprion sandaracinos',]$BodySize<-14
+dat[dat$Species=='Amphiprion sandaracinos',]$BodySize<-14
 
-dist1<-daisy(dat[,3:9])
+# remove duplicates
+dat<-dat[-which(dat$Species == 'Orectolobus sp.' |dat$Species == 'Scarus spinus' |
+                  dat$Species == 'Variola sp.' ),]
+
+dist1<-daisy(dat[,3:9], metric='gower', stand = FALSE)
 
 ############### test different algorithums and make consensus tree #######################
 ##########################################################################################
@@ -66,4 +74,53 @@ cl_dissimilarity(hens, dist1, method = "spectral")
 ## we take average algorithum tree forward as the best
 btree<-hclust(dist1, method='average')
 
+btree %>% as.dendrogram() %>% plot
 
+############### Work out optimal n clusters and define h value #######################
+##########################################################################################
+
+clust_out<-NULL
+for(i in 2:20){
+  mnz<-cluster.stats(dist1, cutree(btree, k=i))
+  out<-data.frame(nclust=i, av.sil=mnz$avg.silwidth, wb.ratio=mnz$wb.ratio) 
+  clust_out<-rbind(clust_out, out)}
+
+par(mfrow=c(1,2))
+plot(av.sil~nclust, data=clust_out, type='b')
+plot(wb.ratio~nclust, data=clust_out, type='b')
+
+#potential other approach
+lp1<-lapply(2:20, function(m) cutree(btree, m))
+dat.t<-cbind(dat, as.data.frame(do.call('cbind', lp1)))
+library(vegan)
+v_runs<-lapply(names(dat.t[13:31]), function(m) adonis(as.formula(paste('dist1~', m, sep="")), data=dat.t))
+# see also: https://github.com/pmartinezarbizu/pairwiseAdonis
+# not sure is this is valid
+
+cbind(seq(0.25, 0.45, 0.01), unlist(lapply(seq(0.25, 0.45, 0.01),
+                                           function(m) length(unique(cutree(btree, h=m))))))
+par(mfrow=c(1,1))
+btree %>% as.dendrogram() %>% plot
+btree %>% as.dendrogram() %>% rect.dendrogram(h=0.37, 
+                                              border = 1:8)
+
+# View better in circle
+
+
+bt<-btree %>% as.dendrogram()
+#labels(bt)<-unlist(strsplit(labels(btree %>% as.dendrogram()), '@'))[seq(1, (nrow(dat)*2), 2)]
+
+circlize_dendrogram(bt %>%  set("branches_k_color", h=0.37) %>%
+                      set("branches_k_color", h=0.37) %>% set("labels_cex", 0.5) )
+
+## OK number of clusters decided based on optimal number of groups that informs h value
+
+bcut<-cutree(btree, h=0.37)
+
+############### Run sensitivity analyses #######################
+##########################################################################################
+
+
+mod<-betadisper(dist1, bcut)
+mod
+plot(mod)
