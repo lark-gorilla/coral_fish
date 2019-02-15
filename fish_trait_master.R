@@ -173,8 +173,8 @@ bigtrait$RMI_sp<-ifelse(bigtrait$Species %in% rmi_species, 1, 0)
 bigtrait$CHK_sp<-ifelse(bigtrait$Species %in% chuuk_species, 1, 0)
 bigtrait$MLD_sp<-ifelse(bigtrait$Species %in% maldives_species, 1, 0)
 bigtrait$TMR_sp<-ifelse(bigtrait$Species %in% timor_species, 1, 0)
-# subset to only spcies in one of the three regions
 
+# subset to only spcies in one of the three regions - change if want to include Chuuk, Maldives and Timor
 bigtrait2<-bigtrait[which(rowSums(bigtrait[,10:12])>0),]
 
 # Now to tidy the data
@@ -196,14 +196,23 @@ table(bigtrait2$Aggregation)
 bigtrait2[which(bigtrait2$Aggregation=='harems'),]$Aggregation<-'groups'
 
 table(bigtrait2$Position)
+bigtrait2[which(bigtrait2$Position=='AlgaeAssociated'),]$Position<-'Benthic'
+bigtrait2[which(bigtrait2$Position=='CnidarianAssociated'),]$Position<-'BenthicSpecialist'
+bigtrait2[which(bigtrait2$Position=='EchinodermAssociated'),]$Position<-'BenthicSpecialist'
+bigtrait2[which(bigtrait2$Position=='SandAssociated'),]$Position<-'BenthicSpecialist'
+
+# option 2
+#bigtrait2[which(bigtrait2$Position=='BenthicSpecialist'),]$Position<-'Demersal'
 
 table(bigtrait2$ParentalMode)
 bigtrait2[which(bigtrait2$ParentalMode=='Brooders'),]$ParentalMode<-'brooders'
 bigtrait2[which(bigtrait2$ParentalMode=='nesters'),]$ParentalMode<-'Nesters'
+bigtrait2[which(bigtrait2$ParentalMode=='Viviparous'),]$ParentalMode<-'Live bearers'
+
 
 # save file
 
-write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master.csv', quote=F, row.names=F) 
+write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt1.csv', quote=F, row.names=F) 
 
 
 
