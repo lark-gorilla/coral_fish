@@ -8,6 +8,7 @@ library(fpc)
 library(ggplot2)
 library(dendextend)
 library(circlize)
+library(vegan)
 
 #################### data clean and distance matrix calculation ##########################
 ##########################################################################################
@@ -124,3 +125,49 @@ bcut<-cutree(btree, h=0.37)
 mod<-betadisper(dist1, bcut)
 mod
 plot(mod)
+mod$centroids
+
+as.matrix(mod$centroids)[1:8, 1:5]
+# doesnt always make a centroid if cluster is tiny - apparently not. Seems ok.
+
+## OK trial run
+
+dsub<-dat[sort(sample(1:nrow(dat), (nrow(dat)*0.95))),]
+
+distsub<-daisy(dsub[,3:9], metric='gower', stand = FALSE)
+
+subtree<-hclust(distsub, method='average')
+
+dend_diff(btree %>% as.dendrogram(), subtree %>% as.dendrogram())
+
+par(mfrow=c(2,1))
+btree %>% as.dendrogram()  %>% set("branches_k_color", h=0.37, col=bcut)  %>% plot
+subtree %>% as.dendrogram()  %>% set("branches_k_color", h=0.37)  %>% plot
+# colouring just works left to right
+# wow in this example it doesnt matter about k or h.
+# need to figure a solution.. work back up the original tree to assign to cultser?
+
+mod2<-betadisper(distsub, cutree(subtree, k=8)) # tis time we use k rather than h..
+
+
+# plot betadisper outputs alongside
+par(mfrow=c(1,2))
+plot(mod); plot(mod2)
+
+dist(rbind(mod$centroids[1,], mod2$centroids[1,]))
+
+sum(eigenvals(mod)[1:25])/sum(eigenvals(mod)[which(eigenvals(mod)>0)])
+#first 25 PCoA axes explain 99% of variation
+# check if need to weight by var expl, or just select n eigenvals to elbow
+
+mod_cent<-as.matrix(mod$centroids)[1:8, 1:25] # get the centroids for 8 clusters in the first 25 dimensions
+dimnames(mod_cent)[[1]]<-paste('full', 1:8, sep='')
+
+mod2_cent<-as.matrix(mod2$centroids)[1:8, 1:25] # get the centroids for 8 clusters in the first 25 dimensions
+dimnames(mod2_cent)[[1]]<-paste('subs', 1:8, sep='')
+
+dist(rbind(mod_cent, mod2_cent))
+
+
+
+
