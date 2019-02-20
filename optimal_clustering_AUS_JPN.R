@@ -633,7 +633,7 @@ plot(hens,main = names(hens))
 # Trialling betadisper and options to calc distance between pointsnin PCOA space
 
 library(vegan)
-
+# Use daisy instead of gowdis!
 # my data has categorial variables so I'll use gower with the iris dataset for example
 mydist<-dist(iris[,1:4])
 # Pull, out 3 clusters
@@ -657,6 +657,42 @@ par(mfrow=c(1,2))
 plot(mod, main='full model'); plot(mod2, main='subset')
 # How can I to calculate the distance each cluster centroid has moved when subsampling the 
 # data relative to the full model?
+
+# proof of concept for analyses testing dendrogram
+
+#make small dataset for testing
+dat2<-dat[c(10,4,68,130,145,160,233,344,358,399,500,575,600),]
+row.names(dat2)<-unlist(strsplit(as.character(dat2$Species), ' '))[seq(1,26,2)]
+
+disty<-daisy(dat2[,3:9])
+
+hc1<-hclust(disty, 'average')
+plot(hc1)
+
+# resample option 1 - refit original tree
+mat1<-as.matrix(cophenetic(hc1))
+# not these 3
+mat2<-mat1[!dimnames(mat1)[[1]]%in%c('Abudefduf', 'Scarus','Mecaenichthys'),
+     !dimnames(mat1)[[1]]%in%c('Abudefduf', 'Scarus','Mecaenichthys')]
+
+hc2<-update(hc1, d=as.dist(mat2))
+
+# resample option 2 - remake new tree
+
+dat3<-dat2[!row.names(dat2)%in%c('Abudefduf', 'Scarus','Mecaenichthys'),]
+
+hc3<-hclust(daisy(dat3[,3:9]), 'average')
+
+# compare
+par(mfrow=c(1,2))
+plot(hc2);plot(hc3)
+ma1<-as.matrix(cophenetic(hc2))
+ma2<-as.matrix(cophenetic(hc3))
+ma1[1:5,1:5]
+ma2[1:5,1:5]
+
+# I think slight differences arise due to better representation of the original resampled dist object
+# by hc3, this is because hc2 is built on the copohenetic corr of the original non-resmapled disty
 
 
 ## proof of concept with adonis
