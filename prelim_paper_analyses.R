@@ -157,8 +157,25 @@ plot(mod); plot(mod2)
 dist(rbind(mod$centroids[1,], mod2$centroids[1,]))
 
 sum(eigenvals(mod)[1:25])/sum(eigenvals(mod)[which(eigenvals(mod)>0)])
+sum(eigenvals(mod)[1:4])/sum(eigenvals(mod)[which(eigenvals(mod)>0)])
 #first 25 PCoA axes explain 99% of variation
 # check if need to weight by var expl, or just select n eigenvals to elbow
+# OK so we can select first 25 eigenvals then weight by sqrt of eigen value
+# to diminish impact of less important axes following: https://www.pnas.org/content/110/38/15307#ref-57
+# But this would mean mod and mod2 have differnt weights - not sure if this is a good idea e.g.
+
+sqrt(eigenvals(mod)[1:25])
+sqrt(eigenvals(mod2)[1:25])
+
+# best ideas 
+# 1) weight both mod and mod2 by mod's sqrt(eigenvals) - this assumes that they are basically the same,
+# this holds for 95% subsample but maybe not if big diffs to gower distb matrix e.g. -1 trait variable
+# 2) Take fewer eigenvals 1:10 gives ~ 87% var expl, or even 1:4 is 60%. tradeoff between info and crap
+
+# test with ability to assign correct clusters
+
+
+as.matrix(mod$centroids)[1:8, 1:25]
 
 mod_cent<-as.matrix(mod$centroids)[1:8, 1:25] # get the centroids for 8 clusters in the first 25 dimensions
 dimnames(mod_cent)[[1]]<-paste('full', 1:8, sep='')
