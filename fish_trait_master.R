@@ -52,10 +52,10 @@ fishtrait<-fishtrait[fishtrait$Species %in% rmi_species,]
 fish_survey<-read.csv('data/Japan/FishData_JP_2016_final.csv')
 
 #read in australia survey species
-aus_species_list<-read.csv('data/Australia/LongTransect_Subtropical_fish_list.csv')
+aus_species_list<-read.csv('data/Australia/maria_aus_list_20feb.csv')
 
 #get list of aus_species names
-aus_species<-aus_species_list$Fish
+aus_species<-aus_species_list$species
 
 #check Japan fish survey data and remove blank rows (7534 onwards) and columns (12:14)
 glimpse(fish_survey)
@@ -77,22 +77,11 @@ fish_survey$SpeciesFish[fish_survey$SpeciesFish=='Sebasticus marmoratus']<-'Seba
 fish_survey$SpeciesFish[fish_survey$SpeciesFish=="Apogon doederleini"]<-'Ostorhinchus doederleini'
 fish_survey$SpeciesFish[fish_survey$SpeciesFish=='Siganus stellatus']<-'Siganus punctatus'
 fish_survey$SpeciesFish[fish_survey$SpeciesFish=="Apogon limenus"]<-'Ostorhinchus limenus'
+# Chaetodon modestus not in trait database but is actually Chaetodon auripes, is removed when species list and traits are merged later 
 
 #now clean aus species
 aus_species<-as.character(aus_species)
 
-#add extra aus species 
-aus_species<-c(aus_species, 'Scarus chameleon','Triaenodon obesus','Cheilinus aerenatus',
-               'Scyliorhinidae','Priacanthus macracanthus','Priacanthus blochii','Cheilodipterus artus',
-               'Pomacanthus imperator','Scarus flavipectoralis','Scarus rubroviolaceaus','Scarus fraenatus')
-
-#species names wrong in aus data change/ edit
-aus_species[aus_species== "Archamia zosterophora"]<-'Taeniamia zosterophora'
-aus_species[aus_species=='Scarus rubroviolaceaus']<-'Scarus rubroviolaceus'
-aus_species[aus_species=="Scarus fraenatus"]<-'Scarus frenatus'
-aus_species[aus_species=='Cheilinus aerenatus']<-'Oxycheilinus arenatus'
-aus_species[aus_species=='Archamia fucata']<-'Taeniamia fucata'
-aus_species[aus_species=='Apogon limenus']<-'Ostorhinchus limenus'
 
 #****** Chuuk data ******#
 
@@ -128,9 +117,9 @@ maldives_species<-maldives_species_list$Species
 # base read.csv fails so use readr's read_csv
 #bigtrait<-read_csv('~/leeds_postdoc/data/Traits/fish_traits.csv')
 
-# Updated database from Maria 25 Oct
+# Updated database from Maria 20 Feb
 
-bigtrait<-read_excel('data/Traits/_database_index10_25Oct2018.xlsx', sheet=1, skip=1)
+bigtrait<-read_excel('data/Traits/_database_index11_19Feb2019.xlsx', sheet=1, skip=1)
 
 #remove extra rows from fish_trait
 #bigtrait<-bigtrait[1:1122,]
@@ -212,7 +201,7 @@ bigtrait2[which(bigtrait2$ParentalMode=='Viviparous'),]$ParentalMode<-'Live bear
 
 # save file
 
-write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt1.csv', quote=F, row.names=F) 
+write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', quote=F, row.names=F) 
 
 
 
