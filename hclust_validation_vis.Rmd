@@ -91,8 +91,45 @@ corrplot(cor_d, "pie", "lower", cl.lim=c(0,1))
 
 ```
 
-
+Loop 2 plot FM index correlations
 
 ```{r, echo=FALSE}
+bigout<-NULL
+for(i in 6:8)
+{
+  dfz<-combn(dat[c(2:9)], i, simplify = F)
+  
+  for(j in 1:length(dfz))
+  {  
+  mydist<-gowdis(dfz[[j]])
+  
+  if(class(try(hclust(d=mydist, method='average'), silent = T))== "try-error"){
+    print(paste('ERROR', names(dfz[[j]])));next}
+    
+hc_av<-hclust(d=mydist, method='average') 
+hc_si<-hclust(d=mydist,  method='single')
+hc_co<-hclust(d=mydist,  method='complete')
+hc_w1<-hclust(d=mydist,  method='ward.D')
+hc_w2<-hclust(d=mydist,  method='ward.D2')
+hc_mc<-hclust(d=mydist,  method='mcquitty')
+hc_me<-hclust(d=mydist,  method='median')
+hc_ce<-hclust(d=mydist,  method='centroid')
+
+dend1234 <- dendlist('average'=hc_av%>%as.dendrogram(),'single'=hc_si%>%as.dendrogram(),
+                     'complete'=hc_co%>%as.dendrogram(),'ward.D'=hc_w1%>%as.dendrogram(),
+'ward.D2'=hc_w2%>%as.dendrogram(),'mcquitty'=hc_mc%>%as.dendrogram(),
+'median'=hc_me%>%as.dendrogram(),'centroid'=hc_ce%>%as.dendrogram())
+
+for(m in 4:10)
+{
+
+print(paste('Variables included:', paste(names(dfz[[j]]), collapse=" "), '@ ', m, 'clusters'))
+
+cor_d<-cor.dendlist(dend1234, method='FM_index', k=m)
+  
+corrplot(cor_d, "pie", "lower", cl.lim=c(0,1))
+  }
+}  
+}
 
 ```
