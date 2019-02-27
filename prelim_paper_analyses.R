@@ -153,9 +153,14 @@ as.matrix(mod$centroids)[1:8, 1:5]
 
 ## OK trial run
 
-dsub<-dat[sort(sample(1:nrow(dat), (nrow(dat)*0.95))),]
+# remake distance matrix based on original scaling - only works for species resmapling
+dist1_matx<-as.matrix(dist1)
 
-distsub<-daisy(dsub[,3:9], metric='gower', stand = FALSE)
+sub_index<-sort(sample(1:nrow(dat), (nrow(dat)*0.95)))
+
+distsub<-dist1_matx[sub_index, sub_index]
+
+distsub<-as.dist(distsub)
 
 subtree<-hclust(distsub, method='average')
 subcut<-cutree(subtree, k=8) # tis time we use k rather than h..
