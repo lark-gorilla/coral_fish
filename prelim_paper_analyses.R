@@ -143,7 +143,7 @@ bcut<-cutree(btree, h=0.38)
 ##########################################################################################
 
 
-mod<-betadisper(dist1, bcut)
+mod<-betadisper(dist1, bcut, sqrt.dist = T)
 mod
 plot(mod)
 mod$centroids
@@ -163,18 +163,26 @@ distsub<-dist1_matx[sub_index, sub_index]
 distsub<-as.dist(distsub)
 
 subtree<-hclust(distsub, method='average')
-subcut<-cutree(subtree, k=8) # tis time we use k rather than h..
+subcut<-cutree(subtree, h=0.38) # tis time we use k rather than h.. NO
 
 dend_diff(btree %>% as.dendrogram(), subtree %>% as.dendrogram())
 
 par(mfrow=c(2,1))
-btree %>% as.dendrogram()  %>% set("branches_k_color", h=0.37)  %>% plot
-subtree %>% as.dendrogram()  %>% set("branches_k_color", h=0.37)  %>% plot
+
+btree %>% as.dendrogram() %>% set("labels", bcut) %>%
+  set("branches_k_color", h=0.38, unique(bcut[btree$order])) %>% rotate(bcut)%>% plot
+subtree %>% as.dendrogram() %>% set("labels", subcut) %>%
+  set("branches_k_color", h=0.38, unique(subcut[subtree$order])) %>%  rotate(subcut) %>%plot
+
+par(mfrow=c(1,1))
+circlize_dendrogram(btree %>% as.dendrogram() %>% set("labels", bcut) %>%
+                  set("branches_k_color", h=0.38) %>% set("labels_cex", 0.5) )
+
 # colouring just works left to right
 # wow in this example it doesnt matter about k or h.
 # need to figure a solution.. work back up the original tree to assign to cultser?
 
-mod2<-betadisper(distsub, subcut) 
+mod2<-betadisper(distsub, subcut, sqrt.dist = T) 
 
 
 # plot betadisper outputs alongside
@@ -201,24 +209,31 @@ sqrt(eigenvals(mod2)[1:25])
 
 # test with ability to assign correct clusters
 
+maxcl_mod<-dim(as.matrix(mod$centroids))[1]
+maxcl_mod2<-dim(as.matrix(mod2$centroids))[1]
 
-as.matrix(mod$centroids)[1:8, 1:25]
+mod_cent<-as.matrix(mod$centroids)[1:maxcl_mod, 1:25] # get the centroids for 8 clusters in the first 25 dimensions
+dimnames(mod_cent)[[1]]<-paste('full', 1:maxcl_mod, sep='')
 
-mod_cent<-as.matrix(mod$centroids)[1:8, 1:25] # get the centroids for 8 clusters in the first 25 dimensions
-dimnames(mod_cent)[[1]]<-paste('full', 1:8, sep='')
+mod2_cent<-as.matrix(mod2$centroids)[1:maxcl_mod2, 1:25] # get the centroids for 8 clusters in the first 25 dimensions
+dimnames(mod2_cent)[[1]]<-paste('subs', 1:maxcl_mod2, sep='')
 
-mod2_cent<-as.matrix(mod2$centroids)[1:8, 1:25] # get the centroids for 8 clusters in the first 25 dimensions
-dimnames(mod2_cent)[[1]]<-paste('subs', 1:8, sep='')
+# add correction for eig importance - currently apply full mod importance to both as similar
+cor_mod<-matrix(data=rep(sqrt(eigenvals(mod)[1:25]), maxcl_mod),
+                ncol=25, nrow=maxcl_mod, byrow=T)
 
-dist(rbind(mod_cent, mod2_cent))
+cor_mod2<-matrix(data=rep(sqrt(eigenvals(mod)[1:25]), maxcl_mod2),
+                 ncol=25, nrow=maxcl_mod, byrow=T)
 
+dist(rbind((mod_cent*cor_mod), (mod2_cent*cor_mod2)))
 
 ### Option 2, via dist object
 
 dat_val<-dat
-dsub_val<-dsub
+dsub_val<-dat[sub_index,]
 
 distval<-daisy(rbind(dat_val[,3:9], dsub_val[,3:9]), metric='gower', stand = FALSE)
+# doesnt matter that we re-create gower distance object here as scaling is set by global 'full model' parameters
 
 vm<-as.matrix(distval)
 
@@ -252,3 +267,20 @@ vm4<-as.matrix(dist(as.matrix(mod3$centroids)[1:16, 1:8]))[9:16, 1:8]
 
 apply(vm2, 1, function(x){which.min(x)})
 apply(vm2, 2, function(x){which.min(x)})
+
+
+#cophenetic stuff
+copo1<-as.matrix(cophenetic(btree))
+dimnames(copo1)[[1]]<-bcut
+dimnames(copo1)[[2]]<-bcut
+copo1[copo1<0.38]<-0
+copo1[-which(duplicated(dimnames(copo1)[[1]])), -which(duplicated(dimnames(copo1)[[2]]))]
+
+# testing how well kmeans and mediods can recreate hieracrical clusters.. not that well
+test1<-data.frame( hclust=as.character(cutree(btree, k=8)),
+                   kmeans=as.character(kmeans(dist1, 8)$cluster),
+                   pam=as.character(pam(dist1, 8)$cluster))
+
+table(test1[,c(2,1)])
+
+table(test1[,c(3,1)])
