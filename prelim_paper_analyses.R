@@ -219,11 +219,11 @@ mod2_cent<-as.matrix(mod2$centroids)[1:maxcl_mod2, 1:25] # get the centroids for
 dimnames(mod2_cent)[[1]]<-paste('subs', 1:maxcl_mod2, sep='')
 
 # add correction for eig importance - currently apply full mod importance to both as similar
-cor_mod<-matrix(data=rep(sqrt(eigenvals(mod)[1:25]), maxcl_mod),
+cor_mod<-matrix(data=rep(eigenvals(mod)[1:25], maxcl_mod),
                 ncol=25, nrow=maxcl_mod, byrow=T)
 
-cor_mod2<-matrix(data=rep(sqrt(eigenvals(mod)[1:25]), maxcl_mod2),
-                 ncol=25, nrow=maxcl_mod, byrow=T)
+cor_mod2<-matrix(data=rep(eigenvals(mod)[1:25], maxcl_mod2),
+                 ncol=25, nrow=maxcl_mod2, byrow=T)
 
 dist(rbind((mod_cent*cor_mod), (mod2_cent*cor_mod2)))
 
@@ -265,8 +265,111 @@ dist(as.matrix(mod3$centroids)[1:16, 1:8])
   
 vm4<-as.matrix(dist(as.matrix(mod3$centroids)[1:16, 1:8]))[9:16, 1:8]
 
-apply(vm2, 1, function(x){which.min(x)})
-apply(vm2, 2, function(x){which.min(x)})
+## LOOP to test analyses concept using random 5% subsample impact
+
+# prep steps making full dataset clusters
+
+dist1<-daisy(dat[,3:9], metric='gower', stand = FALSE)
+btree<-hclust(dist1, method='average')
+bcut<-cutree(btree, h=0.38)
+mod<-betadisper(dist1, bcut, sqrt.dist = T)
+
+clust_wobble_pcoa<-data.frame(full_clust=1:max(bcut))
+clust_wobble_raw<-data.frame(full_clust=1:max(bcut))
+my_out<-list()
+for ( i in 1:100)
+{
+  #resample original distance matrix
+  dist1_matx<-as.matrix(dist1)
+  sub_index<-sort(sample(1:nrow(dat), (nrow(dat)*0.95)))
+  distsub<-dist1_matx[sub_index, sub_index]
+  distsub<-as.dist(distsub)
+  #make subsample tree and cut 
+  subtree<-hclust(distsub, method='average')
+  subcut<-cutree(subtree, h=0.38) # cut using original h value
+  
+  mod2<-betadisper(distsub, subcut, sqrt.dist = T) 
+  
+  ## link clusters to originals and calc distance
+  
+  #option 1
+  maxcl_mod<-dim(as.matrix(mod$centroids))[1]
+  maxcl_mod2<-dim(as.matrix(mod2$centroids))[1]
+  
+  mod_cent<-as.matrix(mod$centroids)[1:maxcl_mod, 1:25] 
+  dimnames(mod_cent)[[1]]<-paste('full', 1:maxcl_mod, sep='')
+  
+  mod2_cent<-as.matrix(mod2$centroids)[1:maxcl_mod2, 1:25] 
+  dimnames(mod2_cent)[[1]]<-paste('subs', 1:maxcl_mod2, sep='')
+  
+  # add correction for eig importance - currently apply full mod importance to both as similar
+  cor_mod<-matrix(data=rep(eigenvals(mod)[1:25], maxcl_mod),
+                  ncol=25, nrow=maxcl_mod, byrow=T)
+  
+  cor_mod2<-matrix(data=rep(eigenvals(mod)[1:25], maxcl_mod2),
+                   ncol=25, nrow=maxcl_mod2, byrow=T)
+  
+  pcoa_dist<-as.matrix(dist(rbind((mod_cent*cor_mod), (mod2_cent*cor_mod2))))
+  pcoa_dist<-pcoa_dist[(maxcl_mod+1):nrow(pcoa_dist), 1:maxcl_mod] #
+  
+  pcoa_match<-apply(pcoa_dist, 1, function(x){which.min(x)})
+  pcoa_match2<-apply(pcoa_dist, 2, function(x){which.min(x)})
+  
+  #get 1:25 pcoa dists without eig weight
+  
+  pcoa_dist_unweight<-as.matrix(dist(rbind((mod_cent), (mod2_cent))))
+  pcoa_dist_unweight<-pcoa_dist_unweight[(maxcl_mod+1):nrow(pcoa_dist_unweight), 1:maxcl_mod]
+  
+  # Assumes eig weight versio is better at matching clusters than raw  1:25 pcoa axes
+  #pcoa_vals<-apply(pcoa_dist_unweight, 2, function(x){min(x)})
+  pcoa_vals<-pcoa_dist_unweight[pcoa_match2+c(0, maxcl_mod2*1:(maxcl_mod2-1))]
+  
+  clust_wobble_pcoa<-cbind(clust_wobble_pcoa, x=pcoa_match2, y=pcoa_vals)
+  names(clust_wobble_pcoa)[names(clust_wobble_pcoa)=='x']<-paste('m', i, sep="")
+  names(clust_wobble_pcoa)[names(clust_wobble_pcoa)=='y']<-paste('d', i, sep="")
+  
+  #option 2
+  
+  #setup combined distance matrix of full and subsampled raw data
+  dat_val<-dat
+  dsub_val<-dat[sub_index,]
+  distval<-daisy(rbind(dat_val[,3:9], dsub_val[,3:9]), metric='gower', stand = FALSE)
+  vm<-as.matrix(distval)
+  
+  dimnames(vm)[[1]]<-c(paste('full', bcut, sep=''),paste('subs', subcut, sep=''))
+  dimnames(vm)[[2]]<-c(paste('full', bcut, sep=''),paste('subs', subcut, sep=''))
+  
+  diag(vm)<-NA
+  
+  vm<-vm[(nrow(dat)+1):nrow(vm), 1:nrow(dat)] # remove dat to dat and sub to sub distances
+  
+  #empty matrix
+  vm2<-matrix(data=NA, nrow=maxcl_mod2, ncol=maxcl_mod,
+              dimnames=list(paste('subs', 1:maxcl_mod2, sep=''), paste('full', 1:maxcl_mod, sep='')))
+  
+  for(k in unique(dimnames(vm)[[2]]))
+  {
+    for(j in unique(dimnames(vm)[[1]])) 
+    {
+      mz<-median(vm[which(dimnames(vm)[[1]]==j),which(dimnames(vm)[[2]]==k)], na.rm=T)
+      vm2[which(dimnames(vm2)[[1]]==j),which(dimnames(vm2)[[2]]==k)]<-mz
+    }
+  }
+  
+  raw_match<-apply(vm2, 1, function(x){which.min(x)})
+  raw_match2<-apply(vm2, 2, function(x){which.min(x)})
+  
+  raw_vals<-apply(vm2, 2, function(x){min(x)})
+  
+  clust_wobble_raw<-cbind(clust_wobble_raw, x=raw_match2, y=raw_vals)
+  names(clust_wobble_raw)[names(clust_wobble_raw)=='x']<-paste('m', i, sep="")
+  names(clust_wobble_raw)[names(clust_wobble_raw)=='y']<-paste('d', i, sep="")
+  
+ print(i) 
+ my_out[[i]]<-list(pcoa_dist, vm2)
+ 
+}
+
 
 
 #cophenetic stuff
