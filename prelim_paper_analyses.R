@@ -16,10 +16,10 @@ library(vegan)
 dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
 # Running on simplist classification of Position trait
 
-# Do we want to include sp. in the analyses?
-dat[grep('\\.', dat$Species),]
+# Do we want to include sp. in the analyses? - yes.
+# dat[grep('\\.', dat$Species),]
 
-dat<-dat[which(dat$AUS_sp>0),] # we will focus on Australia for this prelim
+dat<-dat[which(dat$AUS_sp>0 | dat$JPN_sp>0),] # we will focus on Australia and Japan for this prelim
 
 # remove functional duplicates
 dup_trait<-paste(dat$BodySize, dat$DepthRange, dat$PLD, dat$Diet, dat$Aggregation, dat$Position, 
@@ -30,14 +30,21 @@ dat[which(dat$Species=='Scarus psittacus'),]$Species<-'Scarus psittacus/spinus' 
 
 # Including those that default to duplicates via NA after gower dist
 dat<-dat[-which(dat$Species=='Caesio sp.'),]
+dat<-dat[-which(dat$Species=='Choerodon cyanodus'),]
+dat<-dat[-which(dat$Species=='Ostracion immaculatus'),]
+
 
 row.names(dat)<-dat$Species
 
 
 ## Edit to some trait values from MB 25/10/18
-dat[dat$Species=='Brotula multibarbata',]$DepthRange<-219
+#dat[dat$Species=='Brotula multibarbata',]$DepthRange<-219
 dat[dat$Species=='Mobula birostris',]$BodySize<-450
 dat[dat$Species=='Amphiprion sandaracinos',]$BodySize<-14
+
+## set ceiling for numeric variables for scaling purposes 04/03/19
+dat[dat$PLD>=100 & !is.na(dat$PLD),]$PLD<-100
+dat[dat$DepthRange>=200 & !is.na(dat$DepthRange),]$DepthRange<-200
 
 
 dist1<-daisy(dat[,3:9], metric='gower', stand = FALSE)
@@ -46,7 +53,7 @@ dist1<-daisy(dat[,3:9], metric='gower', stand = FALSE)
 dm<-as.matrix(dist1)
 diag(dm)<-999
 which(apply(dm, 1, function(x){min(x)==0}))
-# only for Caesio sp. in AUS (removed above) !!! BUT more in other datasets
+# only for 3 sp. in AUS+JPN (removed above) !!! BUT more in other datasets?
 
 
 ############### test different algorithums and make consensus tree #######################
