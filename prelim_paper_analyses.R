@@ -14,6 +14,7 @@ library(vegan)
 ##########################################################################################
 
 dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
+# Running on simplist classification of Position trait
 
 # Do we want to include sp. in the analyses?
 dat[grep('\\.', dat$Species),]
@@ -274,8 +275,7 @@ btree<-hclust(dist1, method='average')
 bcut<-cutree(btree, h=0.38)
 mod<-betadisper(dist1, bcut, sqrt.dist = T)
 
-clust_wobble_pcoa<-data.frame(full_clust=1:max(bcut))
-clust_wobble_raw<-data.frame(full_clust=1:max(bcut))
+
 my_out<-list()
 for ( i in 1:100)
 {
@@ -315,18 +315,34 @@ for ( i in 1:100)
   pcoa_match<-apply(pcoa_dist, 1, function(x){which.min(x)})
   pcoa_match2<-apply(pcoa_dist, 2, function(x){which.min(x)})
   
+  # fix for clusters in full dataset not found in subset via pcoa_match but found via pcoa_match2
+  if(maxcl_mod2>maxcl_mod) # if equal to then can replace correct assinments..
+    {
+    ms_clust<-which(!1:maxcl_mod %in% pcoa_match)
+    print(paste('missing full clust', ms_clust))
+    print(pcoa_match)
+    print(pcoa_match2)
+  
+    pcoa_match[pcoa_match2[which(!1:maxcl_mod %in% pcoa_match)]]<-ms_clust
+    print('edited to..');print(pcoa_match)
+    }
+    
   #get 1:25 pcoa dists without eig weight
   
   pcoa_dist_unweight<-as.matrix(dist(rbind((mod_cent), (mod2_cent))))
   pcoa_dist_unweight<-pcoa_dist_unweight[(maxcl_mod+1):nrow(pcoa_dist_unweight), 1:maxcl_mod]
   
   # Assumes eig weight versio is better at matching clusters than raw  1:25 pcoa axes
-  #pcoa_vals<-apply(pcoa_dist_unweight, 2, function(x){min(x)})
-  pcoa_vals<-pcoa_dist_unweight[pcoa_match2+c(0, maxcl_mod2*1:(maxcl_mod2-1))]
+  #pcoa_vals<-apply(pcoa_dist_unweight, 2, function(x){min(x)}) get distance per subset cluster (eig weighted data)
+  pcoa_vals<-pcoa_dist_unweight[cbind(1:maxcl_mod2,pcoa_match)] #get distance per full cluster (unweighted data)
+  #pcoa_vals<-pcoa_dist_unweight[pcoa_match2+c(0, maxcl_mod2*1:(maxcl_mod2-1))] get distance per full cluster (unweighted data)
   
-  clust_wobble_pcoa<-cbind(clust_wobble_pcoa, x=pcoa_match2, y=pcoa_vals)
-  names(clust_wobble_pcoa)[names(clust_wobble_pcoa)=='x']<-paste('m', i, sep="")
-  names(clust_wobble_pcoa)[names(clust_wobble_pcoa)=='y']<-paste('d', i, sep="")
+  lz<-as.list(1:maxcl_mod)
+  for(m in lz)
+  {
+    lz[[m]]<-pcoa_vals[which(pcoa_match==m)]
+  }
+    
   
   #option 2
   
@@ -359,14 +375,29 @@ for ( i in 1:100)
   raw_match<-apply(vm2, 1, function(x){which.min(x)})
   raw_match2<-apply(vm2, 2, function(x){which.min(x)})
   
-  raw_vals<-apply(vm2, 2, function(x){min(x)})
+  # fix for clusters in full dataset not found in subset via raw_match but found via raw_match2
+  if(maxcl_mod2>maxcl_mod)
+    {
+    ms_clust<-which(!1:maxcl_mod %in% raw_match)
+    print(paste('missing full clust RAW', ms_clust))
+    print(raw_match)
+    print(raw_match2)
   
-  clust_wobble_raw<-cbind(clust_wobble_raw, x=raw_match2, y=raw_vals)
-  names(clust_wobble_raw)[names(clust_wobble_raw)=='x']<-paste('m', i, sep="")
-  names(clust_wobble_raw)[names(clust_wobble_raw)=='y']<-paste('d', i, sep="")
+    raw_match[raw_match2[which(!1:maxcl_mod %in% raw_match)]]<-ms_clust
+    print('RAW edited to..');print(raw_match)
+    }
+  
+  raw_vals<-apply(vm2, 1, function(x){min(x)})
+  
+  lz2<-as.list(1:maxcl_mod)
+  for(m in lz2)
+  {
+    lz2[[m]]<-raw_vals[which(raw_match==m)]
+  }
+  
   
  print(i) 
- my_out[[i]]<-list(pcoa_dist, vm2)
+ my_out[[i]]<-list(pcoD=pcoa_dist, rawD=vm2, pcoC=lz, rawC=lz2)
  
 }
 
