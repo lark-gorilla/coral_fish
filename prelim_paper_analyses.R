@@ -1,7 +1,7 @@
 # 25/01/18
 # Preliminary analyses for paper
 # Getting method into workable script
-
+rm(list=ls())
 library(cluster)
 library(clue)
 library(fpc)
@@ -127,12 +127,12 @@ v_runs<-lapply(names(dat.t[13:31]), function(m) adonis(as.formula(paste('dist1~'
 # see also: https://github.com/pmartinezarbizu/pairwiseAdonis
 # not sure is this is valid
 
-cbind(seq(0.25, 0.45, 0.01), unlist(lapply(seq(0.25, 0.45, 0.01),
+cbind(seq(0.25, 0.5, 0.01), unlist(lapply(seq(0.25, 0.5, 0.01),
                                            function(m) length(unique(cutree(btree, h=m))))))
 par(mfrow=c(1,1))
 btree %>% as.dendrogram() %>% plot
-btree %>% as.dendrogram() %>% rect.dendrogram(h=0.38, 
-                                              border = 1:8)
+btree %>% as.dendrogram() %>% rect.dendrogram(h=0.45, 
+                                              border = 1:6)
 
 # View better in circle
 
@@ -144,8 +144,8 @@ circlize_dendrogram(bt %>%  set("branches_k_color", h=0.38) %>%
                       set("branches_k_color", h=0.38) %>% set("labels_cex", 0.5) )
 
 ## OK number of clusters decided based on optimal number of groups that informs h value
-
-bcut<-cutree(btree, h=0.38)
+cutval=0.46
+bcut<-cutree(btree, h=cutval)
 
 ############### Run sensitivity analyses #######################
 ##########################################################################################
@@ -171,20 +171,20 @@ distsub<-dist1_matx[sub_index, sub_index]
 distsub<-as.dist(distsub)
 
 subtree<-hclust(distsub, method='average')
-subcut<-cutree(subtree, h=0.38) # tis time we use k rather than h.. NO
+subcut<-cutree(subtree, h=cutval) # tis time we use k rather than h.. NO
 
 dend_diff(btree %>% as.dendrogram(), subtree %>% as.dendrogram())
 
 par(mfrow=c(2,1))
 
 btree %>% as.dendrogram() %>% set("labels", bcut) %>%
-  set("branches_k_color", h=0.38, unique(bcut[btree$order])) %>% rotate(bcut)%>% plot
+  set("branches_k_color", h=cutval, unique(bcut[btree$order])) %>% rotate(bcut)%>% plot
 subtree %>% as.dendrogram() %>% set("labels", subcut) %>%
-  set("branches_k_color", h=0.38, unique(subcut[subtree$order])) %>%  rotate(subcut) %>%plot
+  set("branches_k_color", h=cutval, unique(subcut[subtree$order])) %>%  rotate(subcut) %>%plot
 
 par(mfrow=c(1,1))
 circlize_dendrogram(btree %>% as.dendrogram() %>% set("labels", bcut) %>%
-                  set("branches_k_color", h=0.38) %>% set("labels_cex", 0.5) )
+                  set("branches_k_color", h=cutval) %>% set("labels_cex", 0.5) )
 
 # colouring just works left to right
 # wow in this example it doesnt matter about k or h.
@@ -273,17 +273,38 @@ dist(as.matrix(mod3$centroids)[1:16, 1:8])
   
 vm4<-as.matrix(dist(as.matrix(mod3$centroids)[1:16, 1:8]))[9:16, 1:8]
 
+# Linking full and subsample clusters using species identity
+
+sp2<-matrix(data=NA, nrow=maxcl_mod2, ncol=maxcl_mod,
+            dimnames=list(paste('subs', 1:maxcl_mod2, sep=''), paste('full', 1:maxcl_mod, sep='')))
+
+for(k in 1:maxcl_mod2)
+{
+  sp_cl<-names(subcut)[subcut==k]
+  
+  full_sp<-list()
+  for(j in 1:maxcl_mod){full_sp[[j]]<-names(bcut)[bcut==j]}
+  
+  sp2[k,]<-unlist(lapply(full_sp, function(x){ceiling(length(which(sp_cl %in% x)))}))
+}
+
+
+
 ## LOOP to test analyses concept using random 5% subsample impact
 
 # prep steps making full dataset clusters
 
 dist1<-daisy(dat[,3:9], metric='gower', stand = FALSE)
 btree<-hclust(dist1, method='average')
-bcut<-cutree(btree, h=0.38)
+cutval=0.46
+bcut<-cutree(btree, h=cutval)
 mod<-betadisper(dist1, bcut, sqrt.dist = T)
 
 
-my_out<-list()
+out_pcoD<-list()
+out_pcoC<-list()
+out_rawD<-list()
+out_rawC<-list()
 for ( i in 1:100)
 {
   #resample original distance matrix
@@ -293,7 +314,7 @@ for ( i in 1:100)
   distsub<-as.dist(distsub)
   #make subsample tree and cut 
   subtree<-hclust(distsub, method='average')
-  subcut<-cutree(subtree, h=0.38) # cut using original h value
+  subcut<-cutree(subtree, h=cutval) # cut using original h value
   
   mod2<-betadisper(distsub, subcut, sqrt.dist = T) 
   
@@ -404,11 +425,33 @@ for ( i in 1:100)
   
   
  print(i) 
- my_out[[i]]<-list(pcoD=pcoa_dist, rawD=vm2, pcoC=lz, rawC=lz2)
+ out_pcoD[[i]]<-pcoa_dist
+ out_pcoC[[i]]<-lz
+ out_rawD[[i]]<-vm2
+ out_rawC[[i]]<-lz2
+ 
+ 
+ # debug mode
+ print(pcoa_dist)
+ print(pcoa_match)
+ print(pcoa_match2)
+ print(vm2)
+ print(raw_match)
+ print(raw_match2)
+ 
+ par(mfrow=c(2,1))
+ 
+ btree %>% as.dendrogram() %>% set("labels", bcut) %>%
+   set("branches_k_color", h=cutval, unique(bcut[btree$order])) %>% rotate(bcut)%>% plot
+ subtree %>% as.dendrogram() %>% set("labels", subcut) %>%
+   set("branches_k_color", h=cutval, unique(subcut[subtree$order])) %>%  rotate(subcut) %>%plot
+ 
+ readline('')
+ 
  
 }
 
-
+do.call(cbind, out_pcoC)
 
 #cophenetic stuff
 copo1<-as.matrix(cophenetic(btree))
