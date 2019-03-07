@@ -457,8 +457,49 @@ do.call(cbind, out_pcoC)
 copo1<-as.matrix(cophenetic(btree))
 dimnames(copo1)[[1]]<-bcut
 dimnames(copo1)[[2]]<-bcut
-copo1[copo1<0.38]<-0
+copo1[copo1<= cutval]<-0 # below AND equal
+
+#copo distance between clusters
 copo1[-which(duplicated(dimnames(copo1)[[1]])), -which(duplicated(dimnames(copo1)[[2]]))]
+
+copo1<-as.matrix(cophenetic(btree))
+dimnames(copo1)[[1]]<-names(bcut)
+dimnames(copo1)[[2]]<-bcut
+copo1[copo1<= cutval]<-0 # below AND equal
+
+#copo distance of indivdiual species between clusters, same as above but species level 
+copo1[1:10, -which(duplicated(dimnames(copo1)[[2]]))]
+
+## for resampled matrix
+
+copo2<-as.matrix(cophenetic(subtree))
+dimnames(copo2)[[1]]<-names(subcut)
+dimnames(copo2)[[2]]<-subcut
+copo2[copo2<= cutval]<-0 # below AND equal
+
+sp2_copod<-copo2[, -which(duplicated(dimnames(copo2)[[2]]))]
+
+full_n_clust<-bcut[sub_index] # only take species present in subsample for comparison
+full_n_clust<-names(full_n_clust)[full_n_clust==1] # in cluster
+# not necessary as can only tak species names that are in subcut
+
+sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust),]
+
+sp2<-matrix(data=NA, nrow=maxcl_mod2, ncol=maxcl_mod,
+            dimnames=list(paste('subs', 1:maxcl_mod2, sep=''), paste('full', 1:maxcl_mod, sep='')))
+
+for(k in 1:maxcl_mod2)
+{
+  sp_cl<-names(subcut)[subcut==k]
+  
+  full_sp<-list()
+  for(j in 1:maxcl_mod){full_sp[[j]]<-names(bcut)[bcut==j]}
+  
+  sp2[k,]<-unlist(lapply(full_sp, function(x){ceiling(length(which(sp_cl %in% x)))}))
+}
+
+
+
 
 # testing how well kmeans and mediods can recreate hieracrical clusters.. not that well
 test1<-data.frame( hclust=as.character(cutree(btree, k=8)),
