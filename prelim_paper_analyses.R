@@ -439,6 +439,21 @@ for ( i in 1:100)
  print(raw_match)
  print(raw_match2)
  
+ sp2<-matrix(data=NA, nrow=maxcl_mod2, ncol=maxcl_mod,
+             dimnames=list(paste('subs', 1:maxcl_mod2, sep=''), paste('full', 1:maxcl_mod, sep='')))
+ 
+ for(k in 1:maxcl_mod2)
+ {
+   sp_cl<-names(subcut)[subcut==k]
+   
+   full_sp<-list()
+   for(j in 1:maxcl_mod){full_sp[[j]]<-names(bcut)[bcut==j]}
+   
+   sp2[k,]<-unlist(lapply(full_sp, function(x){ceiling(length(which(sp_cl %in% x)))}))
+ }
+ 
+ print(sp2)
+ 
  par(mfrow=c(2,1))
  
  btree %>% as.dendrogram() %>% set("labels", bcut) %>%
@@ -479,33 +494,130 @@ copo2[copo2<= cutval]<-0 # below AND equal
 
 sp2_copod<-copo2[, -which(duplicated(dimnames(copo2)[[2]]))]
 
+# proof of concept for cluster 1
 full_n_clust<-bcut[sub_index] # only take species present in subsample for comparison
-full_n_clust<-names(full_n_clust)[full_n_clust==1] # in cluster
-# not necessary as can only tak species names that are in subcut
-
+full_n_clust<-names(full_n_clust)[full_n_clust==1] 
 sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust),]
 
-sp2<-matrix(data=NA, nrow=maxcl_mod2, ncol=maxcl_mod,
+# loop for all clusters
+sp3<-matrix(data=NA, nrow=maxcl_mod2, ncol=maxcl_mod,
             dimnames=list(paste('subs', 1:maxcl_mod2, sep=''), paste('full', 1:maxcl_mod, sep='')))
 
-for(k in 1:maxcl_mod2)
+for(k in 1:maxcl_mod)
 {
-  sp_cl<-names(subcut)[subcut==k]
+  full_n_clust<-names(bcut)[bcut==k]
   
-  full_sp<-list()
-  for(j in 1:maxcl_mod){full_sp[[j]]<-names(bcut)[bcut==j]}
+  cl_cop_mv<-sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust), k]
   
-  sp2[k,]<-unlist(lapply(full_sp, function(x){ceiling(length(which(sp_cl %in% x)))}))
+ print(k)
+ print(sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust),])
+ print(mean(cl_cop_mv))
 }
+ 
+# loop to calc copo movement value for each species 'wiggliness'
+
+wigl_out<-data.frame(Species=dat$Species)
+
+for(k in 1:maxcl_mod)
+{
+  full_n_clust<-names(bcut)[bcut==k]
+  
+  cl_cop_mv<-sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust), k]
+  
+  wigl_out<-cbind(wigl_out, runni=NA)
+  names(wigl_out)[names(wigl_out)=='runni']<-paste('run', i, sep='')
+  
+  wigl_out[which(wigl_out$Species %in% names(cl_cop_mv)),]$run1<-cl_cop_mv
+
+} # doesnt' work but just concept
 
 
 
 
-# testing how well kmeans and mediods can recreate hieracrical clusters.. not that well
-test1<-data.frame( hclust=as.character(cutree(btree, k=8)),
-                   kmeans=as.character(kmeans(dist1, 8)$cluster),
-                   pam=as.character(pam(dist1, 8)$cluster))
+# accuracy for sp2 table
+library(caret)
 
-table(test1[,c(2,1)])
+sp_tab<-sp2
+sp_tab<-cbind(sp_tab, rep(0, 7)) # make dummy for extra cluster in subs
+dimnames(sp_tab)[[2]][7]<-'full7'
+row.names(sp_tab)<-colnames(sp_tab)
 
-table(test1[,c(3,1)])
+confusionMatrix(as.table(sp_tab))
+
+# Loop to run species wiggliness and accuracy of clustering classification  using random 5% subsample impact
+
+# prep steps making full dataset clusters
+
+dist1<-daisy(dat[,3:9], metric='gower', stand = FALSE)
+btree<-hclust(dist1, method='average')
+cutval=0.46
+bcut<-cutree(btree, h=cutval)
+maxcl_mod=length(unique(bcut))
+
+wigl_out<-matrix(data=NA, nrow=nrow(dat), ncol=100, dimnames=list(dat$Species, 1:100))
+clust_sens<-matrix(data=NA, nrow=maxcl_mod, ncol=100, dimnames=list(paste('clust', 1:maxcl_mod, sep=''), 1:100))
+out_kap<-NULL
+out_acc<-NULL
+for ( i in 1:100)
+{
+  #resample original distance matrix
+  dist1_matx<-as.matrix(dist1)
+  sub_index<-sort(sample(1:nrow(dat), (nrow(dat)*0.95)))
+  distsub<-dist1_matx[sub_index, sub_index]
+  distsub<-as.dist(distsub)
+  #make subsample tree and cut 
+  subtree<-hclust(distsub, method='average')
+  subcut<-cutree(subtree, h=cutval) # cut using original h value
+  
+  maxcl_mod=length(unique(bcut))
+  maxcl_mod2=length(unique(subcut))
+  
+  # make confusion matrix of clustering. COLUMNS= FULL CLUSTER, ROWS=SUBSAMPLE CLUSTERS
+  sp2<-matrix(data=NA, nrow=maxcl_mod2, ncol=maxcl_mod2)
+  
+  for(k in 1:maxcl_mod2)
+  {
+    sp_cl<-names(subcut)[subcut==k]
+    
+    full_sp<-list()
+    for(j in 1:maxcl_mod){full_sp[[j]]<-names(bcut)[bcut==j]}
+    
+    sp2[k,1:maxcl_mod]<-unlist(lapply(full_sp, function(x){length(which(sp_cl %in% x))}))
+  }
+  
+  print(sp2)
+  sp2[is.na(sp2)]<-0 # fills extra emergent clusters from subsampling with 0 instead of NA 
+  
+  # confusion matrix
+  my_conf<-confusionMatrix(as.table(sp2)) 
+  # might need to alter general accuracy/kappa values from emergent subsample clusters
+  # when comparing with results where subsample clusters do not emerge
+  
+  out_acc<-c(out_acc, my_conf$overall[1])
+  out_kap<-c(out_kap, my_conf$overall[2])
+  
+  clust_sens[,i]<-na.omit(my_conf$byClass[,1]) # this tells how accurately species in original
+  # cluster are still in subs cluster (identical/splitting) but doesnt tell about lumping
+  # Specificity would do but need to get around extra clust issue. K over H!
+  
+  # copo distance per species
+  copo2<-as.matrix(cophenetic(subtree))
+  dimnames(copo2)[[1]]<-names(subcut)
+  dimnames(copo2)[[2]]<-subcut
+  copo2[copo2<= cutval]<-0 # below AND equal
+  
+  sp2_copod<-copo2[, -which(duplicated(dimnames(copo2)[[2]]))]
+  
+  for(k in 1:maxcl_mod)
+  {
+    full_n_clust<-names(bcut)[bcut==k]
+    
+    cl_cop_mv<-sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust), k]
+    
+    wigl_out[which(dimnames(wigl_out)[[1]] %in% names(cl_cop_mv)),i]<-cl_cop_mv
+    # allows for 5% species dropped to remain NA
+    } 
+  
+  print(i)
+  
+}
