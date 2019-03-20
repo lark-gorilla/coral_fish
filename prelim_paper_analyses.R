@@ -9,6 +9,9 @@ library(ggplot2)
 library(dendextend)
 library(circlize)
 library(vegan)
+library(caret)
+
+
 
 #################### data clean and distance matrix calculation ##########################
 ##########################################################################################
@@ -550,15 +553,24 @@ confusionMatrix(as.table(sp_tab))
 
 dist1<-daisy(dat[,3:9], metric='gower', stand = FALSE)
 btree<-hclust(dist1, method='average')
-cutval=0.46
-bcut<-cutree(btree, h=cutval)
-maxcl_mod=length(unique(bcut))
+runz=50
 
-wigl_out<-matrix(data=NA, nrow=nrow(dat), ncol=100, dimnames=list(dat$Species, 1:100))
-clust_sens<-matrix(data=NA, nrow=maxcl_mod, ncol=100, dimnames=list(paste('clust', 1:maxcl_mod, sep=''), 1:100))
+wigl_list<-list()
+sens_list<-list()
+spec_list<-list()
+stats_out<-NULL
+for(o in 3:20)
+{
+kval=o
+bcut<-cutree(btree, k=kval)
+
+wigl_out<-matrix(data=NA, nrow=nrow(dat), ncol=runz, dimnames=list(dat$Species, 1:runz))
+clust_sens<-matrix(data=NA, nrow=kval, ncol=runz, dimnames=list(paste('clust', 1:kval, sep=''), 1:runz))
+clust_spec<-matrix(data=NA, nrow=kval, ncol=runz, dimnames=list(paste('clust', 1:kval, sep=''), 1:runz))
+
 out_kap<-NULL
 out_acc<-NULL
-for ( i in 1:100)
+for ( i in 1:runz)
 {
   #resample original distance matrix
   dist1_matx<-as.matrix(dist1)
@@ -567,38 +579,95 @@ for ( i in 1:100)
   distsub<-as.dist(distsub)
   #make subsample tree and cut 
   subtree<-hclust(distsub, method='average')
-  subcut<-cutree(subtree, h=cutval) # cut using original h value
+  subcut<-cutree(subtree, k=kval) # cut using k value
   
-  maxcl_mod=length(unique(bcut))
-  maxcl_mod2=length(unique(subcut))
+  # get distances between clusters, option 2!
+  #setup combined distance matrix of full and subsampled raw data
+  dat_val<-dat
+  dsub_val<-dat[sub_index,]
+  distval<-daisy(rbind(dat_val[,3:9], dsub_val[,3:9]), metric='gower', stand = FALSE)
+  vm<-as.matrix(distval)
+  
+  dimnames(vm)[[1]]<-c(paste('full', bcut, sep=''),paste('subs', subcut, sep=''))
+  dimnames(vm)[[2]]<-c(paste('full', bcut, sep=''),paste('subs', subcut, sep=''))
+  
+  diag(vm)<-NA
+  
+  vm<-vm[(nrow(dat)+1):nrow(vm), 1:nrow(dat)] # remove dat to dat and sub to sub distances
+  
+  #empty matrix
+  vm2<-matrix(data=NA, nrow=kval, ncol=kval,
+              dimnames=list(paste('subs', 1:kval, sep=''), paste('full', 1:kval, sep='')))
+  
+  for(k in unique(dimnames(vm)[[2]]))
+  {
+    for(j in unique(dimnames(vm)[[1]])) 
+    {
+      mz<-median(vm[which(dimnames(vm)[[1]]==j),which(dimnames(vm)[[2]]==k)], na.rm=T)
+      vm2[which(dimnames(vm2)[[1]]==j),which(dimnames(vm2)[[2]]==k)]<-mz
+    }
+  }
+  
+  raw_match<-apply(vm2, 1, function(x){which.min(x)})
+  raw_match2<-apply(vm2, 2, function(x){which.min(x)})
+  
   
   # make confusion matrix of clustering. COLUMNS= FULL CLUSTER, ROWS=SUBSAMPLE CLUSTERS
-  sp2<-matrix(data=NA, nrow=maxcl_mod2, ncol=maxcl_mod2)
+  sp2<-matrix(data=NA, nrow=kval, ncol=kval)
   
-  for(k in 1:maxcl_mod2)
+  for(k in 1:kval)
   {
     sp_cl<-names(subcut)[subcut==k]
     
     full_sp<-list()
-    for(j in 1:maxcl_mod){full_sp[[j]]<-names(bcut)[bcut==j]}
+    for(j in 1:kval){full_sp[[j]]<-names(bcut)[bcut==j]}
     
-    sp2[k,1:maxcl_mod]<-unlist(lapply(full_sp, function(x){length(which(sp_cl %in% x))}))
+    sp2[k,1:kval]<-unlist(lapply(full_sp, function(x){length(which(sp_cl %in% x))}))
   }
   
   print(sp2)
-  sp2[is.na(sp2)]<-0 # fills extra emergent clusters from subsampling with 0 instead of NA 
   
+  # re-order confusion matrix using vm2 min distances
+  
+  sp3<-sp2[raw_match2,] # reorders rows based on most likely match
+  
+  # give lumped clusters a 0 for row
+  sp3[ which(duplicated(raw_match2)),]<-0
+  
+  # make new col and row for split clusters
+  
+  sp3<-rbind(sp3, sp2[which(!1:kval %in% raw_match2),])
+  while(ncol(sp3)<nrow(sp3)){sp3<-cbind(sp3, 0)}
+
   # confusion matrix
-  my_conf<-confusionMatrix(as.table(sp2)) 
-  # might need to alter general accuracy/kappa values from emergent subsample clusters
-  # when comparing with results where subsample clusters do not emerge
+  my_conf<-confusionMatrix(as.table(sp3)) 
   
   out_acc<-c(out_acc, my_conf$overall[1])
   out_kap<-c(out_kap, my_conf$overall[2])
+  # although we have inflated the confusion matrix with splitters we do not output
+  # these as only interested in changes to original clusters. The edits to the confusion
+  # matrix via lumpers and splitters change the sens/spec of each original cluster - which is what we want
   
-  clust_sens[,i]<-na.omit(my_conf$byClass[,1]) # this tells how accurately species in original
-  # cluster are still in subs cluster (identical/splitting) but doesnt tell about lumping
-  # Specificity would do but need to get around extra clust issue. K over H!
+  clust_sens[,i]<-my_conf$byClass[1:kval,1] # this tells how accurately species in original
+  # cluster are still in subs cluster (identical/splitting) 
+  
+  clust_spec[,i]<-my_conf$byClass[1:kval,2] # this tells how accurately species in sub
+  # cluster are from the same original cluster (identical/lumped) 
+  
+  # get h val from k val
+  # hacked function from dendextend function heights_per_k.dendrogram()
+  
+  dend=as.dendrogram(subtree)
+  our_dend_heights <- sort(unique(get_branches_heights(dend, 
+                                                       sort = FALSE)), TRUE)
+  heights_to_remove_for_A_cut <- min(-diff(our_dend_heights))/2
+  heights_to_cut_by <- c((max(our_dend_heights) + heights_to_remove_for_A_cut), 
+                         (our_dend_heights - heights_to_remove_for_A_cut))
+  heights_to_cut_by<-heights_to_cut_by[heights_to_cut_by>0.3] # hack to only do larger clusters
+  names(heights_to_cut_by) <- sapply(heights_to_cut_by, function(h) {
+    length(cut(dend, h = h)$lower)})
+  
+  cutval<-heights_to_cut_by[names(heights_to_cut_by)==kval]
   
   # copo distance per species
   copo2<-as.matrix(cophenetic(subtree))
@@ -608,16 +677,68 @@ for ( i in 1:100)
   
   sp2_copod<-copo2[, -which(duplicated(dimnames(copo2)[[2]]))]
   
-  for(k in 1:maxcl_mod)
+  for(k in 1:kval)
   {
     full_n_clust<-names(bcut)[bcut==k]
     
-    cl_cop_mv<-sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust), k]
+    cl_cop_mv<-sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust), raw_match2[k]] 
+    # using raw_match2 here lines up original cluster with most similar subs cluster 
     
     wigl_out[which(dimnames(wigl_out)[[1]] %in% names(cl_cop_mv)),i]<-cl_cop_mv
     # allows for 5% species dropped to remain NA
     } 
   
-  print(i)
+  print(o)
+  
+  wigl_list[[o]]<-wigl_out
+  sens_list[[o]]<-clust_sens
+  spec_list[[o]]<-clust_spec
+  stats_out<-rbind(stats_out, data.frame(k=o, acc=out_acc, kap=out_kap))
   
 }
+}
+
+# summary stats
+
+sort(rowMeans(wigl_out, na.rm=T))
+
+df_mean<-data.frame(Species=row.names(wigl_out), av=rowMeans(wigl_out, na.rm=T))
+df_mean<-df_mean[order(df_mean$av),]
+
+df_mean$Species<-as.character(df_mean$Species)
+df_mean$Species <- factor(df_mean$Species, levels=order(df_mean$av))
+
+
+library(reshape2)
+dfr<-data.frame(wigl_out[order(df_mean$av),])
+dfr$Species<-row.names(wigl_out)
+
+dfr<-melt(dfr, id.vars = 'Species')
+
+dfr$Species<-as.character(dfr$Species)
+dfr$Species <- factor(dfr$Species, levels=df_mean[order(df_mean$av, order=-1),]$Species)
+
+df_mean[which(df_mean$av==0),]$Species
+
+mv_sp<-df_mean[which(df_mean$av>0),]$Species
+
+ggplot(data=dfr[dfr$Species%in% mv_sp,], aes(x=Species, y=value))+
+  geom_jitter(height=0.01, width=0.0001, shape=1, alpha=0.05)+
+  geom_point(data=df_mean[df_mean$Species%in% mv_sp,], aes(x=Species, y=av), colour='red')+
+  theme_bw()+theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+#acc
+qplot(data=stats_out, x=k, y=acc)+geom_smooth()
+ggplot(data=stats_out, aes(x=k, y=acc, group=k))+geom_boxplot()+scale_x_continuous(breaks=3:20)
+
+ggplot(data=stats_out, aes(x=k, y=kap, group=k))+geom_boxplot()+scale_x_continuous(breaks=3:20)+
+  geom_line(data=clust_out, aes(x=nclust, y=av.sil), colour=2)
+
+clust_out<-NULL
+for(i in 3:20){
+  mnz<-cluster.stats(dist1, cutree(btree, k=i))
+  out<-data.frame(nclust=i, av.sil=mnz$avg.silwidth, wb.ratio=mnz$wb.ratio) 
+  clust_out<-rbind(clust_out, out)}
+
+par(mfrow=c(1,2))
+plot(av.sil~nclust, data=clust_out, type='b')
