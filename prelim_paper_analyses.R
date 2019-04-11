@@ -553,11 +553,13 @@ confusionMatrix(as.table(sp_tab))
 
 dist1<-daisy(dat[,3:9], metric='gower', stand = FALSE)
 btree<-hclust(dist1, method='average')
-runz=50
+runz=10
 
 wigl_list<-list()
 sens_list<-list()
 spec_list<-list()
+jacc_list<-list()
+
 stats_out<-NULL
 for(o in 3:20)
 {
@@ -567,9 +569,13 @@ bcut<-cutree(btree, k=kval)
 wigl_out<-matrix(data=NA, nrow=nrow(dat), ncol=runz, dimnames=list(dat$Species, 1:runz))
 clust_sens<-matrix(data=NA, nrow=kval, ncol=runz, dimnames=list(paste('clust', 1:kval, sep=''), 1:runz))
 clust_spec<-matrix(data=NA, nrow=kval, ncol=runz, dimnames=list(paste('clust', 1:kval, sep=''), 1:runz))
+clust_jacc<-matrix(data=NA, nrow=kval, ncol=runz, dimnames=list(paste('clust', 1:kval, sep=''), 1:runz))
+
 
 out_kap<-NULL
 out_acc<-NULL
+out_jac<-NULL
+
 for ( i in 1:runz)
 {
   #resample original distance matrix
@@ -608,9 +614,39 @@ for ( i in 1:runz)
     }
   }
   
+  #! running on median rather than mean !#
+  
   raw_match<-apply(vm2, 1, function(x){which.min(x)})
   raw_match2<-apply(vm2, 2, function(x){which.min(x)})
   
+  # Jaccard index of similarity between clusters based on species presence/absence
+  # Used in fpc::clusterboot
+  
+  fpc_btree<-disthclustCBI(dist1,  method="average", 
+                           cut="number", k=o)
+  
+  fpc_subtree<-disthclustCBI(distsub,  method="average", 
+                             cut="number", k=o)
+  
+  jc2<-vm2
+  
+  for(k in 1:dim(jc2)[2])
+  {
+    for(j in 1:dim(jc2)[1]) 
+    {
+      mz<-clujaccard(fpc_btree$clusterlist[[k]][sub_index], 
+                     fpc_subtree$clusterlist[[j]], zerobyzero = 0)
+      jc2[j,k]<-mz
+    }
+  }
+  
+  jc_match<-apply(jc2, 1, function(x){which.max(x)})
+  jc_match2<-apply(jc2, 2, function(x){which.max(x)})
+  
+  clust_jacc[,i]<-apply(jc2, 2, max) # gives the jaccard similarity of each original cluster to
+  # the MOST similar cluster in the resampled data
+  
+  out_jac<-c(out_jac, mean(apply(jc2, 2, max)))
   
   # make confusion matrix of clustering. COLUMNS= FULL CLUSTER, ROWS=SUBSAMPLE CLUSTERS
   sp2<-matrix(data=NA, nrow=kval, ncol=kval)
@@ -642,6 +678,12 @@ for ( i in 1:runz)
   # confusion matrix
   my_conf<-confusionMatrix(as.table(sp3)) 
   
+  #sanity check
+  #http://www.marcovanetti.com/pages/cfmatrix
+  ## acc<-sum(diag(my_conf$table))/sum(my_conf$table)
+  ## exp_acc<-sum(my_conf$byClass[,'Prevalence']*my_conf$byClass[,'Detection Prevalence'])
+  ## kap<- (acc - exp_acc)/(1 - exp_acc)
+    
   out_acc<-c(out_acc, my_conf$overall[1])
   out_kap<-c(out_kap, my_conf$overall[2])
   # although we have inflated the confusion matrix with splitters we do not output
@@ -663,7 +705,7 @@ for ( i in 1:runz)
   heights_to_remove_for_A_cut <- min(-diff(our_dend_heights))/2
   heights_to_cut_by <- c((max(our_dend_heights) + heights_to_remove_for_A_cut), 
                          (our_dend_heights - heights_to_remove_for_A_cut))
-  heights_to_cut_by<-heights_to_cut_by[heights_to_cut_by>0.3] # hack to only do larger clusters
+  heights_to_cut_by<-heights_to_cut_by[heights_to_cut_by>0.3] # hack to only do larger clusters = reduces time
   names(heights_to_cut_by) <- sapply(heights_to_cut_by, function(h) {
     length(cut(dend, h = h)$lower)})
   
@@ -693,9 +735,10 @@ for ( i in 1:runz)
   wigl_list[[o]]<-wigl_out
   sens_list[[o]]<-clust_sens
   spec_list[[o]]<-clust_spec
-  stats_out<-rbind(stats_out, data.frame(k=o, acc=out_acc, kap=out_kap))
-  
+  jacc_list[[o]]<-clust_jacc
+ 
 }
+stats_out<-rbind(stats_out, data.frame(k=o, acc=out_acc, kap=out_kap, jac=out_jac))
 }
 
 # summary stats
@@ -707,6 +750,16 @@ df_mean<-df_mean[order(df_mean$av),]
 
 df_mean$Species<-as.character(df_mean$Species)
 df_mean$Species <- factor(df_mean$Species, levels=order(df_mean$av))
+
+# vis
+
+par(mfrow=c(2,1))
+
+btree %>% as.dendrogram() %>% set("labels", bcut) %>%
+  set("branches_k_color", k=o, unique(bcut[btree$order])) %>% rotate(bcut)%>% plot
+subtree %>% as.dendrogram() %>% set("labels", subcut) %>%
+  set("branches_k_color", k=o, unique(subcut[subtree$order])) %>%  rotate(subcut) %>%plot
+
 
 
 library(reshape2)
@@ -734,6 +787,14 @@ ggplot(data=stats_out, aes(x=k, y=acc, group=k))+geom_boxplot()+scale_x_continuo
 ggplot(data=stats_out, aes(x=k, y=kap, group=k))+geom_boxplot()+scale_x_continuous(breaks=3:20)+
   geom_line(data=clust_out, aes(x=nclust, y=av.sil), colour=2)
 
+library(GGally)
+
+subs_wigl_means<-lapply(wigl_list, function(x){colMeans(data.frame(x), na.rm=T)})
+
+stats_out$wigl<-do.call(c, subs_wigl_means)
+
+ggpairs(stats_out)
+
 clust_out<-NULL
 for(i in 3:20){
   mnz<-cluster.stats(dist1, cutree(btree, k=i))
@@ -742,3 +803,31 @@ for(i in 3:20){
 
 par(mfrow=c(1,2))
 plot(av.sil~nclust, data=clust_out, type='b')
+
+## trial with fpc::clusterbootstrap
+
+clb<-clusterboot(B=20, data=dist1, distances=T, bootmethod='subset', 
+                 subtuning=ceiling(nrow(dat)*0.95), clustermethod=disthclustCBI, method="average", 
+                 cut="number", k=6, showplots = T )
+
+fpc_btree<-disthclustCBI(dist1,  method="average", 
+                  cut="number", k=o)
+
+fpc_subtree<-disthclustCBI(distsub,  method="average", 
+                         cut="number", k=o)
+
+
+clujaccard(fpc_btree$clusterlist[[1]][sub_index], 
+                    fpc_subtree$clusterlist[[1]], zerobyzero = 0)
+
+
+data=dist1; B = 20; distances=T; bootmethod='subset'; 
+          subtuning=ceiling(nrow(dat)*0.95); clustermethod=disthclustCBI; method="average"; 
+          cut="number"; k=6; showplots = F;
+         
+           bscompare = TRUE; multipleboot = FALSE; 
+          jittertuning = 0.05; noisetuning = c(0.05, 4);  
+           noisemethod = FALSE; count = TRUE; 
+          dissolution = 0.5; recover = 0.75; seed = NULL; datatomatrix = TRUE
+
+
