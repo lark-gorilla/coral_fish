@@ -1,6 +1,10 @@
 clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
 # cluster_match can be 1 if 'distance' or 'jaccard'  
 {
+  require(cluster)
+  require(fpc)
+  require(caret)
+  require(dendextend)
   
   dist1<-daisy(data, metric='gower', stand = FALSE)
   btree<-hclust(dist1, method='average')
@@ -9,6 +13,7 @@ clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
   sens_list<-list()
   spec_list<-list()
   jacc_list<-list()
+  dist_list<-list()
   
   stats_out<-NULL
   for(o in 3:max_cl)
@@ -20,11 +25,9 @@ clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
     clust_sens<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
     clust_spec<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
     clust_jacc<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
+    clust_dist<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
     
-    
-    out_kap<-NULL
-    out_acc<-NULL
-    out_jac<-NULL
+    out_metrics<-data.frame(k=o, runs=1:runs, kap=NA, acc=NA, jac=NA, dis=NA, wig=NA, sil=NA)
     
     for ( i in 1:runs)
     {
@@ -37,41 +40,6 @@ clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
       subtree<-hclust(distsub, method='average')
       subcut<-cutree(subtree, k=kval) # cut using k value
       
-      if( cluster_match=='distance')
-          {  
-          # get distances between clusters, option 2!
-          #setup combined distance matrix of full and subsampled raw data
-          dat_val<-data
-          dsub_val<-data[sub_index,]
-          distval<-daisy(rbind(dat_val, dsub_val), metric='gower', stand = FALSE)
-          vm<-as.matrix(distval)
-          
-          dimnames(vm)[[1]]<-c(paste('full', bcut, sep=''),paste('subs', subcut, sep=''))
-          dimnames(vm)[[2]]<-c(paste('full', bcut, sep=''),paste('subs', subcut, sep=''))
-          
-          diag(vm)<-NA
-          
-          vm<-vm[(nrow(data)+1):nrow(vm), 1:nrow(data)] # remove dat to dat and sub to sub distances
-          
-          #empty matrix
-          vm2<-matrix(data=NA, nrow=kval, ncol=kval,
-                      dimnames=list(paste('subs', 1:kval, sep=''), paste('full', 1:kval, sep='')))
-          
-          for(k in unique(dimnames(vm)[[2]]))
-          {
-            for(j in unique(dimnames(vm)[[1]])) 
-            {
-              mz<-median(vm[which(dimnames(vm)[[1]]==j),which(dimnames(vm)[[2]]==k)], na.rm=T)
-              vm2[which(dimnames(vm2)[[1]]==j),which(dimnames(vm2)[[2]]==k)]<-mz
-            }
-          }
-          
-          #! running on median rather than mean !#
-          
-          raw_match<-apply(vm2, 1, function(x){which.min(x)})
-          raw_match2<-apply(vm2, 2, function(x){which.min(x)})
-      }
-      
       # Jaccard index of similarity between clusters based on species presence/absence
       # Used in fpc::clusterboot
       
@@ -81,27 +49,54 @@ clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
       fpc_subtree<-disthclustCBI(distsub,  method="average", 
                                  cut="number", k=o)
       
-      jc2<-matrix(data=NA, nrow=kval, ncol=kval,
+     
+      # get distances between clusters, option 2!
+      #setup combined distance matrix of full and subsampled raw data
+      dat_val<-data
+      dsub_val<-data[sub_index,]
+      distval<-daisy(rbind(dat_val, dsub_val), metric='gower', stand = FALSE)
+      vm<-as.matrix(distval)
+      
+      dimnames(vm)[[1]]<-c(paste('full', bcut, sep=''),paste('subs', subcut, sep=''))
+      dimnames(vm)[[2]]<-c(paste('full', bcut, sep=''),paste('subs', subcut, sep=''))
+      diag(vm)<-NA
+      vm<-vm[(nrow(data)+1):nrow(vm), 1:nrow(data)] # remove dat to dat and sub to sub distances
+      
+      #empty matrix
+      vm2<-matrix(data=NA, nrow=kval, ncol=kval,
                   dimnames=list(paste('subs', 1:kval, sep=''), paste('full', 1:kval, sep='')))
+      jc2<-vm2
       
-      
-      for(k in 1:dim(jc2)[2])
+      for(k in 1:dim(vm2)[2])
       {
-        for(j in 1:dim(jc2)[1]) 
+        for(j in 1:dim(vm2)[1]) 
         {
-          mz<-clujaccard(fpc_btree$clusterlist[[k]][sub_index], 
+          vm2[j,k]<-mean(vm[which(dimnames(vm)[[1]]==dimnames(vm2)[[1]][j]),
+                              which(dimnames(vm)[[2]]==dimnames(vm2)[[2]][k])], na.rm=T)
+          
+          jc2[j,k]<-clujaccard(fpc_btree$clusterlist[[k]][sub_index], 
                          fpc_subtree$clusterlist[[j]], zerobyzero = 0)
-          jc2[j,k]<-mz
         }
       }
       
-      jc_match<-apply(jc2, 1, function(x){which.max(x)})
+      #! vm2 running on mean (rather than median) as want to highlight influence of 0 dists
+      
+      #raw_match<-apply(vm2, 1, function(x){which.min(x)}) not needed
+      raw_match2<-apply(vm2, 2, function(x){which.min(x)})
+  
+      #jc_match<-apply(jc2, 1, function(x){which.max(x)}) not needed
       jc_match2<-apply(jc2, 2, function(x){which.max(x)})
       
       clust_jacc[,i]<-apply(jc2, 2, max) # gives the jaccard similarity of each original cluster to
       # the MOST similar cluster in the resampled data
       
-      out_jac<-c(out_jac, mean(apply(jc2, 2, max)))
+      clust_dist[,i]<-apply(vm2, 2, min) # gives the gower distance of each original cluster to
+      # the MOST similar cluster in the resampled data based on distance
+      
+      ## do same for dist as above... waht about dissolved clusters? give dist=1?
+      
+      out_metrics[i,]$jac<-mean(apply(jc2, 2, max))
+      out_metrics[i,]$dis<-mean(apply(vm2, 2, min))
       
       # make confusion matrix of clustering. COLUMNS= FULL CLUSTER, ROWS=SUBSAMPLE CLUSTERS
       sp2<-matrix(data=NA, nrow=kval, ncol=kval)
@@ -141,8 +136,8 @@ clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
       ## exp_acc<-sum(my_conf$byClass[,'Prevalence']*my_conf$byClass[,'Detection Prevalence'])
       ## kap<- (acc - exp_acc)/(1 - exp_acc)
       
-      out_acc<-c(out_acc, my_conf$overall[1])
-      out_kap<-c(out_kap, my_conf$overall[2])
+      out_metrics[i,]$acc<- my_conf$overall[1]
+      out_metrics[i,]$kap<- my_conf$overall[2]
       # although we have inflated the confusion matrix with splitters we do not output
       # these as only interested in changes to original clusters. The edits to the confusion
       # matrix via lumpers and splitters change the sens/spec of each original cluster - which is what we want
@@ -181,11 +176,15 @@ clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
         full_n_clust<-names(bcut)[bcut==k]
         
         cl_cop_mv<-sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust), mymatch[k]] 
-        # using raw_match2 here lines up original cluster with most similar subs cluster 
+        # using raw_match2 or jc2_match2 here lines up original cluster with most similar subs cluster 
         
         wigl_out[which(dimnames(wigl_out)[[1]] %in% names(cl_cop_mv)),i]<-cl_cop_mv
         # allows for 5% species dropped to remain NA
       } 
+      
+      out_metrics[i,]$wig<- mean(wigl_out[,i], na.rm=T)
+  
+      out_metrics[i,]$sil<-cluster.stats(distsub, subcut)$avg.silwidth
       
       print(o)
       
@@ -193,9 +192,10 @@ clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
       sens_list[[o]]<-clust_sens
       spec_list[[o]]<-clust_spec
       jacc_list[[o]]<-clust_jacc
+      dist_list[[o]]<-clust_dist
       
     }
-    stats_out<-rbind(stats_out, data.frame(k=o, acc=out_acc, kap=out_kap, jac=out_jac))
+    stats_out<-rbind(stats_out, out_metrics)
   }
   
 all_out<-list(n_runs=runs, stats=stats_out, wiggle=wigl_list, sensitivity=sens_list, 
