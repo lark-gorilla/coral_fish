@@ -1,4 +1,4 @@
-clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
+clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance', subs_perc=0.95)
 # cluster_match can be 1 if 'distance' or 'jaccard'  
 {
   require(cluster)
@@ -15,6 +15,7 @@ clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
   jacc_list<-list()
   dist_list<-list()
   
+  out_centres<-NULL
   stats_out<-NULL
   for(o in 3:max_cl)
   {
@@ -28,17 +29,32 @@ clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
     clust_dist<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
     
     out_metrics<-data.frame(k=o, runs=1:runs, kap=NA, acc=NA, jac=NA, dis=NA, wig=NA, sil=NA)
-    
+
     for ( i in 1:runs)
     {
       #resample original distance matrix
       dist1_matx<-as.matrix(dist1)
-      sub_index<-sort(sample(1:nrow(data), (nrow(data)*0.95)))
+      sub_index<-sort(sample(1:nrow(data), (nrow(data)*subs_perc)))
       distsub<-dist1_matx[sub_index, sub_index]
       distsub<-as.dist(distsub)
       #make subsample tree and cut 
       subtree<-hclust(distsub, method='average')
       subcut<-cutree(subtree, k=kval) # cut using k value
+      subdata<-data[sub_index,]
+      
+      # loop to create cluster centres
+      
+      clust_cent<-NULL
+      for(h in 1:kval)
+        
+      {
+        clust_sp<-subdata[which(subcut==h),]
+        my_out<-do.call(c, lapply(as.list(clust_sp), function(x){if(is.factor(x)) {table(x)}else{median(x, na.rm=T)}}))
+        out2<-data.frame(run=i, kval=o, cluster= h, as.list(my_out))
+        clust_cent<-rbind(clust_cent, out2)
+      }  
+      
+      out_centres<-rbind(out_centres, clust_cent)
       
       # Jaccard index of similarity between clusters based on species presence/absence
       # Used in fpc::clusterboot
@@ -198,7 +214,7 @@ clVal<-function(data=data, runs=10,  max_cl=20, cluster_match='distance')
     stats_out<-rbind(stats_out, out_metrics)
   }
   
-all_out<-list(n_runs=runs, stats=stats_out, wiggle=wigl_list, sensitivity=sens_list, 
+all_out<-list(n_runs=runs, stats=stats_out, clust_centres=out_centres, wiggle=wigl_list, sensitivity=sens_list, 
                 specificity=spec_list, jaccard=jacc_list)
 return(all_out)
 }

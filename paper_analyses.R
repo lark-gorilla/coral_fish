@@ -69,5 +69,60 @@ library(GGally)
 ggpairs(outy, columns = 3:7, ggplot2::aes(colour=method))
 
 
-dat<-dat[which(dat$AUS_sp>0 | dat$JPN_sp>0),]
+# see how many clusters in each regional community
+dat_aus<-dat[which(dat$AUS_sp>0),]
+
+dat_jpn<-dat[which(dat$JPN_sp>0),]
+
+aus_out<-clVal(data=dat_aus[,3:9], runs=50, max_cl=20, cluster_match = 'jaccard')
+jpn_out<-clVal(data=dat_jpn[,3:9], runs=50, max_cl=20, cluster_match = 'jaccard')
+
+aus_out$stats$region='AUS'
+jpn_out$stats$region='JPN'
+
+library(reshape2)
+
+aj_melt<-melt(rbind(aus_out$stats, jpn_out$stats), id.vars=c('region', 'k', 'runs'))
+
+ggplot(data=aj_melt[aj_melt$region=='AUS',], aes(x=k, y=value, group=k))+
+      geom_boxplot()+facet_grid(variable~., scales='free_y')
+
+ggplot(data=aj_melt[aj_melt$region=='AUS' & aj_melt$variable=='kap',], aes(x=k, y=value, group=k))+
+  geom_boxplot()# 7
+ggplot(data=aj_melt[aj_melt$region=='AUS' & aj_melt$variable=='acc',], aes(x=k, y=value, group=k))+
+  geom_boxplot()# 7
+ggplot(data=aj_melt[aj_melt$region=='AUS' & aj_melt$variable=='sil',], aes(x=k, y=value, group=k))+
+  geom_boxplot()# 9, 14
+ggplot(data=aj_melt[aj_melt$region=='AUS' & aj_melt$variable=='jac',], aes(x=k, y=value, group=k))+
+  geom_boxplot()# 7
+ggplot(data=aj_melt[aj_melt$region=='AUS' & aj_melt$variable=='wig',], aes(x=k, y=value, group=k))+
+  geom_boxplot()# 5, 7
+## rand index ?
+
+ggplot(data=aj_melt[aj_melt$region=='JPN' & aj_melt$variable=='kap',], aes(x=k, y=value, group=k))+
+  geom_boxplot()# 10
+ggplot(data=aj_melt[aj_melt$region=='JPN' & aj_melt$variable=='acc',], aes(x=k, y=value, group=k))+
+  geom_boxplot()# 10
+ggplot(data=aj_melt[aj_melt$region=='JPN' & aj_melt$variable=='sil',], aes(x=k, y=value, group=k))+
+  geom_boxplot()# 10, 13
+ggplot(data=aj_melt[aj_melt$region=='JPN' & aj_melt$variable=='jac',], aes(x=k, y=value, group=k))+
+  geom_boxplot()# 10
+ggplot(data=aj_melt[aj_melt$region=='JPN' & aj_melt$variable=='wig',], aes(x=k, y=value, group=k))+
+  geom_boxplot()# 10, 13
+
+# can now check individual cluster stability to see which is best
+rowMeans(aus_out$jaccard[[7]])
+rowMeans(aus_out$jaccard[[9]])
+rowMeans(aus_out$jaccard[[14]])
+
+summary(rowMeans(aus_out$jaccard[[7]])) #best
+summary(rowMeans(aus_out$jaccard[[9]]))
+summary(rowMeans(aus_out$jaccard[[14]]))
+
+rowMeans(jpn_out$jaccard[[10]])
+rowMeans(jpn_out$jaccard[[13]])
+
+
+summary(rowMeans(jpn_out$jaccard[[10]])) # best (lowest), but pretty much even
+summary(rowMeans(jpn_out$jaccard[[13]]))
 
