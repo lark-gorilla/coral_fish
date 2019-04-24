@@ -26,7 +26,7 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
     clust_spec<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
     clust_jacc<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
     
-    out_metrics<-data.frame(k=o, runs=1:runs, kap=NA, acc=NA, jac=NA, dis=NA, wig=NA, sil=NA)
+    out_metrics<-data.frame(k=o, runs=1:runs, kap=NA, acc=NA, jac=NA, wig=NA, sil=NA)
 
     for ( i in 1:runs)
     {
@@ -68,9 +68,9 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
                   dimnames=list(paste('subs', 1:kval, sep=''), paste('full', 1:kval, sep='')))
      
       
-      for(k in 1:dim(vm2)[2])
+      for(k in 1:dim(jc2)[2])
       {
-        for(j in 1:dim(vm2)[1]) 
+        for(j in 1:dim(jc2)[1]) 
         {
           
           jc2[j,k]<-clujaccard(fpc_btree$clusterlist[[k]][sub_index], 
@@ -83,9 +83,6 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
       
       clust_jacc[,i]<-apply(jc2, 2, max) # gives the jaccard similarity of each original cluster to
       # the MOST similar cluster in the resampled data
-      
-      clust_dist[,i]<-apply(vm2, 2, min) # gives the gower distance of each original cluster to
-      # the MOST similar cluster in the resampled data based on distance
       
       out_metrics[i,]$jac<-mean(apply(jc2, 2, max))
       
@@ -103,7 +100,7 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
       }
       
       
-      # re-order confusion matrix using vm2 min distances of jc2 max similarities 
+      # re-order confusion matrix using jc2 max similarities 
       
       mymatch=jc_match2
       
