@@ -40,20 +40,6 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
       subcut<-cutree(subtree, k=kval) # cut using k value
       subdata<-data[sub_index,]
       
-      # loop to create cluster centres
-      
-      clust_cent<-NULL
-      for(h in 1:kval)
-        
-      {
-        clust_sp<-subdata[which(subcut==h),]
-        my_out<-do.call(c, lapply(as.list(clust_sp), function(x){if(is.factor(x)) {table(x)}else{median(x, na.rm=T)}}))
-        out2<-data.frame(run=i, kval=o, cluster= h, as.list(my_out))
-        clust_cent<-rbind(clust_cent, out2)
-      }  
-      
-      out_centres<-rbind(out_centres, clust_cent)
-      
       # Jaccard index of similarity between clusters based on species presence/absence
       # Used in fpc::clusterboot
       
@@ -78,13 +64,27 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
         }
       }
   
-      #jc_match<-apply(jc2, 1, function(x){which.max(x)}) not needed
+      jc_match<-apply(jc2, 1, function(x){which.max(x)}) 
       jc_match2<-apply(jc2, 2, function(x){which.max(x)})
       
       clust_jacc[,i]<-apply(jc2, 2, max) # gives the jaccard similarity of each original cluster to
       # the MOST similar cluster in the resampled data
       
       out_metrics[i,]$jac<-mean(apply(jc2, 2, max))
+      
+      # loop to create cluster centres
+      
+      clust_cent<-NULL
+      for(h in 1:kval)
+        
+      {
+        clust_sp<-subdata[which(subcut==h),]
+        my_out<-do.call(c, lapply(as.list(clust_sp), function(x){if(is.factor(x)) {table(x)}else{median(x, na.rm=T)}}))
+        out2<-data.frame(run=i, kval=o, cluster= h, as.list(my_out))
+        clust_cent<-rbind(clust_cent, out2)
+      }  
+      clust_cent$jc_match<-jc_match
+      out_centres<-rbind(out_centres, clust_cent)
       
       # make confusion matrix of clustering. COLUMNS= FULL CLUSTER, ROWS=SUBSAMPLE CLUSTERS
       sp2<-matrix(data=NA, nrow=kval, ncol=kval)
@@ -107,7 +107,8 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
       sp3<-sp2[mymatch,] # reorders rows based on most likely match
       
       # give lumped clusters a 0 for row
-      sp3[ which(duplicated(mymatch)),]<-0
+      sp3[ which(duplicated(mymatch)),]<-0 # need to improve, remove row based on n sp
+      # also use while.. could also use jc_match
       
       # make new col and row for split clusters
       
@@ -163,7 +164,7 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
         full_n_clust<-names(bcut)[bcut==k]
         
         cl_cop_mv<-sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust), mymatch[k]] 
-        # using raw_match2 or jc2_match2 here lines up original cluster with most similar subs cluster 
+        # using jc2_match2 here lines up original cluster with most similar subs cluster 
         
         wigl_out[which(dimnames(wigl_out)[[1]] %in% names(cl_cop_mv)),i]<-cl_cop_mv
         # allows for 5% species dropped to remain NA
