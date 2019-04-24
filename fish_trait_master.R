@@ -205,3 +205,35 @@ write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv'
 
 
 
+
+##########################################
+# Check to see how many species are shared between Aus/JPN
+
+dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
+
+dat<-dat[which(dat$AUS_sp>0 | dat$JPN_sp>0),] # we will focus on Australia for this prelim
+
+# remove functional duplicates
+dup_trait<-paste(dat$BodySize, dat$DepthRange, dat$PLD, dat$Diet, dat$Aggregation, dat$Position, 
+                 dat$ParentalMode)
+dat<-dat[-which(duplicated(dup_trait)),]
+dat$Species<-as.character(dat$Species)
+dat[which(dat$Species=='Scarus psittacus'),]$Species<-'Scarus psittacus/spinus' # edit for one
+
+# Including those that default to duplicates via NA after gower dist
+dat<-dat[-which(dat$Species=='Caesio sp.'),]
+
+row.names(dat)<-dat$Species
+
+## Edit to some trait values from MB 25/10/18
+dat[dat$Species=='Brotula multibarbata',]$DepthRange<-219
+dat[dat$Species=='Mobula birostris',]$BodySize<-450
+dat[dat$Species=='Amphiprion sandaracinos',]$BodySize<-14
+
+nrow(dat) #689
+nrow(dat[which(dat$AUS_sp>0 & dat$JPN_sp>0 ),]) #229
+nrow(dat[which(dat$AUS_sp>0 & dat$JPN_sp==0 ),])#299
+nrow(dat[which(dat$AUS_sp==0 & dat$JPN_sp>0 ),])#161
+
+dist1<-daisy(dat[,3:9], metric='gower', stand = FALSE)
+
