@@ -1,7 +1,7 @@
 ## 11/04/19 
 ## fish trait cluster paper analyses
 
-rm(list=ls())
+#rm(list=ls())
 library(cluster)
 library(clue)
 library(fpc)
@@ -10,6 +10,8 @@ library(dendextend)
 library(circlize)
 library(vegan)
 library(caret)
+library(GGally)
+library(dplyr)
 
 # source clVal function
 source('C:/coral_fish/scripts/coral_fish/clVal.R')
@@ -57,25 +59,50 @@ dat[dat$DepthRange>=200 & !is.na(dat$DepthRange),]$DepthRange<-200
 # analyses on Aus + Jpn combined
 
 #trial to see difference between jaccad and distance measure
-jac_trial<-clVal(data=dat[,3:9], runs=50, max_cl=20, cluster_match = 'jaccard')
-dist_trial<-clVal(data=dat[,3:9], runs=50, max_cl=20, cluster_match = 'distance')
+jac_trial<-clVal(data=dat[,3:9], runs=1000, max_cl=20, subs_perc=0.95)
 
-jac_trial$stats$method='jac'
-dist_trial$stats$method='dist'
-
-outy<-rbind(jac_trial$stats, dist_trial$stats)
-
-library(GGally)
-ggpairs(outy, columns = 3:7, ggplot2::aes(colour=method))
-
-
-# see how many clusters in each regional community
 dat_aus<-dat[which(dat$AUS_sp>0),]
 
 dat_jpn<-dat[which(dat$JPN_sp>0),]
 
-aus_out<-clVal(data=dat_aus[,3:9], runs=50, max_cl=20, cluster_match = 'jaccard')
-jpn_out<-clVal(data=dat_jpn[,3:9], runs=50, max_cl=20, cluster_match = 'jaccard')
+aus_out<-clVal(data=dat_aus[,3:9], runs=1000, max_cl=20, subs_perc=0.95)
+jpn_out<-clVal(data=dat_jpn[,3:9], runs=1000, max_cl=20, subs_perc=0.95)
+
+# outputs saved to memory
+
+################## find optimal n clusters per dataset ########################
+###############################################################################
+
+# objects jac_trial (aus+jpn), aus_out and jpn_out loaded from memory
+jac_trial$stats$dis<-NULL
+aus_out$stats$dis<-NULL
+jpn_out$stats$dis<-NULL
+
+ggpairs(aus_out$stats, columns = 3:7)
+
+#ggpairs(aus_out$stats, columns = 3:7, ggplot2::aes(colour=as.character(k)))
+
+# remember silhouette won't necessarily correlate because it
+# has a polynomial relationship with the others?
+
+qplot(data=filter(aus_out$stats, k==6), x=sil, y=jac)
+
+a_melt<-melt(aus_out$stats, id.vars=c( 'k', 'runs'))
+
+ggplot(data=a_melt, aes(x=k, y=value, group=k))+
+  geom_boxplot()+facet_wrap(~variable, scales='free_y') # 7 apart from sil:9
+
+j_melt<-melt(jpn_out$stats, id.vars=c( 'k', 'runs'))
+
+ggplot(data=j_melt, aes(x=k, y=value, group=k))+
+  geom_boxplot()+facet_wrap(~variable, scales='free_y') # 10
+
+c_melt<-melt(jac_trial$stats, id.vars=c( 'k', 'runs'))
+
+ggplot(data=c_melt, aes(x=k, y=value, group=k))+
+  geom_boxplot()+facet_wrap(~variable, scales='free_y') # 10
+
+# see how many clusters in each regional community
 
 aus_out$stats$region='AUS'
 jpn_out$stats$region='JPN'
