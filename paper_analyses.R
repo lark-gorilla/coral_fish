@@ -12,6 +12,8 @@ library(vegan)
 library(caret)
 library(GGally)
 library(dplyr)
+library(reshape2)
+library(ade4)
 
 # source clVal function
 source('C:/coral_fish/scripts/coral_fish/clVal.R')
@@ -87,69 +89,92 @@ ggpairs(aus_out$stats, columns = 3:7)
 
 qplot(data=filter(aus_out$stats, k==6), x=sil, y=jac)
 
+# Australia
+
 a_melt<-melt(aus_out$stats, id.vars=c( 'k', 'runs'))
+a_sum<-a_melt%>%group_by(k, variable)%>%
+  summarise(mean=mean(value), median=median(value))
 
 ggplot(data=a_melt, aes(x=k, y=value, group=k))+
   geom_boxplot()+facet_wrap(~variable, scales='free_y') # 7 apart from sil:9
 
-j_melt<-melt(jpn_out$stats, id.vars=c( 'k', 'runs'))
+ggplot()+
+  geom_violin(data=a_melt, aes(x=k, y=value, group=k))+
+  geom_point(data=a_sum, aes(x=k, y=mean), color='red', shape=1)+
+  geom_line(data=a_sum, aes(x=k, y=mean), color='red')+
+  geom_point(data=a_sum, aes(x=k, y=median), color='green', shape=1)+
+  geom_line(data=a_sum, aes(x=k, y=median), color='green')+
+  scale_x_continuous(breaks=3:20)+
+  facet_wrap(~variable, scales='free_y')+
+  geom_vline(xintercept = 7, color='cyan')
+# 7 for most, 8 or 9 for silhouette
+p
 
-ggplot(data=j_melt, aes(x=k, y=value, group=k))+
-  geom_boxplot()+facet_wrap(~variable, scales='free_y') # 10
+#ggsave('C:/coral_fish/outputs/aus_nclust.png', width=12, height=8)
+
+# Japan
+
+j_melt<-melt(jpn_out$stats, id.vars=c( 'k', 'runs'))
+j_sum<-j_melt%>%group_by(k, variable)%>%
+  summarise(mean=mean(value), median=median(value))
+
+p<-ggplot()+
+  geom_violin(data=j_melt, aes(x=k, y=value, group=k))+
+  geom_point(data=j_sum, aes(x=k, y=mean), color='red', shape=1)+
+  geom_line(data=j_sum, aes(x=k, y=mean), color='red')+
+  geom_point(data=j_sum, aes(x=k, y=median), color='green', shape=1)+
+  geom_line(data=j_sum, aes(x=k, y=median), color='green')+
+  scale_x_continuous(breaks=3:20)+
+  facet_wrap(~variable, scales='free_y')+
+  geom_vline(xintercept = 10, color='cyan')
+# 10 for all
+
+p
+#ggsave('C:/coral_fish/outputs/jpn_nclust.png', width=12, height=8)
+
+# Combined Australia & Japan
 
 c_melt<-melt(jac_trial$stats, id.vars=c( 'k', 'runs'))
+c_sum<-c_melt%>%group_by(k, variable)%>%
+  summarise(mean=mean(value), median=median(value))
 
-ggplot(data=c_melt, aes(x=k, y=value, group=k))+
-  geom_boxplot()+facet_wrap(~variable, scales='free_y') # 10
+p<-ggplot()+
+  geom_violin(data=c_melt, aes(x=k, y=value, group=k))+
+  geom_point(data=c_sum, aes(x=k, y=mean), color='red', shape=1)+
+  geom_line(data=c_sum, aes(x=k, y=mean), color='red')+
+  geom_point(data=c_sum, aes(x=k, y=median), color='green', shape=1)+
+  geom_line(data=c_sum, aes(x=k, y=median), color='green')+
+  scale_x_continuous(breaks=3:20)+
+  facet_wrap(~variable, scales='free_y')+
+  geom_vline(xintercept = 6, color='cyan')
+# 6 for most, possibly 9
 
-# see how many clusters in each regional community
+p
+#ggsave('C:/coral_fish/outputs/combined_nclust.png', width=12, height=8)
 
-aus_out$stats$region='AUS'
-jpn_out$stats$region='JPN'
-
-library(reshape2)
-
-aj_melt<-melt(rbind(aus_out$stats, jpn_out$stats), id.vars=c('region', 'k', 'runs'))
-
-ggplot(data=aj_melt[aj_melt$region=='AUS',], aes(x=k, y=value, group=k))+
-      geom_boxplot()+facet_grid(variable~., scales='free_y')
-
-ggplot(data=aj_melt[aj_melt$region=='AUS' & aj_melt$variable=='kap',], aes(x=k, y=value, group=k))+
-  geom_boxplot()# 7
-ggplot(data=aj_melt[aj_melt$region=='AUS' & aj_melt$variable=='acc',], aes(x=k, y=value, group=k))+
-  geom_boxplot()# 7
-ggplot(data=aj_melt[aj_melt$region=='AUS' & aj_melt$variable=='sil',], aes(x=k, y=value, group=k))+
-  geom_boxplot()# 9, 14
-ggplot(data=aj_melt[aj_melt$region=='AUS' & aj_melt$variable=='jac',], aes(x=k, y=value, group=k))+
-  geom_boxplot()# 7
-ggplot(data=aj_melt[aj_melt$region=='AUS' & aj_melt$variable=='wig',], aes(x=k, y=value, group=k))+
-  geom_boxplot()# 5, 7
-## rand index ?
-
-ggplot(data=aj_melt[aj_melt$region=='JPN' & aj_melt$variable=='kap',], aes(x=k, y=value, group=k))+
-  geom_boxplot()# 10
-ggplot(data=aj_melt[aj_melt$region=='JPN' & aj_melt$variable=='acc',], aes(x=k, y=value, group=k))+
-  geom_boxplot()# 10
-ggplot(data=aj_melt[aj_melt$region=='JPN' & aj_melt$variable=='sil',], aes(x=k, y=value, group=k))+
-  geom_boxplot()# 10, 13
-ggplot(data=aj_melt[aj_melt$region=='JPN' & aj_melt$variable=='jac',], aes(x=k, y=value, group=k))+
-  geom_boxplot()# 10
-ggplot(data=aj_melt[aj_melt$region=='JPN' & aj_melt$variable=='wig',], aes(x=k, y=value, group=k))+
-  geom_boxplot()# 10, 13
 
 # can now check individual cluster stability to see which is best
-rowMeans(aus_out$jaccard[[7]])
-rowMeans(aus_out$jaccard[[9]])
-rowMeans(aus_out$jaccard[[14]])
 
-summary(rowMeans(aus_out$jaccard[[7]])) #best
-summary(rowMeans(aus_out$jaccard[[9]]))
-summary(rowMeans(aus_out$jaccard[[14]]))
+summary(aus_out)
+
+rowMeans(aus_out$jaccard[[7]])
+rowMeans(aus_out$jaccard[[8]])
+rowMeans(aus_out$jaccard[[9]])
 
 rowMeans(jpn_out$jaccard[[10]])
 rowMeans(jpn_out$jaccard[[13]])
 
+rowMeans(jac_trial$jaccard[[6]])
+rowMeans(jac_trial$jaccard[[9]])
 
-summary(rowMeans(jpn_out$jaccard[[10]])) # best (lowest), but pretty much even
-summary(rowMeans(jpn_out$jaccard[[13]]))
+apply(jac_trial$jaccard[[9]], 1, var)
 
+# Do PCA of optimal clustering solution
+
+aus7<-aus_out$clust_centres[aus_out$clust_centres$kval==7,]
+
+
+
+#maybe need to stand and centre before distance calc to be sure..? (see vegan)
+
+d1<-daisy(aus7[,4:28], metric='euclidean', stand=T, weights=rep(1, 25))
