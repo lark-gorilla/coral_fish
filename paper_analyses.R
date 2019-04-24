@@ -173,8 +173,26 @@ apply(jac_trial$jaccard[[9]], 1, var)
 
 aus7<-aus_out$clust_centres[aus_out$clust_centres$kval==7,]
 
+# setup weights for each column, factors penalised for n levels
+my_wgt<-c(1,1,1,rep(1/7, 7), rep(1/4, 4), rep(1/6, 6), rep(1/5, 5))
+
+xpand <- function(d) do.call("expand.grid", rep(list(1:nrow(d)), 2))
+euc_norm <- function(x) sqrt(sum(x^2))
+euc_dist <- function(mat, weights=1) {
+  iter <- xpand(mat)
+  vec <- mapply(function(i,j) euc_norm(weights*(mat[i,] - mat[j,])), 
+                iter[,1], iter[,2])
+  matrix(vec,nrow(mat), nrow(mat))
+}
+
+wgt_dist<-euc_dist(mat=aus7[,4:28], weights=my_wgt)
+
+scl_wt<-corpcor::wt.scale(aus7[,4:28], w=my_wgt, center=T, scale=T)
 
 
 #maybe need to stand and centre before distance calc to be sure..? (see vegan)
 
 d1<-daisy(aus7[,4:28], metric='euclidean', stand=T, weights=rep(1, 25))
+
+
+d1<-scalewt(aus7[,4:28])
