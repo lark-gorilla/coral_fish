@@ -26,7 +26,7 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
     clust_spec<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
     clust_jacc<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
     
-    out_metrics<-data.frame(k=o, runs=1:runs, kap=NA, acc=NA, jac=NA, wig=NA, sil=NA)
+    out_metrics<-data.frame(k=o, runs=1:runs, kap=NA, acc=NA, rnd=NA, jac=NA, wig=NA, sil=NA)
 
     for ( i in 1:runs)
     {
@@ -100,6 +100,22 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
       }
       
       
+      table(subcut, bcut[which(names(bcut) %in% names(subcut))])
+      
+      ### adjusted rand index, code hacked from mclust::adjustedRandIndex
+      
+      tab <- table(subcut, bcut[which(names(bcut) %in% names(subcut))])
+      if (all(dim(tab) == c(1, 1))) 
+        return(1)
+      a <- sum(choose(tab, 2))
+      b <- sum(choose(rowSums(tab), 2)) - a
+      c <- sum(choose(colSums(tab), 2)) - a
+      d <- choose(sum(tab), 2) - a - b - c
+      ARI <- (a - (a + b) * (a + c)/(a + b + c + d))/((a + b + 
+                   a + c)/2 - (a + b) * (a + c)/(a + b + c + d))
+      
+      out_metrics[i,]$rnd<- ARI
+      
       # re-order confusion matrix using jc2 max similarities 
       
       mymatch=jc_match2
@@ -117,6 +133,9 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
       
       # confusion matrix
       my_conf<-confusionMatrix(as.table(sp3)) 
+      
+      dimnames(sp3)[[1]]<-1:dim(sp3)[[1]]
+      dimnames(sp3)[[2]]<-1:dim(sp3)[[2]]
       
       #sanity check
       #http://www.marcovanetti.com/pages/cfmatrix
