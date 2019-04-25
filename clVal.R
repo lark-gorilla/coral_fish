@@ -79,7 +79,7 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
         
       {
         clust_sp<-subdata[which(subcut==h),]
-        my_out<-do.call(c, lapply(as.list(clust_sp), function(x){if(is.factor(x)) {table(x)}else{median(x, na.rm=T)}}))
+        my_out<-do.call('c', lapply(as.list(clust_sp), function(x){if(is.factor(x)) {table(x)}else{median(x, na.rm=T)}}))
         out2<-data.frame(run=i, kval=o, cluster= h, as.list(my_out))
         clust_cent<-rbind(clust_cent, out2)
       }  
