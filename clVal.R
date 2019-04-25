@@ -1,9 +1,8 @@
-clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
+clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95, fast.k.h=0.3)
  
 {
   require(cluster)
   require(fpc)
-  require(caret)
   require(dendextend)
   
   dist1<-daisy(data, metric='gower', stand = FALSE)
@@ -22,11 +21,9 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
     bcut<-cutree(btree, k=kval)
     
     wigl_out<-matrix(data=NA, nrow=nrow(data), ncol=runs, dimnames=list(row.names(data), 1:runs))
-    clust_sens<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
-    clust_spec<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
     clust_jacc<-matrix(data=NA, nrow=kval, ncol=runs, dimnames=list(paste('clust', 1:kval, sep=''), 1:runs))
     
-    out_metrics<-data.frame(k=o, runs=1:runs, kap=NA, acc=NA, rnd=NA, jac=NA, wig=NA, sil=NA)
+    out_metrics<-data.frame(k=o, runs=1:runs, rnd=NA, jac=NA, wig=NA, sil=NA)
 
     for ( i in 1:runs)
     {
@@ -86,22 +83,7 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
       clust_cent$jc_match<-jc_match
       out_centres<-rbind(out_centres, clust_cent)
       
-      # make confusion matrix of clustering. COLUMNS= FULL CLUSTER, ROWS=SUBSAMPLE CLUSTERS
-      sp2<-matrix(data=NA, nrow=kval, ncol=kval)
-      
-      for(k in 1:kval)
-      {
-        sp_cl<-names(subcut)[subcut==k]
-        
-        full_sp<-list()
-        for(j in 1:kval){full_sp[[j]]<-names(bcut)[bcut==j]}
-        
-        sp2[k,1:kval]<-unlist(lapply(full_sp, function(x){length(which(sp_cl %in% x))}))
-      }
-      
-      
-      table(subcut, bcut[which(names(bcut) %in% names(subcut))])
-      
+
       ### adjusted rand index, code hacked from mclust::adjustedRandIndex
       
       tab <- table(subcut, bcut[which(names(bcut) %in% names(subcut))])
@@ -116,45 +98,6 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
       
       out_metrics[i,]$rnd<- ARI
       
-      # re-order confusion matrix using jc2 max similarities 
-      
-      mymatch=jc_match2
-      
-      sp3<-sp2[mymatch,] # reorders rows based on most likely match
-      
-      # give lumped clusters a 0 for row
-      sp3[ which(duplicated(mymatch)),]<-0 # need to improve, remove row based on n sp
-      # also use while.. could also use jc_match
-      
-      # make new col and row for split clusters
-      
-      sp3<-rbind(sp3, sp2[which(!1:kval %in% mymatch),])
-      while(ncol(sp3)<nrow(sp3)){sp3<-cbind(sp3, 0)}
-      
-      # confusion matrix
-      my_conf<-confusionMatrix(as.table(sp3)) 
-      
-      dimnames(sp3)[[1]]<-1:dim(sp3)[[1]]
-      dimnames(sp3)[[2]]<-1:dim(sp3)[[2]]
-      
-      #sanity check
-      #http://www.marcovanetti.com/pages/cfmatrix
-      ## acc<-sum(diag(my_conf$table))/sum(my_conf$table)
-      ## exp_acc<-sum(my_conf$byClass[,'Prevalence']*my_conf$byClass[,'Detection Prevalence'])
-      ## kap<- (acc - exp_acc)/(1 - exp_acc)
-      
-      out_metrics[i,]$acc<- my_conf$overall[1]
-      out_metrics[i,]$kap<- my_conf$overall[2]
-      # although we have inflated the confusion matrix with splitters we do not output
-      # these as only interested in changes to original clusters. The edits to the confusion
-      # matrix via lumpers and splitters change the sens/spec of each original cluster - which is what we want
-      
-      clust_sens[,i]<-my_conf$byClass[1:kval,1] # this tells how accurately species in original
-      # cluster are still in subs cluster (identical/splitting) 
-      
-      clust_spec[,i]<-my_conf$byClass[1:kval,2] # this tells how accurately species in sub
-      # cluster are from the same original cluster (identical/lumped) 
-      
       # get h val from k val
       # hacked function from dendextend function heights_per_k.dendrogram()
       
@@ -164,11 +107,15 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
       heights_to_remove_for_A_cut <- min(-diff(our_dend_heights))/2
       heights_to_cut_by <- c((max(our_dend_heights) + heights_to_remove_for_A_cut), 
                              (our_dend_heights - heights_to_remove_for_A_cut))
-      heights_to_cut_by<-heights_to_cut_by[heights_to_cut_by>0.3] # hack to only do larger clusters = reduces time
+      heights_to_cut_by<-heights_to_cut_by[heights_to_cut_by>fast.k.h] # hack to only do larger clusters = reduces time
       names(heights_to_cut_by) <- sapply(heights_to_cut_by, function(h) {
         length(cut(dend, h = h)$lower)})
       
       cutval<-heights_to_cut_by[names(heights_to_cut_by)==kval]
+      
+      if(length(cutval)==0){
+        print(paste('looking for', o, 'clusters in dendrogram went below fast cutoff search limit, set lower value for fast.k.h', sep=' '))
+        break}
       
       # copo distance per species
       copo2<-as.matrix(cophenetic(subtree))
@@ -182,7 +129,7 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
       {
         full_n_clust<-names(bcut)[bcut==k]
         
-        cl_cop_mv<-sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust), mymatch[k]] 
+        cl_cop_mv<-sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust), jc_match2[k]] 
         # using jc2_match2 here lines up original cluster with most similar subs cluster 
         
         wigl_out[which(dimnames(wigl_out)[[1]] %in% names(cl_cop_mv)),i]<-cl_cop_mv
@@ -196,15 +143,12 @@ clVal<-function(data=data, runs=10,  max_cl=20, subs_perc=0.95)
       print(o)
       
       wigl_list[[o]]<-wigl_out
-      sens_list[[o]]<-clust_sens
-      spec_list[[o]]<-clust_spec
       jacc_list[[o]]<-clust_jacc
       
     }
     stats_out<-rbind(stats_out, out_metrics)
   }
   
-all_out<-list(n_runs=runs, stats=stats_out, clust_centres=out_centres, wiggle=wigl_list, sensitivity=sens_list, 
-                specificity=spec_list, jaccard=jacc_list)
+all_out<-list(n_runs=runs, stats=stats_out, clust_centres=out_centres, wiggle=wigl_list, jaccard=jacc_list)
 return(all_out)
 }
