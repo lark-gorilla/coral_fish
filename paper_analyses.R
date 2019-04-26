@@ -14,10 +14,14 @@ library(GGally)
 library(dplyr)
 library(reshape2)
 library(ade4)
+library(ggrepel)
+library(adehabitatHR)
+library(sf)
+library(gridExtra)
 
 # source clVal function
 source('C:/coral_fish/scripts/coral_fish/clVal.R')
-
+source('C:/coral_fish/scripts/coral_fish/functions.R')
 
 #################### data clean ##########################
 ##########################################################
@@ -61,8 +65,6 @@ dat[dat$DepthRange>=200 & !is.na(dat$DepthRange),]$DepthRange<-200
 # analyses on Aus + Jpn combined
 
 #trial to see difference between jaccad and distance measure
-jac_trial<-clVal(data=dat[,3:9], runs=1000, max_cl=20, subs_perc=0.95)
-
 dat_aus<-dat[which(dat$AUS_sp>0),]
 
 dat_jpn<-dat[which(dat$JPN_sp>0),]
@@ -70,15 +72,15 @@ dat_jpn<-dat[which(dat$JPN_sp>0),]
 aus_out<-clVal(data=dat_aus[,3:9], runs=1000, max_cl=20, subs_perc=0.95)
 jpn_out<-clVal(data=dat_jpn[,3:9], runs=1000, max_cl=20, subs_perc=0.95)
 
+jac_trial<-clVal(data=dat[,3:9], runs=1000, max_cl=20, subs_perc=0.95)
+
+
 # outputs saved to memory
 
 ################## find optimal n clusters per dataset ########################
 ###############################################################################
 
 # objects jac_trial (aus+jpn), aus_out and jpn_out loaded from memory
-jac_trial$stats$dis<-NULL
-aus_out$stats$dis<-NULL
-jpn_out$stats$dis<-NULL
 
 ggpairs(aus_out$stats, columns = 3:7)
 
@@ -110,7 +112,7 @@ ggplot()+
 # 7 for most, 8 or 9 for silhouette
 p
 
-#ggsave('C:/coral_fish/outputs/aus_nclust.png', width=12, height=8)
+#ggsave('C:/coral_fish/outputs/aus_nclust2.png', width=8, height=8)
 
 # Japan
 
@@ -130,7 +132,7 @@ p<-ggplot()+
 # 10 for all
 
 p
-#ggsave('C:/coral_fish/outputs/jpn_nclust.png', width=12, height=8)
+#ggsave('C:/coral_fish/outputs/jpn_nclust2.png', width=8, height=8)
 
 # Combined Australia & Japan
 
@@ -150,7 +152,7 @@ p<-ggplot()+
 # 6 for most, possibly 9
 
 p
-#ggsave('C:/coral_fish/outputs/combined_nclust.png', width=12, height=8)
+#ggsave('C:/coral_fish/outputs/combined_nclust.png', width=8, height=8)
 
 
 # can now check individual cluster stability to see which is best
@@ -161,38 +163,96 @@ rowMeans(aus_out$jaccard[[7]])
 rowMeans(aus_out$jaccard[[8]])
 rowMeans(aus_out$jaccard[[9]])
 
+lapply(aus_out$jaccard, function(x){min(rowMeans(data.frame(x)))})
+
 rowMeans(jpn_out$jaccard[[10]])
 rowMeans(jpn_out$jaccard[[13]])
+rowMeans(jpn_out$jaccard[[16]])
+
+lapply(jpn_out$jaccard, function(x){min(rowMeans(data.frame(x)))})
 
 rowMeans(jac_trial$jaccard[[6]])
 rowMeans(jac_trial$jaccard[[9]])
 
+lapply(jac_trial$jaccard, function(x){min(rowMeans(data.frame(x)))})
+
+
 apply(jac_trial$jaccard[[9]], 1, var)
 
-# Do PCA of optimal clustering solution
 
-aus7<-aus_out$clust_centres[aus_out$clust_centres$kval==7,]
+################## PCA of optimal clustering solution  ########################
+###############################################################################
 
-# setup weights for each column, factors penalised for n levels
+# edit NA values in JPN DepthRange & PLD
+#apply(jpn_out$clust_cent, 2, function(x){TRUE %in% is.na(x)})
+
+jpn_out$clust_cent<-jpn_out$clust_cent %>% group_by(kval, jc_match) %>%
+  mutate(PLD=replace(PLD, is.na(PLD), mean(PLD, na.rm=T)),
+         DepthRange=replace(DepthRange, is.na(DepthRange), mean(DepthRange, na.rm=T))) %>%
+  as.data.frame()
+
+# Australia
+
+aus_pca<-pca_vis(rundat=dat_aus[,3:9], clValresult=aus_out, kval=7)
+
+jpn_pca<-pca_vis(rundat=dat_jpn[,3:9], clValresult=jpn_out, kval=10)
+
+png('C:/coral_fish/outputs/aus_pca3.png', width=4, height=12, units ="in", res=600)
+grid.arrange(aus_pca[[4]], aus_pca[[5]], aus_pca[[6]], nrow=3)
+dev.off()
+
+# add cluster centre for full dataset ~ cluster centroid
+
+enviro.sites.scores<-as.data.frame(scores(aus7_pca, display='sites', scaling=1)) 
+enviro.sites.scores$jc_match<-aus7$jc_match
+# i've put scaling to 1 for the sites to fit better on the plot
+
+# Now make some plots
+enviro.species.scores<-as.data.frame(scores(aus7_pca, display='species'))
+enviro.species.scores$Predictors<-colnames(aus7[,4:28])
+#enviro.species.scores$Pred_codes<-codez
+head(enviro.species.scores)
+
+g<- ggplot()+
+  geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+  geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
+  geom_point(data=enviro.sites.scores, aes(y=Axis2, x=Axis1, colour=factor(jc_match)))+
+  geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=Comp2, xend=Comp1), arrow=arrow(length=unit(0.3,'lines')), colour='red')+
+  theme_classic()+theme(legend.position = "none") 
+
+g<-g+geom_text_repel(data=enviro.species.scores, aes(y=Comp2*2, x=Comp1*2, label=Predictors), segment.size=NA, colour='red')
+
+eig<-aus7_pca$eig
+g<- g+scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+
+g
+
+## kernel areas
+
+jpn10<-jpn_out$clust_centres[jpn_out$clust_centres$kval==3,]
+
 my_wgt<-c(1,1,1,rep(1/7, 7), rep(1/4, 4), rep(1/6, 6), rep(1/5, 5))
 
-xpand <- function(d) do.call("expand.grid", rep(list(1:nrow(d)), 2))
-euc_norm <- function(x) sqrt(sum(x^2))
-euc_dist <- function(mat, weights=1) {
-  iter <- xpand(mat)
-  vec <- mapply(function(i,j) euc_norm(weights*(mat[i,] - mat[j,])), 
-                iter[,1], iter[,2])
-  matrix(vec,nrow(mat), nrow(mat))
-}
+jpn10_pca<-dudi.pca(jpn10[,4:28], col.w=my_wgt, center=T, scale=T, scannf = FALSE, nf = 3)
 
-wgt_dist<-euc_dist(mat=aus7[,4:28], weights=my_wgt)
+jpn10<-cbind(jpn10, jpn10_pca$li)
 
-scl_wt<-corpcor::wt.scale(aus7[,4:28], w=my_wgt, center=T, scale=T)
+spdf<-SpatialPointsDataFrame(coords=cbind(aus7$Axis1, aus7$Axis2),
+                       data=data.frame(jc_match=factor(aus7$jc_match)))
+
+KDE.Surface <- kernelUD(spdf,same4all = T, h=0.05, grid=1000)
+kernel.area(KDE.Surface, percent = c(25, 50, 75, 95), standardize = T)
+
+KDE.UD <- getverticeshr(KDE.Surface, percent = 99)
+
+KDE.Surface <- kernelUD(spdf, h='LSCV', same4all = T)
+
+KDE.Surface <- kernelUD(data.frame(TripCoords[,1], TripCoords[,2]), id=Trip$ID, h=(Scale * 1000), grid=100, extent=BExt, same4all=FALSE)
+KDE.UD <- getverticeshr(KDE.Surface, lev = UDLev)
+KDE.Sp1 <- kver2spol(KDE.UD)
 
 
-#maybe need to stand and centre before distance calc to be sure..? (see vegan)
+# plots
 
-d1<-daisy(aus7[,4:28], metric='euclidean', stand=T, weights=rep(1, 25))
-
-
-d1<-scalewt(aus7[,4:28])
+ppp+geom_point(data=aus7[1:(nrow(aus7)-kval),], aes(x=Axis1, y=Axis2, colour=factor(jc_match)), shape=3)+geom_sf(data=pols, colour=rainbow(7), alpha=0.5)+scale_color_manual(values=rainbow(7))
