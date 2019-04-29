@@ -186,20 +186,41 @@ apply(jac_trial$jaccard[[9]], 1, var)
 # edit NA values in JPN DepthRange & PLD
 #apply(jpn_out$clust_cent, 2, function(x){TRUE %in% is.na(x)})
 
-jpn_out$clust_cent<-jpn_out$clust_cent %>% group_by(kval, jc_match) %>%
+jpn_out$clust_centres<-jpn_out$clust_centres %>% group_by(kval, jc_match) %>%
   mutate(PLD=replace(PLD, is.na(PLD), mean(PLD, na.rm=T)),
          DepthRange=replace(DepthRange, is.na(DepthRange), mean(DepthRange, na.rm=T))) %>%
   as.data.frame()
 
 # Australia
 
-aus_pca<-pca_vis(rundat=dat_aus[,3:9], clValresult=aus_out, kval=7)
+aus_pca<-pca_vis(rundat=dat_aus[,3:9], clValresult=aus_out$clust_centres, kval=7)
 
-jpn_pca<-pca_vis(rundat=dat_jpn[,3:9], clValresult=jpn_out, kval=10)
+jpn_pca<-pca_vis(rundat=dat_jpn[,3:9], clValresult=jpn_out$clust_centres, kval=10)
 
-png('C:/coral_fish/outputs/aus_pca3.png', width=4, height=12, units ="in", res=600)
-grid.arrange(aus_pca[[4]], aus_pca[[5]], aus_pca[[6]], nrow=3)
+png('C:/coral_fish/outputs/aus_jpn_pca3.png', width=12, height=8, units ="in", res=600)
+
+grid.arrange(aus_pca[[4]], aus_pca[[5]], aus_pca[[6]],
+             jpn_pca[[4]], jpn_pca[[5]], jpn_pca[[6]],ncol=3, nrow=2)
 dev.off()
+
+#kernel areas
+
+aus_area<-round(t(rbind(aus_pca$area1.2,aus_pca$area1.3, aus_pca$area2.3))*1000, 6)
+aus_area<-aus_area[order(aus_area[,2], decreasing = T),]
+View(aus_area)
+
+## OLD code to get env variable on pca arrows
+
+aus7<-aus_out$clust_centres[aus_out$clust_centres$kval==7,]
+
+## Run PCA
+
+# setup weights for each column, factors penalised for n levels
+my_wgt<-c(1,1,1,rep(1/7, 7), rep(1/4, 4), rep(1/6, 6), rep(1/5, 5))
+
+aus7_pca<-dudi.pca(aus7[,4:28], col.w=my_wgt, center=T, scale=T, scannf = FALSE, nf = 3)
+
+aus7<-cbind(aus7, aus7_pca$li)
 
 # add cluster centre for full dataset ~ cluster centroid
 
@@ -216,43 +237,16 @@ head(enviro.species.scores)
 g<- ggplot()+
   geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
   geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
-  geom_point(data=enviro.sites.scores, aes(y=Axis2, x=Axis1, colour=factor(jc_match)))+
-  geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=Comp2, xend=Comp1), arrow=arrow(length=unit(0.3,'lines')), colour='red')+
-  theme_classic()+theme(legend.position = "none") 
+  geom_point(data=enviro.sites.scores, aes(y=Axis2, x=Axis1, colour=factor(jc_match)), shape=3)+
+  geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=Comp2, xend=Comp1), arrow=arrow(length=unit(0.3,'lines')))+
+  theme_classic()+theme(legend.position = "none")+scale_color_manual(values=rainbow(7)) 
 
-g<-g+geom_text_repel(data=enviro.species.scores, aes(y=Comp2*2, x=Comp1*2, label=Predictors), segment.size=NA, colour='red')
+g<-g+geom_text_repel(data=enviro.species.scores, aes(y=Comp2*2, x=Comp1*2, label=Predictors), segment.size=NA)
 
 eig<-aus7_pca$eig
 g<- g+scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
 
+#png('C:/coral_fish/outputs/aus_env.png', width=8, height=8, units ="in", res=600)
 g
-
-## kernel areas
-
-jpn10<-jpn_out$clust_centres[jpn_out$clust_centres$kval==3,]
-
-my_wgt<-c(1,1,1,rep(1/7, 7), rep(1/4, 4), rep(1/6, 6), rep(1/5, 5))
-
-jpn10_pca<-dudi.pca(jpn10[,4:28], col.w=my_wgt, center=T, scale=T, scannf = FALSE, nf = 3)
-
-jpn10<-cbind(jpn10, jpn10_pca$li)
-
-spdf<-SpatialPointsDataFrame(coords=cbind(aus7$Axis1, aus7$Axis2),
-                       data=data.frame(jc_match=factor(aus7$jc_match)))
-
-KDE.Surface <- kernelUD(spdf,same4all = T, h=0.05, grid=1000)
-kernel.area(KDE.Surface, percent = c(25, 50, 75, 95), standardize = T)
-
-KDE.UD <- getverticeshr(KDE.Surface, percent = 99)
-
-KDE.Surface <- kernelUD(spdf, h='LSCV', same4all = T)
-
-KDE.Surface <- kernelUD(data.frame(TripCoords[,1], TripCoords[,2]), id=Trip$ID, h=(Scale * 1000), grid=100, extent=BExt, same4all=FALSE)
-KDE.UD <- getverticeshr(KDE.Surface, lev = UDLev)
-KDE.Sp1 <- kver2spol(KDE.UD)
-
-
-# plots
-
-ppp+geom_point(data=aus7[1:(nrow(aus7)-kval),], aes(x=Axis1, y=Axis2, colour=factor(jc_match)), shape=3)+geom_sf(data=pols, colour=rainbow(7), alpha=0.5)+scale_color_manual(values=rainbow(7))
+#dev.off()
