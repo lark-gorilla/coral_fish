@@ -43,9 +43,7 @@ dat[which(dat$Species=='Scarus psittacus'),]$Species<-'Scarus psittacus/spinus' 
 
 # Including those that default to duplicates via NA after gower dist
 dat<-dat[-which(dat$Species=='Caesio sp.'),]
-dat<-dat[-which(dat$Species=='Choerodon cyanodus'),]
 dat<-dat[-which(dat$Species=='Ostracion immaculatus'),]
-
 
 row.names(dat)<-dat$Species
 
@@ -178,7 +176,7 @@ lapply(jac_trial$jaccard, function(x){min(rowMeans(data.frame(x)))})
 
 
 apply(jac_trial$jaccard[[9]], 1, var)
-
+table(aus_out$clust_centres[aus_out$clust_centres$kval==7,]$jc_match)
 
 ################## PCA of optimal clustering solution  ########################
 ###############################################################################
@@ -208,6 +206,47 @@ dev.off()
 aus_area<-round(t(rbind(aus_pca$area1.2,aus_pca$area1.3, aus_pca$area2.3))*1000, 6)
 aus_area<-aus_area[order(aus_area[,2], decreasing = T),]
 View(aus_area)
+
+# species in clusters and wiggliness
+# Australia
+aus_7_wig<-rowMeans(aus_out$wiggle[[7]], na.rm=T)
+full_aus_clust<-cutree(hclust(daisy(dat_aus[,3:9], metric='gower', stand = FALSE), method='average'), k=7)
+
+cl_sp<-data.frame(Species=attr(full_aus_clust, "names"), cluster=full_aus_clust, wiggliness=aus_7_wig)
+cl_sp<-cl_sp[order(cl_sp$cluster, cl_sp$wiggliness),]
+#write.csv(cl_sp, 'C:/coral_fish/outputs/aus_clust_wigg.csv', quote=F, row.names=F)
+
+# Japan
+jpn_10_wig<-rowMeans(jpn_out$wiggle[[7]], na.rm=T)
+full_jpn_clust<-cutree(hclust(daisy(dat_jpn[,3:9], metric='gower', stand = FALSE), method='average'), k=10)
+
+cl_sp<-data.frame(Species=attr(full_jpn_clust, "names"), cluster=full_jpn_clust, wiggliness=jpn_10_wig)
+cl_sp<-cl_sp[order(cl_sp$cluster, cl_sp$wiggliness),]
+#write.csv(cl_sp, 'C:/coral_fish/outputs/jpn_clust_wigg.csv', quote=F, row.names=F)
+
+# Summarise clusters by traits from full data
+
+
+
+clust_cent<-NULL
+for(h in 1:kval)
+  
+{
+  clust_sp<-subdata[which(subcut==h),]
+  my_out<-do.call('c', lapply(as.list(clust_sp), function(x){if(is.factor(x)) {table(x)}else{median(x, na.rm=T)}}))
+  out2<-data.frame(run=i, kval=o, cluster= h, as.list(my_out))
+  clust_cent<-rbind(clust_cent, out2)
+}  
+
+
+
+hclust(daisy(dat_jpn[,3:9], metric='gower', stand = FALSE), method='average') %>%
+  as.dendrogram() %>% set("labels", full_jpn_clust) %>%
+  set("branches_k_color", k=10) %>% plot
+
+hclust(daisy(dat_aus[,3:9], metric='gower', stand = FALSE), method='average') %>%
+  as.dendrogram() %>% set("labels", full_aus_clust) %>%
+  set("branches_k_color", k=7) %>% plot
 
 ## OLD code to get env variable on pca arrows
 
@@ -250,3 +289,44 @@ g<- g+scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)', 100* e
 #png('C:/coral_fish/outputs/aus_env.png', width=8, height=8, units ="in", res=600)
 g
 #dev.off()
+
+ggplot()+
+       geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+       geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
+       geom_point(data=enviro.sites.scores, aes(y=Axis2, x=Axis1, colour=factor(jc_match)), shape=3)+
+       geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=Comp2*2, xend=Comp1*2), arrow=arrow(length=unit(0.3,'lines')))+geom_text(data=enviro.species.scores, aes(y=Comp2*2, x=Comp1*2, label=Predictors), colour=1)+
+       theme_classic()+theme(legend.position = "none")+scale_color_manual(values=rainbow(7)) 
+
+
+# for maria
+ggsave(aus_pca[[4]], file="C:/coral_fish/outputs/aus_1.2.eps", device="eps")
+
+## PCoA of actual groups
+
+g<- ggplot()+
+  geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+  geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
+  geom_point(data=enviro.sites.scores, aes(y=Axis2, x=Axis1, colour=factor(jc_match)), shape=3)+
+  geom_segment(data=enviro.species.scores, aes(y=0, x=0, yend=Comp2, xend=Comp1), arrow=arrow(length=unit(0.3,'lines')))+
+  theme_classic()+theme(legend.position = "none")+scale_color_manual(values=rainbow(7)) 
+
+g<-g+geom_text_repel(data=enviro.species.scores, aes(y=Comp2*2, x=Comp1*2, label=Predictors), segment.size=NA)
+
+eig<-aus7_pca$eig
+g<- g+scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+
+
+dp<-dudi.pco(d = daisy(dat_jpn[,3:9], metric='gower', stand = FALSE),
+         scannf = FALSE, nf = 2)
+full_jpn_clust<-cutree(hclust(daisy(dat_jpn[,3:9], metric='gower', stand = FALSE), method='average'), k=10)
+
+dp<-data.frame(dp$li, cluster=full_jpn_clust)
+
+g<- ggplot()+
+  geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+  geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')+
+  geom_point(data=dp, aes(y=A2, x=A1, colour=factor(cluster)))+
+  theme_classic()+scale_color_manual(values=rainbow(10))+labs(xlab='PC1', ylab='PC2') 
+
+
