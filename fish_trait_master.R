@@ -191,7 +191,7 @@ bigtrait2[which(bigtrait2$Position=='EchinodermAssociated'),]$Position<-'Benthic
 bigtrait2[which(bigtrait2$Position=='SandAssociated'),]$Position<-'BenthicSpecialist'
 
 # option 2
-#bigtrait2[which(bigtrait2$Position=='BenthicSpecialist'),]$Position<-'Demersal'
+bigtrait2[which(bigtrait2$Position=='BenthicSpecialist'),]$Position<-'Demersal'
 
 table(bigtrait2$ParentalMode)
 bigtrait2[which(bigtrait2$ParentalMode=='Brooders'),]$ParentalMode<-'brooders'
