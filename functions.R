@@ -3,7 +3,6 @@
 
 ## function to do pca, get axis 1:3, calc kernel density for UD 50 & 99 and make plots
 
-
 pca_vis<-function(rundat=dat, clValresult=clv, kval=7)
 {  
   require(ade4)
@@ -52,7 +51,7 @@ pca_vis<-function(rundat=dat, clValresult=clv, kval=7)
   
   k1_2<-kernel.area(KDE.Surface, percent = c(50, 99))
   
-  KDE.UD <- getverticeshr(KDE.Surface, percent = 99)
+  KDE.UD1_2 <- getverticeshr(KDE.Surface, percent = 99)
   
   ## plotting
   
@@ -60,7 +59,7 @@ pca_vis<-function(rundat=dat, clValresult=clv, kval=7)
   g1_2<- ggplot()+
     geom_hline(yintercept=0, linetype="dotted") + 
     geom_vline(xintercept=0,  linetype="dotted")+
-    geom_sf(data=st_as_sf(KDE.UD), colour=rainbow(kval), alpha=0.5)+
+    geom_sf(data=st_as_sf(KDE.UD1_2), colour=rainbow(kval), alpha=0.5)+
     geom_point(data=aus7[1:(nrow(aus7)-kval),], aes(x=Axis1, y=Axis2, colour=factor(jc_match)), shape=3)+
     geom_point(data=aus7[(nrow(aus7)-(kval-1)):nrow(aus7),],
                aes(x=Axis1, y=Axis2, fill=factor(jc_match)), shape=21, colour='black', size=3)+
@@ -83,7 +82,7 @@ pca_vis<-function(rundat=dat, clValresult=clv, kval=7)
   
   k1_3<-kernel.area(KDE.Surface, percent = c(50, 99))
   
-  KDE.UD <- getverticeshr(KDE.Surface, percent = 99)
+  KDE.UD1_3 <- getverticeshr(KDE.Surface, percent = 99)
   
   ## plotting
   
@@ -91,7 +90,7 @@ pca_vis<-function(rundat=dat, clValresult=clv, kval=7)
   g1_3<- ggplot()+
     geom_hline(yintercept=0, linetype="dotted") + 
     geom_vline(xintercept=0,  linetype="dotted")+
-    geom_sf(data=st_as_sf(KDE.UD), colour=rainbow(kval), alpha=0.5)+
+    geom_sf(data=st_as_sf(KDE.UD1_3), colour=rainbow(kval), alpha=0.5)+
     geom_point(data=aus7[1:(nrow(aus7)-kval),], aes(x=Axis1, y=Axis3, colour=factor(jc_match)), shape=3)+
     geom_point(data=aus7[(nrow(aus7)-(kval-1)):nrow(aus7),],
                aes(x=Axis1, y=Axis3, fill=factor(jc_match)), shape=21, colour='black', size=3)+
@@ -113,7 +112,7 @@ pca_vis<-function(rundat=dat, clValresult=clv, kval=7)
   
   k2_3<-kernel.area(KDE.Surface, percent = c(50, 99))
   
-  KDE.UD <- getverticeshr(KDE.Surface, percent = 99)
+  KDE.UD2_3 <- getverticeshr(KDE.Surface, percent = 99)
   
   ## plotting
   
@@ -121,7 +120,7 @@ pca_vis<-function(rundat=dat, clValresult=clv, kval=7)
   g2_3<- ggplot()+
     geom_hline(yintercept=0, linetype="dotted") + 
     geom_vline(xintercept=0,  linetype="dotted")+
-    geom_sf(data=st_as_sf(KDE.UD), colour=rainbow(kval), alpha=0.5)+
+    geom_sf(data=st_as_sf(KDE.UD2_3), colour=rainbow(kval), alpha=0.5)+
     geom_point(data=aus7[1:(nrow(aus7)-kval),], aes(x=Axis2, y=Axis3, colour=factor(jc_match)), shape=3)+
     geom_point(data=aus7[(nrow(aus7)-(kval-1)):nrow(aus7),],
                aes(x=Axis2, y=Axis3, fill=factor(jc_match)), shape=21, colour='black', size=3)+
@@ -132,5 +131,6 @@ pca_vis<-function(rundat=dat, clValresult=clv, kval=7)
   g2_3<- g2_3+scale_y_continuous(paste('PC3', sprintf('(%0.1f%% explained var.)', 100* eig[3]/sum(eig))))+
     scale_x_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))
   
-  return(list(area1.2=k1_2, area1.3=k1_3, area2.3=k2_3, g1.2=g1_2, g1.3=g1_3, g2.3=g2_3))
+  return(list(area1.2=k1_2, area1.3=k1_3, area2.3=k2_3, g1.2=g1_2, g1.3=g1_3, g2.3=g2_3,
+              UD1_2=KDE.UD1_2, UD1_3=KDE.UD1_3,UD2_3=KDE.UD2_3, full_cent=aus7[(nrow(aus7)-(kval-1)):nrow(aus7),]))
 }
