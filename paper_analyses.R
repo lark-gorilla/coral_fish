@@ -201,6 +201,23 @@ grid.arrange(aus_pca[[4]], aus_pca[[5]], aus_pca[[6]],
              jpn_pca[[4]], jpn_pca[[5]], jpn_pca[[6]],ncol=3, nrow=2)
 dev.off()
 
+#overlap plot
+
+mycol7<-c('#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69')
+
+mycol10<-c('#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd')
+
+
+g1_2<- ggplot()+
+  geom_hline(yintercept=0, linetype="dotted") + 
+  geom_vline(xintercept=0,  linetype="dotted")+
+  geom_sf(data=st_as_sf(aus_pca$UD1_2), colour=mycol7, alpha=0.5)+
+  geom_sf(data=st_as_sf(jpn_pca$UD1_2), colour=mycol10, alpha=0.5, linetype='dotted')+
+  geom_point(data=aus_pca$full_cent, aes(x=Axis1, y=Axis2, fill=mycol7), shape=21, colour='black', size=3)+
+  geom_point(data=jpn_pca$full_cent, aes(x=Axis1, y=Axis2, fill=mycol10), shape=21, colour='black', size=3)+
+  theme_bw()+theme(legend.position = "none")
+
+
 #kernel areas
 
 aus_area<-round(t(rbind(aus_pca$area1.2,aus_pca$area1.3, aus_pca$area2.3))*1000, 6)
@@ -226,17 +243,45 @@ cl_sp<-cl_sp[order(cl_sp$cluster, cl_sp$wiggliness),]
 
 # Summarise clusters by traits from full data
 
-
+df1<-data.frame(dat_aus[,3:9], cluster=full_aus_clust)
+df1<-data.frame(dat_jpn[,3:9], cluster=full_jpn_clust)
 
 clust_cent<-NULL
-for(h in 1:kval)
+for(h in 1:10)
   
 {
-  clust_sp<-subdata[which(subcut==h),]
+  clust_sp<-df1[df1$cluster==h,1:7]
   my_out<-do.call('c', lapply(as.list(clust_sp), function(x){if(is.factor(x)) {table(x)}else{median(x, na.rm=T)}}))
-  out2<-data.frame(run=i, kval=o, cluster= h, as.list(my_out))
+  out2<-data.frame(cluster= h, as.list(my_out))
   clust_cent<-rbind(clust_cent, out2)
 }  
+
+# calc rand index for each n cluster level between Japan and Aus
+
+out<-NULL
+for(i in 3:20)
+{
+  full_aus_clust<-cutree(hclust(daisy(dat_aus[,3:9], metric='gower',
+                                      stand = FALSE), method='average'), k=i)
+  full_jpn_clust<-cutree(hclust(daisy(dat_jpn[,3:9], metric='gower',
+                                      stand = FALSE), method='average'), k=i)
+  
+
+tab <- table(full_jpn_clust[which(names(full_jpn_clust) %in% 
+             names(full_aus_clust))],
+             full_aus_clust[which(names(full_aus_clust) %in% 
+              names(full_jpn_clust))]) # 229 sp shared. 299 unique to Aus, 161 unique to Jpn
+if (all(dim(tab) == c(1, 1))) 
+  return(1)
+a <- sum(choose(tab, 2))
+b <- sum(choose(rowSums(tab), 2)) - a
+c <- sum(choose(colSums(tab), 2)) - a
+d <- choose(sum(tab), 2) - a - b - c
+ARI <- (a - (a + b) * (a + c)/(a + b + c + d))/((a + b + 
+       a + c)/2 - (a + b) * (a + c)/(a + b + c + d))
+out<-c(out, ARI)
+plot(x=3:i, y=out)
+}
 
 
 
