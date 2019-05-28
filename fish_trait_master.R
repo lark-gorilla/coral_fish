@@ -203,7 +203,7 @@ bigtrait2[which(bigtrait2$ParentalMode=='Viviparous'),]$ParentalMode<-'Live bear
 
 write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', quote=F, row.names=F) 
 
-
+#current master has all edits to parental mode but none to position or aggregation
 
 
 ##########################################
