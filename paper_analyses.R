@@ -57,6 +57,12 @@ dat[dat$Species=='Amphiprion sandaracinos',]$BodySize<-14
 dat[dat$PLD>=100 & !is.na(dat$PLD),]$PLD<-100
 dat[dat$DepthRange>=200 & !is.na(dat$DepthRange),]$DepthRange<-200
 
+# ORDER necessary categorical variables
+
+dat$Aggregation<-factor(dat$Aggregation, levels=c("solitary", "pairs","groups","schools"), ordered = T)
+dat$Position<-factor(dat$Position, levels=c("SubBenthic", "Benthic","UpperBenthic",
+                                            "Demersal", "ReefPelagic","Pelagic"), ordered = T)
+
 #################### run cluster validation function ##########################
 ###############################################################################
 
@@ -67,8 +73,12 @@ dat_aus<-dat[which(dat$AUS_sp>0),]
 
 dat_jpn<-dat[which(dat$JPN_sp>0),]
 
-aus_out<-clVal(data=dat_aus[,3:9], runs=1000, max_cl=20, subs_perc=0.95)
-jpn_out<-clVal(data=dat_jpn[,3:9], runs=1000, max_cl=20, subs_perc=0.95)
+jpn_out<-clVal(data=dat_jpn[,3:9], runs=1000, min_cl=3,
+               max_cl=20, subs_perc=0.95, fast.k.h = 0.2)
+
+aus_out<-clVal(data=dat_aus[,3:9], runs=1000, min_cl=3,
+               max_cl=20, subs_perc=0.95, fast.k.h = 0.2)
+
 
 jac_trial<-clVal(data=dat[,3:9], runs=1000, max_cl=20, subs_perc=0.95)
 
