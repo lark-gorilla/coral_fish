@@ -26,33 +26,50 @@ diversity(table(dat$fishing_imp), 'simpson')# use if we have > 2 classes
 
 w_size<-dat[,c(3, 6)]
 wo_size<-dat[,c(6,7)]
+allv<-dat[,c(3:9)]
 
 dist1<-daisy(w_size, metric='gower', stand = FALSE)
+dist2<-daisy(wo_size, metric='gower', stand = FALSE)
+dist3<-daisy(allv, metric='gower', stand = FALSE)
 
 out<-NULL
 for(i in 1:100)
 {
-  cutz<-cutree(hclust(dist1, method='average'), k=i)
-  
-  out=rbind(out, 
-            dat%>%mutate(cutz=cutz)%>%group_by(cutz)%>%
-              summarize(n_sp=n(),fun_div=0.5*(1-(table(fishing_imp)[which.min(table(fishing_imp))]/
+  cutz_w<-cutree(hclust(dist1, method='average'), k=i)
+  cutz_wo<-cutree(hclust(dist2, method='average'), k=i)
+  cutz_all<-cutree(hclust(dist3, method='average'), k=i)
+    
+  out=rbind(out, cbind( 
+            dat%>%mutate(cutz_w=cutz_w)%>%group_by(cutz_w)%>%
+              summarize(n_sp_w=n(),fun_div_w=0.5*(1-(table(fishing_imp)[which.min(table(fishing_imp))]/
                                                    table(fishing_imp)[which.max(table(fishing_imp))])), 
-                        fun_div2=diversity(table(fishing_imp), 'simpson')) %>%
-              mutate(k=i)
+                        fun_div2_w=diversity(table(fishing_imp), 'simpson')),
+            dat%>%mutate(cutz_all=cutz_all)%>%group_by(cutz_all)%>%
+              summarize(n_sp_a=n(),fun_div_a=0.5*(1-(table(fishing_imp)[which.min(table(fishing_imp))]/
+                                                       table(fishing_imp)[which.max(table(fishing_imp))])), 
+                        fun_div2_a=diversity(table(fishing_imp), 'simpson')),
+              dat%>%mutate(cutz_wo=cutz_wo)%>%group_by(cutz_wo)%>%
+              summarize(n_sp_wo=n(),fun_div_wo=0.5*(1-(table(fishing_imp)[which.min(table(fishing_imp))]/
+                                                   table(fishing_imp)[which.max(table(fishing_imp))])), 
+                        fun_div2_wo=diversity(table(fishing_imp), 'simpson'))%>%
+              mutate(k=i))
   )
+  print(i)
 }
 
-out2<-out %>% group_by(k) %>% summarise(wm=weighted.mean(fun_div, n_sp), mn=mean(fun_div),
-                                        wm2=weighted.mean(fun_div2, n_sp), mn2=mean(fun_div2))
+out2<-out %>% group_by(k) %>% summarise(wm_w=weighted.mean(fun_div_w, n_sp_w), mn_w=mean(fun_div_w),
+                                        wm_wo=weighted.mean(fun_div2_wo, n_sp_wo), mn_wo=mean(fun_div2_wo),
+                                        wm_a=weighted.mean(fun_div2_a, n_sp_a), mn_a=mean(fun_div2_a))
 
 ggplot()+
-  geom_jitter(data=out, aes(x=k, y=fun_div), height=0.001, shape=1, alpha=0.5, colour='orange')+
-  geom_line(data=out2, aes(x=k, y=wm), colour='red')+
-  geom_line(data=out2, aes(x=k, y=mn), colour='green')+
-  geom_jitter(data=out, aes(x=k, y=fun_div2), height=0.001, shape=1, alpha=0.5, colour='purple')+
-  geom_line(data=out2, aes(x=k, y=wm2), colour='dark red')+
-  geom_line(data=out2, aes(x=k, y=mn2), colour='dark green')
-# ok so metrics roughly track
+  geom_jitter(data=out, aes(x=k, y=fun_div_w), height=0.001, shape=1, alpha=0.5, colour='red')+
+  geom_line(data=out2, aes(x=k, y=wm_w), colour='dark red')+
+
+  geom_jitter(data=out, aes(x=k, y=fun_div_wo), height=0.001, shape=1, alpha=0.5, colour='green')+
+  geom_line(data=out2, aes(x=k, y=wm_wo), colour='dark green')+
+  
+  geom_jitter(data=out, aes(x=k, y=fun_div_a), height=0.001, shape=1, alpha=0.5, colour='purple')+
+  geom_line(data=out2, aes(x=k, y=wm_a), colour='purple')
+
 
 
