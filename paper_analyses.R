@@ -60,8 +60,9 @@ dat[dat$DepthRange>=200 & !is.na(dat$DepthRange),]$DepthRange<-200
 # ORDER necessary categorical variables
 
 dat$Aggregation<-factor(dat$Aggregation, levels=c("solitary", "pairs","groups","schools"), ordered = T)
-dat$Position<-factor(dat$Position, levels=c("SubBenthic", "Benthic","UpperBenthic",
-                                            "Demersal", "ReefPelagic","Pelagic"), ordered = T)
+# Position doensn't follow a logical SINGLE order
+#dat$Position<-factor(dat$Position, levels=c("SubBenthic", "Benthic","UpperBenthic",
+#                                            "Demersal", "ReefPelagic","Pelagic"), ordered = T)
 
 #################### run cluster validation function ##########################
 ###############################################################################
