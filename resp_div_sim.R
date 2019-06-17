@@ -71,5 +71,37 @@ ggplot()+
   geom_jitter(data=out, aes(x=k, y=fun_div_a), height=0.001, shape=1, alpha=0.5, colour='purple')+
   geom_line(data=out2, aes(x=k, y=wm_a), colour='purple')
 
+# simulate null model of species randomly assigned to
+# k groups and resp div calculated
 
 
+
+
+
+sims<-NULL
+for(i in 1:5)
+{
+for(j in 1:694)
+  {
+  # takes dendrogram allocation of clusters at cut k and randomises
+  # the species into these groups
+  cutz_w<-cutree(hclust(dist1, method='average'), k=j)
+  
+    sims<-rbind(sims,
+    dat%>%mutate(cutz=sample(cutz_w, replace=F))%>%
+      group_by(cutz)%>%summarize(n_sp=n(),
+                fun_div2=diversity(table(fishing_imp), 'simpson'))%>%
+      mutate(k=j, run=i)
+    )
+  }
+print(i)
+}
+
+sims2<-sims %>% group_by(k) %>% summarise(wm=weighted.mean(fun_div2, n_sp), mn=mean(fun_div2))
+                                        
+
+ggplot()+
+  geom_jitter(data=sims, aes(x=k, y=fun_div2), height=0.001, shape=1, alpha=0.5)+
+  geom_line(data=sims2, aes(x=k, y=wm), colour='red')+
+  geom_line(data=sims2, aes(x=k, y=mn), colour='green')
+  
