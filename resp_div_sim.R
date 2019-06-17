@@ -41,23 +41,20 @@ for(i in 1:100)
     
   out=rbind(out, cbind( 
             dat%>%mutate(cutz_w=cutz_w)%>%group_by(cutz_w)%>%
-              summarize(n_sp_w=n(),fun_div_w=0.5*(1-(table(fishing_imp)[which.min(table(fishing_imp))]/
-                                                   table(fishing_imp)[which.max(table(fishing_imp))])), 
+              summarize(n_sp_w=n(), 
                         fun_div2_w=diversity(table(fishing_imp), 'simpson')),
             dat%>%mutate(cutz_all=cutz_all)%>%group_by(cutz_all)%>%
-              summarize(n_sp_a=n(),fun_div_a=0.5*(1-(table(fishing_imp)[which.min(table(fishing_imp))]/
-                                                       table(fishing_imp)[which.max(table(fishing_imp))])), 
+              summarize(n_sp_a=n(), 
                         fun_div2_a=diversity(table(fishing_imp), 'simpson')),
               dat%>%mutate(cutz_wo=cutz_wo)%>%group_by(cutz_wo)%>%
-              summarize(n_sp_wo=n(),fun_div_wo=0.5*(1-(table(fishing_imp)[which.min(table(fishing_imp))]/
-                                                   table(fishing_imp)[which.max(table(fishing_imp))])), 
+              summarize(n_sp_wo=n(), 
                         fun_div2_wo=diversity(table(fishing_imp), 'simpson'))%>%
               mutate(k=i))
   )
   print(i)
 }
 
-out2<-out %>% group_by(k) %>% summarise(wm_w=weighted.mean(fun_div_w, n_sp_w), mn_w=mean(fun_div_w),
+out2<-out %>% group_by(k) %>% summarise(wm_w=weighted.mean(fun_div2_w, n_sp_w), mn_w=mean(fun_div2_w),
                                         wm_wo=weighted.mean(fun_div2_wo, n_sp_wo), mn_wo=mean(fun_div2_wo),
                                         wm_a=weighted.mean(fun_div2_a, n_sp_a), mn_a=mean(fun_div2_a))
 
@@ -71,11 +68,13 @@ ggplot()+
   geom_jitter(data=out, aes(x=k, y=fun_div_a), height=0.001, shape=1, alpha=0.5, colour='purple')+
   geom_line(data=out2, aes(x=k, y=wm_a), colour='purple')
 
+ggplot()+
+  geom_line(data=out2, aes(x=k, y=wm_w), colour='dark red')+
+  geom_line(data=out2, aes(x=k, y=wm_wo), colour='dark green')+
+  geom_line(data=out2, aes(x=k, y=wm_a), colour='purple')
+
 # simulate null model of species randomly assigned to
 # k groups and resp div calculated
-
-
-
 
 
 sims<-NULL
@@ -97,11 +96,34 @@ for(j in 1:694)
 print(i)
 }
 
-sims2<-sims %>% group_by(k) %>% summarise(wm=weighted.mean(fun_div2, n_sp), mn=mean(fun_div2))
-                                        
+sims2<-sims %>% group_by(k, run) %>% summarise(wm=weighted.mean(fun_div2, n_sp), mn=mean(fun_div2))
 
+# geom_jitter makes it slow                                        
 ggplot()+
   geom_jitter(data=sims, aes(x=k, y=fun_div2), height=0.001, shape=1, alpha=0.5)+
   geom_line(data=sims2, aes(x=k, y=wm), colour='red')+
   geom_line(data=sims2, aes(x=k, y=mn), colour='green')
+
+# Trial to plot null simulation and data together for
+# with-fishing-pressure data (dist1), using Simpson index
+
+out<-NULL
+for(i in 1:694)
+{
+  cutz_w<-cutree(hclust(dist1, method='average'), k=i)
+
+  out=rbind(out,
+    dat%>%mutate(cutz_w=cutz_w)%>%group_by(cutz_w)%>%
+      summarize(n_sp_w=n(), fun_div2_w=diversity(table(fishing_imp), 'simpson'))%>%
+      mutate(k=i))
+  print(i)
+}
+
+out2<-out %>% group_by(k) %>% summarise(wm_w=weighted.mean(fun_div2_w, n_sp_w))
+
+ggplot()+
+  geom_line(data=sims2, aes(x=k, y=wm, colour=factor(run)))+
+  geom_line(data=out2, aes(x=k, y=wm_w), colour='red')
+  
+# Ok so conceptually it works..
   
