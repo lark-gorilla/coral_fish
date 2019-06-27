@@ -126,4 +126,104 @@ ggplot()+
   geom_line(data=out2, aes(x=k, y=wm_w), colour='red')
   
 # Ok so conceptually it works..
+
+## Trial with Japan data
+
+# sort trait data
+row.names(dat)<-dat$Species
+## Edit to some trait values from MB 25/10/18
+#dat[dat$Species=='Brotula multibarbata',]$DepthRange<-219
+dat[dat$Species=='Mobula birostris',]$BodySize<-450
+dat[dat$Species=='Amphiprion sandaracinos',]$BodySize<-14
+## set ceiling for numeric variables for scaling purposes 04/03/19
+dat[dat$PLD>=100 & !is.na(dat$PLD),]$PLD<-100
+dat[dat$DepthRange>=200 & !is.na(dat$DepthRange),]$DepthRange<-200
+# ORDER necessary categorical variables
+dat$Aggregation<-factor(dat$Aggregation, levels=c("solitary", "pairs","groups","schools"), ordered = T)
+# 
+
+trop_class<-read.csv('C:/coral_fish/data/Japan/JPN_species_tropical_class.csv', h=T)
+trop_class$variable<-gsub('\\.', ' ', trop_class$variable)
+
+dat_jpn<-dat[which(dat$JPN_sp>0),]
+
+dat_jpn<-left_join(dat_jpn, trop_class, by=c('Species'='variable'))
+
+# Informal check to see how latitudinal classification lines up with lit.
+table(dat_jpn$ThermalAffinity, dat_jpn$class) # not too bad, some lit classed tropical sp to to sub-tropical
+
+# quick trial 
+library(gbm)
+g1<-gbm(class~., data=na.omit(dat_jpn[,c(3:9,16)]) )
+summary(g1)
+
+
+# with 2 class: winners/losers, small no divided by larger
+diversity(table(dat_jpn$class), 'simpson')
+
+t_res<-dat_jpn[,c("BodySize","DepthRange","PLD","ParentalMode")]
+t_eff<-dat_jpn[,c("ThermalAffinity", "BodySize","Diet",  "Position", "Aggregation")]
+t_all<-dat_jpn[,c(3:9)]
+
+dist1<-daisy(t_res, metric='gower', stand = FALSE)
+dist2<-daisy(t_eff, metric='gower', stand = FALSE)
+dist3<-daisy(t_all, metric='gower', stand = FALSE)
+
+out<-NULL
+for(i in 1:nrow(dat_jpn))
+{
+  cutz_res<-cutree(hclust(dist1, method='average'), k=i)
+  cutz_eff<-cutree(hclust(dist2, method='average'), k=i)
+  cutz_all<-cutree(hclust(dist3, method='average'), k=i)
+  
+  out=rbind(out, cbind( 
+    dat_jpn%>%mutate(cutz_res=cutz_res)%>%group_by(cutz_res)%>%
+      summarize(n_sp_res=n(), 
+                div_res=diversity(table(class), 'simpson')),
+    dat_jpn%>%mutate(cutz_eff=cutz_eff)%>%group_by(cutz_eff)%>%
+      summarize(n_sp_eff=n(), 
+                div_eff=diversity(table(class), 'simpson')),
+    dat_jpn%>%mutate(cutz_all=cutz_all)%>%group_by(cutz_all)%>%
+      summarize(n_sp_all=n(), 
+                div_all=diversity(table(class), 'simpson'))%>%
+      mutate(k=i))
+  )
+  print(i)
+}
+
+out2<-out %>% group_by(k) %>% summarise(wm_res=weighted.mean(div_res, n_sp_res), mn_res=mean(div_res),
+                                        wm_eff=weighted.mean(div_eff, n_sp_eff), mn_eff=mean(div_eff),
+                                        wm_all=weighted.mean(div_all, n_sp_all), mn_all=mean(div_all))
+
+ggplot()+
+  geom_line(data=out2, aes(x=k, y=wm_res), colour='dark blue')+
+  geom_line(data=out2, aes(x=k, y=wm_eff), colour='dark green')+
+  geom_line(data=out2, aes(x=k, y=wm_all), colour='dark red')+
+  geom_line(data=sims2, aes(x=k, y=wm, colour=factor(run)))+
+  xlim(c(0, 20))+ylim(c(0.4, 0.6))
+
+
+
+
+sims<-NULL
+for(i in 1:5)
+{
+  for(j in 1:nrow(dat_jpn))
+  {
+    cutz_w<-cutree(hclust(dist1, method='average'), k=j)
+    
+    sims<-rbind(sims,
+                dat_jpn%>%mutate(cutz=sample(cutz_w, replace=F))%>%
+                  group_by(cutz)%>%summarize(n_sp=n(),
+                                             fun_div2=diversity(table(class), 'simpson'))%>%
+                  mutate(k=j, run=i)
+    )
+  }
+  print(i)
+}
+
+sims2<-sims %>% group_by(k, run) %>% summarise(wm=weighted.mean(fun_div2, n_sp), mn=mean(fun_div2))
+
+
+
   
