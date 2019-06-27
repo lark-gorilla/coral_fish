@@ -18,6 +18,8 @@ library(ggrepel)
 library(adehabitatHR)
 library(sf)
 library(gridExtra)
+library(gbm)
+library(mice)
 
 # source clVal function
 source('C:/coral_fish/scripts/coral_fish/clVal.R')
@@ -74,14 +76,15 @@ dat_aus<-dat[which(dat$AUS_sp>0),]
 
 dat_jpn<-dat[which(dat$JPN_sp>0),]
 
-jpn_out<-clVal(data=dat_jpn[,3:9], runs=1000, min_cl=3,
-               max_cl=20, subs_perc=0.95, fast.k.h = 0.2)
+jpn_out<-clVal(data=dat_jpn[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
+               runs=100, min_cl=3,max_cl=20, subs_perc=0.95, fast.k.h = 0.2)
 
-aus_out<-clVal(data=dat_aus[,3:9], runs=1000, min_cl=3,
-               max_cl=20, subs_perc=0.95, fast.k.h = 0.2)
+aus_out<-clVal(data=dat_aus[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
+               runs=100, min_cl=3, max_cl=20, subs_perc=0.95, fast.k.h = 0.2)
 
 
-jac_trial<-clVal(data=dat[,3:9], runs=1000, max_cl=20, subs_perc=0.95)
+jac_trial<-clVal(data=dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
+                 runs=100, max_cl=20, subs_perc=0.95)
 
 
 # outputs saved to memory
@@ -188,6 +191,149 @@ lapply(jac_trial$jaccard, function(x){min(rowMeans(data.frame(x)))})
 
 apply(jac_trial$jaccard[[9]], 1, var)
 table(aus_out$clust_centres[aus_out$clust_centres$kval==7,]$jc_match)
+
+################## Variable importance using BRT sensu Darling 2012 ###########
+###############################################################################
+
+eff_aus<-daisy(dat_aus[,3:9], metric='gower', stand = FALSE)
+
+eff_jpn<-daisy(dat_jpn[,3:9], metric='gower', stand = FALSE)
+
+eff_both<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')], metric='gower', stand = FALSE)
+
+aus_FG<-cutree(hclust(eff_aus, method='average'), k=8)
+jpn_FG<-cutree(hclust(eff_jpn, method='average'), k=10)
+both_FG<-cutree(hclust(eff_both, method='average'), k=12)
+
+## impute missing values using MICE (ladds et al. 2018)
+dat_mice<-mice(dat[,c(3:9)], m=5, method=c(rep('norm.predict', 3), rep('polyreg', 4)))
+dat_imp<-complete(dat_mice)
+dat_imp<-cbind(dat[,1:2], dat_imp, dat[,10:14])
+
+imp_aus<-dat_imp[which(dat_imp$AUS_sp>0),]
+imp_jpn<-dat_imp[which(dat_imp$JPN_sp>0),]
+
+imp_jpn$group<-factor(jpn_FG)
+imp_aus$group<-factor(aus_FG)
+dat_imp$group<-factor(both_FG)
+
+brt_jpn<-gbm(group~., distribution='multinomial', n.trees=1000,
+             data=imp_jpn[,c(3:9,15)]) # other parameters default
+summary(brt_jpn)
+
+brt_aus<-gbm(group~., distribution='multinomial', n.trees=1000,
+             data=imp_aus[,c(3:9,15)]) # other parameters default
+summary(brt_aus)
+
+brt_both<-gbm(group~BodySize+Diet+Position+Aggregation+DepthRange, distribution='multinomial', n.trees=1000,
+             data=dat_imp) # other parameters default
+summary(brt_both)
+
+# Darling approach
+for(i in 1:7)
+{
+  mydat<-imp_jpn[,c(3:9,15)]
+  mydat<-mydat[,-i]
+  brt_jpn<-gbm(group~., distribution='multinomial', n.trees=100,
+               data=mydat)
+  predBST = predict(brt_jpn,n.trees=100, newdata=imp_jpn,type='response')
+  
+  print(names(imp_jpn[,c(3:9,15)][i]))
+ print(confusionMatrix(table(jpn_FG, apply(predBST, 1, which.max)))$overall[1])
+}
+
+adonis(eff_jpn~BodySize+Diet+Position+Aggregation+DepthRange+PLD+ParentalMode, data=imp_jpn)
+
+
+for(i in 2:20)
+{
+both_FG<-cutree(hclust(eff_both, method='average'), k=i)
+dat_imp$group<-factor(both_FG)
+ brt_both<-gbm(group~BodySize+Diet+Position+Aggregation+DepthRange, distribution='multinomial', n.trees=1000,
+ data=dat_imp)
+print(i)
+print(summary(brt_both))
+}
+
+
+################## Calc response diversity in response space ##################
+###############################################################################
+
+# distance 
+eff_aus<-daisy(dat_aus[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')], metric='gower', stand = FALSE)
+
+eff_jpn<-daisy(dat_jpn[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')], metric='gower', stand = FALSE)
+
+eff_both<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation")], metric='gower', stand = FALSE)
+
+# get optimal clusters
+
+aus_FG<-cutree(hclust(eff_aus, method='average'), k=8)
+jpn_FG<-cutree(hclust(eff_jpn, method='average'), k=10)
+
+# quick! plots
+
+ppp<- ggplot()+
+  geom_hline(yintercept=0, linetype="dotted") + 
+  geom_vline(xintercept=0,  linetype="dotted")
+
+aus_dudi<-dudi.pco(d = eff_aus, scannf = FALSE, nf = 2)
+aus_pco<-data.frame(aus_dudi$li,aus_FG)
+p1<-ppp+geom_point(data=aus_pco, aes(x=A1, y=A2, colour=factor(aus_FG)))+
+  geom_polygon(data=aus_pco %>% group_by(aus_FG) %>% slice(chull(A1, A2)),
+               aes(x=A1, y=A2, fill=factor(aus_FG)), alpha=0.4)+
+scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)', 100* aus_dudi$eig[2]/sum(aus_dudi$eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)', 100* aus_dudi$eig[1]/sum(aus_dudi$eig))))
+
+jpn_dudi<-dudi.pco(d = eff_jpn, scannf = FALSE, nf = 2)
+jpn_pco<-data.frame(jpn_dudi$li,jpn_FG)
+p2<-ppp+geom_point(data=jpn_pco, aes(x=A1, y=A2, colour=factor(jpn_FG)))+
+  geom_polygon(data=jpn_pco %>% group_by(jpn_FG) %>% slice(chull(A1, A2)),
+               aes(x=A1, y=A2, fill=factor(jpn_FG)), alpha=0.4)+
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)', 100* jpn_dudi$eig[2]/sum(jpn_dudi$eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)', 100* jpn_dudi$eig[1]/sum(jpn_dudi$eig))))
+
+grid.arrange(p1, p2)
+
+# both
+
+both_dudi<-dudi.pco(d = eff_both, scannf = FALSE, nf = 2)
+both_pco<-data.frame(both_dudi$li,aus_FG=NA, jpn_FG=NA)
+both_pco[which(row.names(both_pco) %in% names(aus_FG)),]$aus_FG<-aus_FG
+both_pco[which(row.names(both_pco) %in% names(jpn_FG)),]$jpn_FG<-jpn_FG
+
+ppp+geom_point(data=both_pco, aes(x=A1, y=A2))+
+  geom_polygon(data=both_pco %>% filter(!is.na(jpn_FG)) %>% group_by(jpn_FG) %>% slice(chull(A1, A2)),
+               aes(x=A1, y=A2, fill=factor(jpn_FG)), colour='black', alpha=0.4)+
+  geom_polygon(data=both_pco %>% filter(!is.na(aus_FG)) %>% group_by(aus_FG) %>% slice(chull(A1, A2)),
+               aes(x=A1, y=A2, fill=factor(aus_FG)), colour='black', linetype='dashed',alpha=0.4)+
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)', 100* both_dudi$eig[2]/sum(both_dudi$eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)', 100* both_dudi$eig[1]/sum(both_dudi$eig))))
+
+
+########### Response space ########## 
+
+# What to do about DepthRange?
+
+res_aus<-daisy(dat_aus[,c('ThermalAffinity', 'PLD', 'ParentalMode')], metric='gower', stand = FALSE)
+
+res_jpn<-daisy(dat_jpn[,c('ThermalAffinity', 'PLD', 'ParentalMode')], metric='gower', stand = FALSE)
+
+res_div_aus<-betadisper(res_aus, aus_FG, sqrt.dist=T)
+res_div_jpn<-betadisper(res_jpn, jpn_FG, sqrt.dist=T)
+
+plot(res_div_aus)
+plot(res_div_jpn)
+
+aus_dudi<-dudi.pco(d = sqrt(res_aus), scannf = FALSE, nf = 2)
+aus_pco<-data.frame(aus_dudi$li,aus_FG)
+ppp+geom_point(data=aus_pco, aes(x=A1, y=A2, colour=factor(aus_FG)))+
+  geom_polygon(data=aus_pco %>% group_by(aus_FG) %>% slice(chull(A1, A2)),
+               aes(x=A1, y=A2, fill=factor(aus_FG)), alpha=0.4)+
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)', 100* aus_dudi$eig[2]/sum(aus_dudi$eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)', 100* aus_dudi$eig[1]/sum(aus_dudi$eig))))
+
+
 
 ################## PCA of optimal clustering solution  ########################
 ###############################################################################
