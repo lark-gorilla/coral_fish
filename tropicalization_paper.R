@@ -1,6 +1,6 @@
 # paper code 27/06/19
 
-# picks up from tage where optimum number of clusters are known
+# picks up from stage where optimum number of clusters are known
 #Steps
 #1 calculate redundancy for each community and group
 #2 split functional groups by thermal affinity to calculate 
@@ -61,6 +61,36 @@ dat$FG<-both_FG
 dat_aus<-dat[which(dat$AUS_sp>0),]
 
 dat_jpn<-dat[which(dat$JPN_sp>0),]
+
+## Redundancy plot
+
+sim_red<-NULL
+for(i in 1:1000)
+{  
+  sim_red<-rbind(sim_red, 
+                 rbind(data.frame(val=sample(1:12, size=nrow(dat_aus), replace=T),
+dat='Australia'), data.frame(val=sample(1:10, size=nrow(dat_jpn), replace=T),
+dat='Japan'))%>%group_by(dat, val)%>%summarise(num=n()) %>%
+    mutate(run=i)%>%as.data.frame())
+}
+
+sim_red2<-sim_red%>%group_by(dat, val)%>%summarise(num=mean(num))
+
+ggplot()+
+  geom_bar(data=red_dat, aes(x=val, y=num, fill=factor(FG)),stat='identity')+
+  geom_hline(data=red_dat%>%group_by(dat)%>%summarise_all(mean),
+             aes(yintercept=num), linetype='dashed')+
+  facet_wrap(~dat)+
+  scale_x_continuous(breaks=1:12)+
+  xlab('Rank of functional group')+ylab('# of species per FG')
+  
+
+
+dat_jpn %>% group_by(FG) %>% summarise(n()) %>% as.data.frame()
+
+
+##### Proportion of tropical species plot
+
 
 dat_aus %>% group_by(FG, ThermalAffinity) %>% summarise(n()) %>% as.data.frame()
 dat_jpn %>% group_by(FG, ThermalAffinity) %>% summarise(n()) %>% as.data.frame()
