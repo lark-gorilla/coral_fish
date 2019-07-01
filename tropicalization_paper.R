@@ -11,6 +11,7 @@ library(cluster)
 library(dplyr)
 library(ggplot2)
 library(gridExtra)
+library(mice)
 
 #################### data clean ##########################
 ##########################################################
@@ -62,32 +63,85 @@ dat_aus<-dat[which(dat$AUS_sp>0),]
 
 dat_jpn<-dat[which(dat$JPN_sp>0),]
 
+### Functional Entity creation
+
+
+dat_mice<-mice(dat[,c(3:9)], m=5, method=c(rep('norm.predict', 3), rep('polyreg', 4)))
+dat_imp<-complete(dat_mice)
+dat_imp<-cbind(Species=dat[,1], dat_imp, dat[,10:15])
+
+# Bodysize
+
+# 6 classes on cuts from Mouillot et al (2014)
+dat_imp$BodySize <- cut(dat_imp$BodySize ,breaks = c(-Inf, 7,15,30,50, 80, Inf),
+                     labels = c("Tiny","VSmall", "Small", "Medium", "Large", "VLarge"))
+# DepthRange
+
+ggplot(data=dat_imp, aes(x=DepthRange))+geom_histogram(binwidth=10, col='black')+
+  scale_x_continuous(breaks=seq(0, 420, 10))
+# split into those that can only dive to coral reef (~27m) depths, 
+# the photic zone (~100m), and deeper > 100m. loosely similar to Mouillot et al (2014) 'Water column' trait
+dat_imp$DepthRange <- cut(dat_imp$DepthRange ,breaks = c(-Inf, 30,100, Inf),
+                       labels = c("Small", "Medium", "Large"))
+dat_imp$FE<-paste(dat_imp$BodySize, dat_imp$DepthRange,
+                       dat_imp$Diet, dat_imp$Position, dat_imp$Aggregation)
 ## Redundancy plot
 
-sim_red<-NULL
-for(i in 1:1000)
-{  
-  sim_red<-rbind(sim_red, 
-                 rbind(data.frame(val=sample(1:12, size=nrow(dat_aus), replace=T),
-dat='Australia'), data.frame(val=sample(1:10, size=nrow(dat_jpn), replace=T),
-dat='Japan'))%>%group_by(dat, val)%>%summarise(num=n()) %>%
-    mutate(run=i)%>%as.data.frame())
-}
-
-sim_red2<-sim_red%>%group_by(dat, val)%>%summarise(num=mean(num))
+red_dat<-rbind(dat_aus %>% group_by(FG) %>% summarise(num=n()) %>%
+  arrange(num) %>% mutate(val=12:1, dat='Australia'),
+  dat_jpn %>% group_by(FG) %>% summarise(num=n()) %>%
+    arrange(num) %>% mutate(val=10:1, dat='Japan'))
 
 ggplot()+
   geom_bar(data=red_dat, aes(x=val, y=num, fill=factor(FG)),stat='identity')+
   geom_hline(data=red_dat%>%group_by(dat)%>%summarise_all(mean),
              aes(yintercept=num), linetype='dashed')+
+  facet_grid(dat~.)+
+  scale_x_continuous(breaks=1:12)+
+  xlab('Rank of functional group')+ylab('# of species per FG')+
+  theme_bw()
+  
+## Redundancy/complimentarity plot
+
+imp_aus<-dat_imp[which(dat_imp$AUS_sp>0),]
+imp_jpn<-dat_imp[which(dat_imp$JPN_sp>0),]
+
+#checks
+length(unique(imp_aus$FE))
+length(unique(imp_jpn$FE))
+max(aggregate(FG~FE, imp_aus, function(x){table(unique(x))})$FG)
+max(aggregate(FG~FE, imp_jpn, function(x){table(unique(x))})$FG)
+
+com_dat<-rbind(imp_aus %>% group_by(FG) %>% summarise(n_FE=length(unique(FE)),num=n()) %>%
+                 arrange(num) %>% mutate(val=12:1, dat='Australia'),
+                 imp_jpn %>% group_by(FG) %>% summarise(n_FE=length(unique(FE)),num=n()) %>%
+                 arrange(num) %>% mutate(val=10:1, dat='Japan'))
+
+mn_prop<-com_dat%>%mutate(prop_fefg=n_FE/num)%>%
+             group_by(dat)%>%summarise_all(mean)
+
+com_dat$prop<-mn_prop$prop_fefg[1]
+com_dat[com_dat$dat=='Japan',]$prop<-mn_prop$prop_fefg[2]
+
+ggplot()+
+  geom_bar(data=com_dat, aes(x=val, y=num, fill=factor(FG)), stat='identity')+
+  geom_bar(data=com_dat, aes(x=val, y=n_FE),colour='black', fill='black', stat='identity', alpha=0.6)+
+  geom_hline(data=com_dat%>%group_by(dat)%>%summarise_all(mean),
+             aes(yintercept=num), linetype='dashed')+
+  geom_point(data=com_dat, aes(x=val, y=num*prop),colour='red')+
   facet_wrap(~dat)+
   scale_x_continuous(breaks=1:12)+
-  xlab('Rank of functional group')+ylab('# of species per FG')
-  
+  xlab('Rank of functional group')+ylab('# of species/FEs per functional group')+
+  theme_bw()
 
-
-dat_jpn %>% group_by(FG) %>% summarise(n()) %>% as.data.frame()
-
+####
+aus_imp_out<-NULL
+for(i in 1:1000){
+  aus_imp_out<-rbind(aus_imp_out, imp_aus%>%mutate(FE2=sample(FE, replace=F))%>% 
+                       group_by(FG)%>% summarise(n_FE=length(unique(FE2)),num=n())%>%
+                       mutate(run=i))
+}
+aus_imp_out %>%group_by(FG)%>% summarize(prop=mean(n_FE/num))
 
 ##### Proportion of tropical species plot
 
