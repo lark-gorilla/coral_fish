@@ -12,6 +12,8 @@ library(dplyr)
 library(ggplot2)
 library(gridExtra)
 library(mice)
+library(scales)
+library(ggwordcloud)
 
 #################### data clean ##########################
 ##########################################################
@@ -66,7 +68,7 @@ dat_jpn<-dat[which(dat$JPN_sp>0),]
 ### Functional Entity creation
 
 
-dat_mice<-mice(dat[,c(3:9)], m=5, method=c(rep('norm.predict', 3), rep('polyreg', 4)))
+dat_mice<-mice(dat[,c(2:9)], m=5, method=c('polyreg',rep('norm.predict', 3), rep('polyreg', 4)))
 dat_imp<-complete(dat_mice)
 dat_imp<-cbind(Species=dat[,1], dat_imp, dat[,10:15])
 
@@ -82,7 +84,7 @@ ggplot(data=dat_imp, aes(x=DepthRange))+geom_histogram(binwidth=10, col='black')
 # split into those that can only dive to coral reef (~27m) depths, 
 # the photic zone (~100m), and deeper > 100m. loosely similar to Mouillot et al (2014) 'Water column' trait
 dat_imp$DepthRange <- cut(dat_imp$DepthRange ,breaks = c(-Inf, 30,100, Inf),
-                       labels = c("Small", "Medium", "Large"))
+                       labels = c("shallow", "mid-depth", "deep"))
 dat_imp$FE<-paste(dat_imp$BodySize, dat_imp$DepthRange,
                        dat_imp$Diet, dat_imp$Position, dat_imp$Aggregation)
 ## Redundancy plot
@@ -123,7 +125,7 @@ mn_prop<-com_dat%>%mutate(prop_fefg=n_FE/num)%>%
 com_dat$prop<-mn_prop$prop_fefg[1]
 com_dat[com_dat$dat=='Japan',]$prop<-mn_prop$prop_fefg[2]
 
-ggplot()+
+p1<-ggplot()+
   geom_bar(data=com_dat, aes(x=val, y=num, fill=factor(FG)), stat='identity')+
   geom_bar(data=com_dat, aes(x=val, y=n_FE),colour='black', fill='black', stat='identity', alpha=0.6)+
   geom_hline(data=com_dat%>%group_by(dat)%>%summarise_all(mean),
@@ -131,17 +133,106 @@ ggplot()+
   geom_point(data=com_dat, aes(x=val, y=num*prop),colour='red')+
   facet_wrap(~dat)+
   scale_x_continuous(breaks=1:12)+
-  xlab('Rank of functional group')+ylab('# of species/FEs per functional group')+
+  xlab('Rank of functional group')+ylab('Richness per functional group')+
+  theme_bw()+theme(legend.position = 'none')
+
+# sp per FE mean+sd plot
+com_dat2<-rbind(imp_aus %>% group_by(FE) %>% summarise(FG=unique(FG),num=n()) %>%
+                  arrange(num, FG) %>% mutate(val=260:1, dat='Australia'),
+                imp_jpn %>% group_by(FE) %>% summarise(FG=unique(FG),num=n()) %>%
+                  arrange(num, FG) %>% mutate(val=204:1, dat='Japan'))
+
+fg_mn<-com_dat2 %>% group_by(dat, FG) %>% summarise(nm_mn=mean(num), nm_sd=sd(num),
+                                                    val_mn=mean(val), val_sd=sd(val))
+
+fg_mn$val<-com_dat[order(com_dat$dat, com_dat$FG),]$val
+
+p2<-ggplot(data=fg_mn, aes(x=val, y=nm_mn))+
+  geom_errorbar(aes(ymin=nm_mn-nm_sd, ymax=nm_mn+nm_sd))+
+  geom_bar(aes(fill=factor(FG)),colour='black',stat='identity')+
+  facet_wrap(~dat)+
+  scale_x_continuous(breaks=1:12)+
+  scale_y_continuous(limits=c(0, 6.5), breaks=(0:6), oob=rescale_none)+
+  xlab('Rank of functional group')+ylab('Species per functional entity')+
+  theme_bw()+theme(legend.position = 'none')
+               
+grid.arrange(p1, p2)
+
+## Mouillot redundancy plot ??
+
+com_dat2<-rbind(imp_aus %>% group_by(FE) %>% summarise(FG=unique(FG),num=n()) %>%
+                 arrange(num, FG) %>% mutate(val=260:1, dat='Australia'),
+               imp_jpn %>% group_by(FE) %>% summarise(FG=unique(FG),num=n()) %>%
+                 arrange(num, FG) %>% mutate(val=204:1, dat='Japan'))
+
+fg_mn<-com_dat2 %>% group_by(dat, FG) %>% summarise(nm_mn=mean(num), nm_sd=sd(num),
+                                                   val_mn=mean(val), val_sd=sd(val))
+
+ggplot()+
+  geom_bar(data=com_dat, aes(x=val, y=num, fill=factor(FG)), stat='identity')+
+  geom_boxplot(data=com_dat, aes(x=FG+248, y=num, colour=factor(FG)))+
+
+  geom_hline(data=com_dat%>%group_by(dat)%>%summarise_all(mean),
+             aes(yintercept=num), linetype='dashed')+
+  facet_grid(dat~.)+
+  scale_x_continuous(breaks=1:260)+
+  xlab('Rank of functional group')+ylab('# of species')+
   theme_bw()
 
-####
-aus_imp_out<-NULL
-for(i in 1:1000){
-  aus_imp_out<-rbind(aus_imp_out, imp_aus%>%mutate(FE2=sample(FE, replace=F))%>% 
-                       group_by(FG)%>% summarise(n_FE=length(unique(FE2)),num=n())%>%
-                       mutate(run=i))
-}
-aus_imp_out %>%group_by(FG)%>% summarize(prop=mean(n_FE/num))
+# How to represent what each FG is using wordclouds of FEs
+
+# reformat data
+# split dataframe into list based on rows
+com_dat2list<-split(com_dat2, 1:nrow(com_dat2))
+
+FEwordlist<-lapply(com_dat2list, function(x){data.frame(FEcomp=unlist(strsplit(x$FE, ' ')),
+                                            n=x$num, FG=x$FG, dat=x$dat, FE=x$FE)})
+FEword.df<-do.call('rbind', FEwordlist)
+
+FEword.agg<-FEword.df %>% group_by(dat, FG, FEcomp) %>% summarize(sum_word=sum(n)) 
+
+# help with colouring https://stackoverflow.com/questions/18902485/colored-categories-in-r-wordclouds
+FEword.agg$colorlist='blue'
+FEword.agg$colorlist<-ifelse(FEword.agg$FEcomp%in%unique(dat_imp$Diet),
+       'orange', FEword.agg$colorlist)
+FEword.agg$colorlist<-ifelse(FEword.agg$FEcomp%in%unique(dat_imp$Aggregation),
+                             'green', FEword.agg$colorlist)
+FEword.agg$colorlist<-ifelse(FEword.agg$FEcomp%in%unique(dat_imp$DepthRange),
+                             'purple', FEword.agg$colorlist)
+FEword.agg$colorlist<-ifelse(FEword.agg$FEcomp%in%unique(dat_imp$BodySize),
+                             'red', FEword.agg$colorlist)
+
+ggplot(FEword.agg, aes(label=FEcomp, size=sum_word, colour=colorlist))+
+  geom_text_wordcloud()+scale_size_area()+facet_wrap(~dat+FG)
+
+
+FEword.agg.cl.aus<-split(filter(FEword.agg, dat=='Australia'), FEword.agg$FG)
+
+par(mfrow=c(3,4))
+
+lapply(FEword.agg.cl.aus, function(x){
+  plot(wordcloud(words=x$FEcomp,
+            freq=x$sum_word,
+            min.freq = 1, random.order=FALSE,
+            colors=x$colorlist,
+            ordered.colors=TRUE))})
+
+par(mfrow=c(1,2))
+
+## remeber set.seed(1234) before making
+
+wordcloud(words=filter(FEword.agg, dat=='Japan', FG==1)$FEcomp,
+          freq=filter(FEword.agg, dat=='Japan', FG==1)$sum_word,
+          min.freq = 1, random.order=FALSE,
+          colors=filter(FEword.agg, dat=='Japan', FG==1)$colorlist,
+          ordered.colors=TRUE)
+# probably not necessary to split via region as clustering is done combined
+
+wordcloud(words=filter(FEword.agg, dat=='Japan', FG==1)$FEcomp,
+          freq=filter(FEword.agg, dat=='Japan', FG==1)$sum_word,
+          min.freq = 1, random.order=FALSE,
+          colors=filter(FEword.agg, dat=='Japan', FG==1)$colorlist,
+          ordered.colors=TRUE)
 
 ##### Proportion of tropical species plot
 
@@ -155,7 +246,7 @@ dat_jpn %>% group_by(FG, ThermalAffinity) %>% summarise(n()) %>% as.data.frame()
 #Australia
 
 out_aus<-NULL
-for(i in 1:1000){
+for(i in 1:9999){
 out_aus<-rbind(out_aus, dat_aus%>%mutate(FG2=sample(FG, replace=F))%>% 
           group_by(FG2)%>%summarize(prop_trop=length(which(ThermalAffinity=='tropical'))/n())%>%
           mutate(run=i))
@@ -175,7 +266,7 @@ pa<-ggplot()+geom_violin(data=out_aus, aes(x=factor(FG2), y=prop_trop))+
 ## Japan
 
 out_jpn<-NULL
-for(i in 1:1000){
+for(i in 1:9999){
   out_jpn<-rbind(out_jpn, dat_jpn%>%mutate(FG2=sample(FG, replace=F))%>% 
                group_by(FG2)%>%summarize(prop_trop=length(which(ThermalAffinity=='tropical'))/n())%>%
                mutate(run=i))
@@ -196,5 +287,10 @@ pj<-ggplot()+geom_violin(data=out_jpn, aes(x=factor(FG2), y=prop_trop))+
   xlab('Japan FGs')+ylab('Proportion of tropical sp.')
 
 grid.arrange(pa, pj, nrow=2)
+
+## do any FEs have species with different thermal affinity?
+
+imp_aus %>% group_by(FE) %>% summarise(n(), n_therm=length(unique(ThermalAffinity))) %>% as.data.frame()
+dat_jpn %>% group_by(FG, ThermalAffinity) %>% summarise(n()) %>% as.data.frame()
 
 
