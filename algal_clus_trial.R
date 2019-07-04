@@ -1,45 +1,55 @@
 # algae trial
 
 library(cluster)
-library(clue)
 library(fpc)
 library(ggplot2)
 library(dendextend)
-library(circlize)
-library(vegan)
-library(caret)
-library(GGally)
 library(dplyr)
 library(reshape2)
-library(ade4)
-library(ggrepel)
-library(adehabitatHR)
-library(sf)
 library(gridExtra)
 
 # source clVal function
 source('C:/coral_fish/scripts/coral_fish/clVal.R')
 source('C:/coral_fish/scripts/coral_fish/functions.R')
 
-dat<-read.csv('C:/coral_fish/data/Traits/algae_clean08May.csv')
+dat<-read.csv('C:/coral_fish/data/Traits/algae_db_0407_clean.csv')
 
-dat1<-dat[,c(1:7, 9, 14, 11, 16, 17, 22, 23, 24, 25, 29)]
+# selects main columns and clips out NAs at end of sheet
+dat1<-dat[1:88,c(1:7,  11, 18, 13,21, 26, 27, 28, 29, 33)]
 
 summary(dat1) # 23 missing vals in max depth and reporduction
 str(dat1)
 
 table(dat1$Structure)
-table(dat1$Holdfast.morphology.KMC)
+table(dat1$Holdfast.morphology)
 table(dat1$Thallus.Height..cm....max)
-table(dat1$Blade..overall..morphology.KMC..blade.shape..apicies.)
 table(dat1$Support.mechanism.KMC)
 table(dat1$Min.depth..m.)
 table(dat1$Max.depth..m.)
 table(dat1$Substrate)
 table(dat1$Tidal.Zone)
-table(dat1$Reproduction..CB.paper.)
+table(dat1$Reproduction)
 
-alg_out<-clVal(data=dat1[,8:17], runs=1000, min_cl=3, max_cl=20, subs_perc=0.95)
+# make DepthRange variable
+dat1$Depthrange<-dat1$Max.depth..m.-dat1$Min.depth..m.
+
+table(dat1$Depthrange)
+
+# edit large Thallus Height from 1500 to 40
+dat1[dat1$Thallus.Height..cm....max==1500 &
+       !is.na(dat1$Thallus.Height..cm....max),]$Thallus.Height..cm....max<- 40
+
+# make ordered variable
+dat1$Tidal.Zone<-factor(dat1$Tidal.Zone,
+                        levels=c("Intertidal", "Intertidal/ subtidal","Subtidal"),
+                        ordered = T)
+
+#remove NA row
+dat1<-filter(dat1, Genus!='Sargassum sp.')
+
+alg_out<-clVal(data=dat1[,c(8:11, 14:17)],
+               runs=1000, min_cl=2, max_cl=20, subs_perc=0.95,
+               calc_wigl = F)
 
 
 a_melt<-melt(alg_out$stats, id.vars=c( 'k', 'runs'))
