@@ -1,4 +1,4 @@
-clVal<-function(data=data, runs=10, min_cl=3,  max_cl=20, subs_perc=0.95, fast.k.h=0.3)
+clVal<-function(data=data, runs=10, min_cl=3,  max_cl=20, subs_perc=0.95, fast.k.h=0.3, calc_wigl=T)
  
 {
   require(cluster)
@@ -102,46 +102,49 @@ for ( i in 1:runs)
       
       stats_out[stats_out$k==kval & stats_out$runs==i,]$rnd<- ARI
       
-      # get h val from k val
-      # hacked function from dendextend function heights_per_k.dendrogram()
+      if(calc_wigl==T)
+          {
+          # get h val from k val
+          # hacked function from dendextend function heights_per_k.dendrogram()
+          
+          dend=as.dendrogram(subtree)
+          our_dend_heights <- sort(unique(get_branches_heights(dend, 
+                                                               sort = FALSE)), TRUE)
+          heights_to_remove_for_A_cut <- min(-diff(our_dend_heights))/2
+          heights_to_cut_by <- c((max(our_dend_heights) + heights_to_remove_for_A_cut), 
+                                 (our_dend_heights - heights_to_remove_for_A_cut))
+          heights_to_cut_by<-heights_to_cut_by[heights_to_cut_by>fast.k.h] # hack to only do larger clusters = reduces time
+          names(heights_to_cut_by) <- sapply(heights_to_cut_by, function(h) {
+            length(cut(dend, h = h)$lower)})
+          
+          cutval<-heights_to_cut_by[names(heights_to_cut_by)==kval]
+          
+          if(length(cutval)==0){
+            print(paste('looking for', kval, 'clusters in dendrogram went below fast cutoff search limit, set lower value for fast.k.h', sep=' '))
+            break}
+          
+          # copo distance per species
+          copo2<-as.matrix(cophenetic(subtree))
+          dimnames(copo2)[[1]]<-names(subcut)
+          dimnames(copo2)[[2]]<-subcut
+          copo2[copo2<= cutval]<-0 # below AND equal
+          
+          sp2_copod<-copo2[, -which(duplicated(dimnames(copo2)[[2]]))]
+          
+          for(k in 1:kval)
+              {
+                full_n_clust<-names(bcut)[bcut==k]
+                
+                cl_cop_mv<-sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust), jc_match2[k]] 
+                # using jc2_match2 here lines up original cluster with most similar subs cluster 
+                
+                wigl_list[[kval]][which(dimnames(wigl_list[[kval]])[[1]] %in% names(cl_cop_mv)),i]<-cl_cop_mv
+                # allows for 5% species dropped to remain NA
+              } 
+          
+          stats_out[stats_out$k==kval & stats_out$runs==i,]$wig<- mean(wigl_list[[kval]][,i], na.rm=T)
+          }
       
-      dend=as.dendrogram(subtree)
-      our_dend_heights <- sort(unique(get_branches_heights(dend, 
-                                                           sort = FALSE)), TRUE)
-      heights_to_remove_for_A_cut <- min(-diff(our_dend_heights))/2
-      heights_to_cut_by <- c((max(our_dend_heights) + heights_to_remove_for_A_cut), 
-                             (our_dend_heights - heights_to_remove_for_A_cut))
-      heights_to_cut_by<-heights_to_cut_by[heights_to_cut_by>fast.k.h] # hack to only do larger clusters = reduces time
-      names(heights_to_cut_by) <- sapply(heights_to_cut_by, function(h) {
-        length(cut(dend, h = h)$lower)})
-      
-      cutval<-heights_to_cut_by[names(heights_to_cut_by)==kval]
-      
-      if(length(cutval)==0){
-        print(paste('looking for', kval, 'clusters in dendrogram went below fast cutoff search limit, set lower value for fast.k.h', sep=' '))
-        break}
-      
-      # copo distance per species
-      copo2<-as.matrix(cophenetic(subtree))
-      dimnames(copo2)[[1]]<-names(subcut)
-      dimnames(copo2)[[2]]<-subcut
-      copo2[copo2<= cutval]<-0 # below AND equal
-      
-      sp2_copod<-copo2[, -which(duplicated(dimnames(copo2)[[2]]))]
-      
-      for(k in 1:kval)
-      {
-        full_n_clust<-names(bcut)[bcut==k]
-        
-        cl_cop_mv<-sp2_copod[which(dimnames(sp2_copod)[[1]] %in% full_n_clust), jc_match2[k]] 
-        # using jc2_match2 here lines up original cluster with most similar subs cluster 
-        
-        wigl_list[[kval]][which(dimnames(wigl_list[[kval]])[[1]] %in% names(cl_cop_mv)),i]<-cl_cop_mv
-        # allows for 5% species dropped to remain NA
-      } 
-      
-      stats_out[stats_out$k==kval & stats_out$runs==i,]$wig<- mean(wigl_list[[kval]][,i], na.rm=T)
-  
       stats_out[stats_out$k==kval & stats_out$runs==i,]$sil<-cluster.stats(distsub, subcut)$avg.silwidth
       
       }#close kval loop
