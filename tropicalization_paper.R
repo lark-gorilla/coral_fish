@@ -189,6 +189,7 @@ FEwordlist<-lapply(com_dat2list, function(x){data.frame(FEcomp=unlist(strsplit(x
                                             n=x$num, FG=x$FG, dat=x$dat, FE=x$FE)})
 FEword.df<-do.call('rbind', FEwordlist)
 
+# check if we need to aggregate by region?
 FEword.agg<-FEword.df %>% group_by(dat, FG, FEcomp) %>% summarize(sum_word=sum(n)) 
 
 # help with colouring https://stackoverflow.com/questions/18902485/colored-categories-in-r-wordclouds
@@ -202,37 +203,32 @@ FEword.agg$colorlist<-ifelse(FEword.agg$FEcomp%in%unique(dat_imp$DepthRange),
 FEword.agg$colorlist<-ifelse(FEword.agg$FEcomp%in%unique(dat_imp$BodySize),
                              'red', FEword.agg$colorlist)
 
+# preserves scaling i.e. sizes of FGs
 ggplot(FEword.agg, aes(label=FEcomp, size=sum_word, colour=colorlist))+
-  geom_text_wordcloud()+scale_size_area()+facet_wrap(~dat+FG)
+  geom_text_wordcloud()+scale_size_area()+facet_wrap(~FG+dat)
 
+FEword.agg.cl.aus<-split(filter(FEword.agg, dat=='Australia'),
+                         filter(FEword.agg, dat=='Australia')$FG)
 
-FEword.agg.cl.aus<-split(filter(FEword.agg, dat=='Australia'), FEword.agg$FG)
+out<-lapply(FEword.agg.cl.aus, function(x){
+  ggplot(x, aes(label=FEcomp, size=sum_word, colour=colorlist))+
+         geom_text_wordcloud()+scale_size_area()+theme_minimal()+
+    labs(title=paste('FG', unique(x$FG), 'n=', sum(x$sum_word)/5))})
 
-par(mfrow=c(3,4))
+do.call('grid.arrange', out)
 
-lapply(FEword.agg.cl.aus, function(x){
-  plot(wordcloud(words=x$FEcomp,
-            freq=x$sum_word,
-            min.freq = 1, random.order=FALSE,
-            colors=x$colorlist,
-            ordered.colors=TRUE))})
+FEword.agg.cl.jpn<-split(filter(FEword.agg, dat=='Japan'),
+                         filter(FEword.agg, dat=='Japan')$FG)
 
-par(mfrow=c(1,2))
+out<-lapply(FEword.agg.cl.jpn, function(x){
+  ggplot(x, aes(label=FEcomp, size=sum_word, colour=colorlist))+
+    geom_text_wordcloud()+scale_size_area()+theme_minimal()+
+    labs(title=paste('FG', unique(x$FG), 'n=', sum(x$sum_word)/5))})
+
+do.call('grid.arrange', out)
 
 ## remeber set.seed(1234) before making
 
-wordcloud(words=filter(FEword.agg, dat=='Japan', FG==1)$FEcomp,
-          freq=filter(FEword.agg, dat=='Japan', FG==1)$sum_word,
-          min.freq = 1, random.order=FALSE,
-          colors=filter(FEword.agg, dat=='Japan', FG==1)$colorlist,
-          ordered.colors=TRUE)
-# probably not necessary to split via region as clustering is done combined
-
-wordcloud(words=filter(FEword.agg, dat=='Japan', FG==1)$FEcomp,
-          freq=filter(FEword.agg, dat=='Japan', FG==1)$sum_word,
-          min.freq = 1, random.order=FALSE,
-          colors=filter(FEword.agg, dat=='Japan', FG==1)$colorlist,
-          ordered.colors=TRUE)
 
 ##### Proportion of tropical species plot
 
