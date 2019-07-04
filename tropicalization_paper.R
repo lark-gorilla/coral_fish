@@ -183,14 +183,19 @@ ggplot()+
 
 # reformat data
 # split dataframe into list based on rows
-com_dat2list<-split(com_dat2, 1:nrow(com_dat2))
 
-FEwordlist<-lapply(com_dat2list, function(x){data.frame(FEcomp=unlist(strsplit(x$FE, ' ')),
-                                            n=x$num, FG=x$FG, dat=x$dat, FE=x$FE)})
+FEdat<-dat_imp %>% group_by(FE) %>% summarise(FG=unique(FG),num=n())
+                 
+FEdatlist<-split(FEdat, 1:nrow(FEdat))
+
+FEwordlist<-lapply(FEdatlist, function(x){data.frame(FEcomp=unlist(strsplit(x$FE, ' ')),
+                                            n=x$num, FG=x$FG, FE=x$FE)})
 FEword.df<-do.call('rbind', FEwordlist)
 
-# check if we need to aggregate by region?
-FEword.agg<-FEword.df %>% group_by(dat, FG, FEcomp) %>% summarize(sum_word=sum(n)) 
+FEword.agg<-FEword.df %>% group_by(FG, FEcomp) %>% summarize(sum_word=sum(n)) 
+
+# arranges FEcomp in descending order of n, by FG
+FEword.agg<-FEword.agg %>% group_by(FG) %>% arrange(desc(sum_word), .by_group=TRUE)
 
 # help with colouring https://stackoverflow.com/questions/18902485/colored-categories-in-r-wordclouds
 FEword.agg$colorlist='blue'
@@ -205,29 +210,17 @@ FEword.agg$colorlist<-ifelse(FEword.agg$FEcomp%in%unique(dat_imp$BodySize),
 
 # preserves scaling i.e. sizes of FGs
 ggplot(FEword.agg, aes(label=FEcomp, size=sum_word, colour=colorlist))+
-  geom_text_wordcloud()+scale_size_area()+facet_wrap(~FG+dat)
+  geom_text_wordcloud()+scale_size_area()+facet_wrap(~FG)
 
-FEword.agg.cl.aus<-split(filter(FEword.agg, dat=='Australia'),
-                         filter(FEword.agg, dat=='Australia')$FG)
+FEword.agg.cl<-split(FEword.agg, FEword.agg$FG)
 
-out<-lapply(FEword.agg.cl.aus, function(x){
+# include seed
+out<-lapply(FEword.agg.cl, function(x){
   ggplot(x, aes(label=FEcomp, size=sum_word, colour=colorlist))+
-         geom_text_wordcloud()+scale_size_area()+theme_minimal()+
+         geom_text_wordcloud(seed=300)+scale_size_area()+theme_minimal()+
     labs(title=paste('FG', unique(x$FG), 'n=', sum(x$sum_word)/5))})
 
 do.call('grid.arrange', out)
-
-FEword.agg.cl.jpn<-split(filter(FEword.agg, dat=='Japan'),
-                         filter(FEword.agg, dat=='Japan')$FG)
-
-out<-lapply(FEword.agg.cl.jpn, function(x){
-  ggplot(x, aes(label=FEcomp, size=sum_word, colour=colorlist))+
-    geom_text_wordcloud()+scale_size_area()+theme_minimal()+
-    labs(title=paste('FG', unique(x$FG), 'n=', sum(x$sum_word)/5))})
-
-do.call('grid.arrange', out)
-
-## remeber set.seed(1234) before making
 
 
 ##### Proportion of tropical species plot
