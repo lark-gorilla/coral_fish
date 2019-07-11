@@ -247,6 +247,11 @@ do.call('grid.arrange', out)
 dat_aus %>% group_by(FG, ThermalAffinity) %>% summarise(n()) %>% as.data.frame()
 dat_jpn %>% group_by(FG, ThermalAffinity) %>% summarise(n()) %>% as.data.frame()
 
+# trial with local classification
+jpn_trop<-read.csv('C:/coral_fish/data/Japan/JPN_species_tropical_class.csv')
+dat_jpn$sp2<-gsub(' ', '.', dat_jpn$Species)
+dat_jpn<-left_join(dat_jpn, jpn_trop, by=c('sp2'='variable'))
+
 # probability that each FG has more non-tropical species
 # than due to random chance
 
