@@ -111,6 +111,7 @@ imp_jpn<-dat_imp[which(dat_imp$JPN_sp>0),]
 #checks
 length(unique(imp_aus$FE))
 length(unique(imp_jpn$FE))
+# All FEs are uniquely nested within FGs
 max(aggregate(FG~FE, imp_aus, function(x){table(unique(x))})$FG)
 max(aggregate(FG~FE, imp_jpn, function(x){table(unique(x))})$FG)
 
@@ -147,14 +148,31 @@ fg_mn<-com_dat2 %>% group_by(dat, FG) %>% summarise(nm_mn=mean(num), nm_sd=sd(nu
 
 fg_mn$val<-com_dat[order(com_dat$dat, com_dat$FG),]$val
 
+# for mean level different vals depending on mean - check
+fg_mn%>%group_by(dat)%>%summarise(mean(nm_mn))
+com_dat2%>%group_by(dat)%>%summarise(mean(num))
+
+# running hline on mean og FG means
 p2<-ggplot(data=fg_mn, aes(x=val, y=nm_mn))+
   geom_errorbar(aes(ymin=nm_mn-nm_sd, ymax=nm_mn+nm_sd))+
   geom_bar(aes(fill=factor(FG)),colour='black',stat='identity')+
+  geom_hline(data=fg_mn%>%group_by(dat)%>%summarise(mean(nm_mn)),
+             aes(yintercept=`mean(nm_mn)`), linetype='dashed')+
   facet_wrap(~dat)+
   scale_x_continuous(breaks=1:12)+
   scale_y_continuous(limits=c(0, 6.5), breaks=(0:6), oob=rescale_none)+
   xlab('Rank of functional group')+ylab('Species per functional entity')+
   theme_bw()+theme(legend.position = 'none')
+
+com_dat3<-com_dat2
+com_dat3<-left_join(com_dat3, com_dat[,c(1, 4, 5)], by=c('dat', 'FG'))
+
+
+p2.5<-ggplot(data=com_dat3, aes(x=val.y, y=num))+
+  
+  geom_violin(aes(fill=factor(FG)), position='dodge')+
+  facet_grid(dat~.)+scale_x_continuous(breaks=1:12)
+# ig nore colouring, it has reordered cos has missed FGs 11 & 12
                
 grid.arrange(p1, p2)
 
