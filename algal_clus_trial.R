@@ -1,4 +1,5 @@
 # algae trial
+rm(list=ls())
 
 library(cluster)
 library(fpc)
@@ -12,11 +13,10 @@ library(gridExtra)
 source('C:/coral_fish/scripts/coral_fish/clVal.R')
 source('C:/coral_fish/scripts/coral_fish/functions.R')
 
-dat<-read.csv('C:/coral_fish/data/Traits/algae_db_0407_clean.csv')
+dat<-read.csv('C:/coral_fish/data/Traits/algae_db_1007_clean.csv')
+row.names(dat)<-dat$species
 
-# selects main columns and clips out NAs at end of sheet
-dat1<-dat[1:88,c(1:7,  11, 18, 13,21, 26, 27, 28, 29, 33)]
-
+dat1<-dat
 summary(dat1) # 23 missing vals in max depth and reporduction
 str(dat1)
 
@@ -44,14 +44,21 @@ dat1$Tidal.Zone<-factor(dat1$Tidal.Zone,
                         levels=c("Intertidal", "Intertidal/ subtidal","Subtidal"),
                         ordered = T)
 
+dat1<-dat1[c('Structure', 'Holdfast.morphology', 'Thallus.Height..cm....max',
+              'Support.mechanism.KMC', 'Depthrange', 'Substrate', 'Tidal.Zone',
+              'Reproduction')]
 # check NAs per row
 
-apply(dat1[,c(8:11, 14:17)], 1, function(x){length(which(is.na(x)==T))})
+table(apply(dat1, 1, function(x){length(which(is.na(x)==T))}))
 
+which(apply(dat1, 1, function(x){length(which(is.na(x)==T))})>4) # 8,71, 90, 98, 111
 #remove NA row
-dat1<-filter(dat1, Genus!='Sargassum sp.')
+dat1<-dat1[-c(8,71, 90, 98, 111),]
 
-alg_out<-clVal(data=dat1[,c(8:11, 14:17)],
+# remove 'Dictyota adnata Zanardini'
+dat1<-dat1[-3,]
+
+alg_out<-clVal(data=dat1,
                runs=1000, min_cl=2, max_cl=20, subs_perc=0.95,
                calc_wigl = F)
 
@@ -85,21 +92,22 @@ grid.arrange(alg_pca[[4]], alg_pca[[5]], alg_pca[[6]])
 
 # do 2 and 4 k solution
 
-full_alg_clust<-cutree(hclust(daisy(dat1[,c(8:11, 14:17)], metric='gower', stand = FALSE),
-                              method='average'), k=4)
+full_alg_clust<-cutree(hclust(daisy(dat1, metric='gower', stand = FALSE),
+                              method='average'), k=5)
 
-plot(hclust(daisy(dat1[,c(8:11, 14:17)], metric='gower', stand = FALSE),
+plot(hclust(daisy(dat1, metric='gower', stand = FALSE),
             method='average'))
 
 dat1$group<-full_alg_clust
-write.csv(dat1, 'C:/coral_fish/outputs/alg_clust_k4.csv', quote=F, row.names=F)
+dat1$Species<-row.names(dat1)
+write.csv(dat1, 'C:/coral_fish/outputs/alg_clust_k5.csv', quote=F, row.names=F)
 
 # informal validation
 
 library(gbm)
 library(mice)
 
-dat_mice<-mice(dat1[,c(8:11, 14:17)], m=5, method=c('polyreg', 'polyreg','norm.predict',
+dat_mice<-mice(dat1, m=5, method=c('polyreg', 'polyreg','norm.predict',
                                                     rep('polyreg', 4),'norm.predict'))
 
 dat_imp<-complete(dat_mice)
