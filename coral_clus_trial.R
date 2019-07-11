@@ -83,10 +83,51 @@ grid.arrange(alg_pca[[4]], alg_pca[[5]], alg_pca[[6]])
 
 # write clusters out
 
+plot(hclust(daisy(dat[,2:10],
+                  metric='gower', stand = FALSE), method='average'))
+
+
 full_crl_clust<-cutree(hclust(daisy(dat[,2:10],
                       metric='gower', stand = FALSE), method='average'), k=4)
 
 dat$group<-full_crl_clust
 
 write.csv(dat, 'C:/coral_fish/outputs/coral_clust.csv', quote=F, row.names=F)
+
+## post cluster analyses from maria data
+
+darl_vs<-read_xlsx('C:/coral_fish/data/Traits/coral_clust_5Jul2019.xlsx',
+               sheet = 1, na='NA')#
+
+table(darl_vs$group, darl_vs$Darling) # not good
+
+# try ward clustering
+dat<-as.data.frame(dat)
+row.names(dat)<-dat$genus
+
+plot(hclust(daisy(dat[,2:10],metric='gower', stand = FALSE), method='ward.D'))
+
+# looks like Darlings... ok so now do the clusters match better
+darl_vs$ward_group<-cutree(hclust(daisy(dat[,2:10],
+                    metric='gower', stand = FALSE),
+                    method='ward.D'), k=4)
+
+table(darl_vs$ward_group, darl_vs$Darling) # better
+
+# but does ward perform ok with copo corr to dist
+
+cor(daisy(dat[,2:10], metric='gower', stand = FALSE),
+           cophenetic(hclust(daisy(dat[,2:10],
+                            metric='gower', stand = FALSE),
+                      method='ward.D')))
+
+cor(daisy(dat[,2:10], metric='gower', stand = FALSE),
+    cophenetic(hclust(daisy(dat[,2:10],
+                            metric='gower', stand = FALSE),
+                      method='ward.D')))
+
+# nope..
+
+# write out results
+write.csv(darl_vs, 'C:/coral_fish/data/Traits/coral_clust_ward_5Jul2019.csv', quote=F, row.names=F)
 
