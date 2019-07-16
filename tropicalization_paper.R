@@ -305,4 +305,88 @@ grid.arrange(pa, pj, nrow=2)
 imp_aus %>% group_by(FE) %>% summarise(n(), n_therm=length(unique(ThermalAffinity))) %>% as.data.frame()
 dat_jpn %>% group_by(FG, ThermalAffinity) %>% summarise(n()) %>% as.data.frame()
 
+# Compare ThermalAffinity class vs latitudinal sampling class
+
+# run with latitude data
+out_jpn2<-NULL
+for(i in 1:9999){
+  out_jpn2<-rbind(out_jpn2, dat_jpn%>%mutate(FG2=sample(FG, replace=F))%>% 
+                   group_by(FG2)%>%summarize(prop_trop=length(which(class=='tropical'))/n())%>%
+                   mutate(run=i))}
+
+#full latuitude data
+jpn_full2<-dat_jpn%>%group_by(FG)%>%summarize(prop_trop=length(which(class=='tropical'))/n())
+
+# plot ThermalAffin vs Latitudeinal classification
+
+ggplot()+geom_violin(data=out_jpn, aes(x=factor(FG2), y=prop_trop), fill='red', alpha=0.3)+
+  geom_violin(data=out_jpn2, aes(x=factor(FG2), y=prop_trop), fill='blue', alpha=0.3)+
+  geom_hline(yintercept = length(which(dat_jpn$ThermalAffinity=='tropical'))/nrow(dat_jpn),
+             linetype='dashed', colour='dark red')+
+  geom_point(data=jpn_full, aes(x=factor(FG), y=prop_trop), colour='red', size=2.2)+
+ 
+  geom_hline(yintercept = length(which(dat_jpn$class=='tropical'))/nrow(dat_jpn),
+             linetype='dashed', colour='dark blue')+
+  geom_point(data=jpn_full2, aes(x=factor(FG), y=prop_trop), colour='blue', size=2)+
+  geom_label(data=dat_jpn%>%group_by(FG)%>%summarize(n=n()),
+             aes(x=as.factor(FG), y=0.1, label=n), colour='blue')+
+  xlab('Japan FGs')+ylab('Proportion of tropical sp.')
+
+#check for subtropical thermalaffin sp that have become generalists?
+table(dat_jpn[dat_jpn$ThermalAffinity!='tropical',]$class)
+
+
+
+# projection of FGs into 'colonisation space'
+
+d_colon<-daisy(dat_imp[c('PLD', 'ParentalMode')], metric='gower', stand = FALSE)
+
+ppp<- ggplot()+
+  geom_hline(yintercept=0, linetype="dotted") + 
+  geom_vline(xintercept=0,  linetype="dotted")
+
+colon_dudi<-dudi.pco(d = sqrt(d_colon), scannf = FALSE, nf = 2)
+colon_pco<-data.frame(colon_dudi$li,dat_imp)
+p1<-ppp+geom_point(data=colon_pco, aes(x=A1, y=A2, colour=factor(FG)))+
+  geom_polygon(data=colon_pco %>% group_by(FG) %>% slice(chull(A1, A2)),
+               aes(x=A1, y=A2, fill=factor(FG)), alpha=0.2)+
+  geom_point(data=colon_pco%>%group_by(FG)%>%summarize(A1=mean(A1), A2=mean(A2)), 
+             aes(x=A1, y=A2, fill=factor(FG)))+
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
+                                          100* colon_dudi$eig[2]/sum(colon_dudi$eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
+                                          100* colon_dudi$eig[1]/sum(colon_dudi$eig))))
+
+p1+facet_wrap(~FG)
+
+enviro.species.scores<-as.data.frame(scores(colon_dudi, display='species'))
+enviro.species.scores$Predictors<-c('ParentalMode', 'PLD')
+head(enviro.species.scores)
+
+ppp+
+  geom_point(data=colon_pco%>%group_by(FG)%>%
+               summarize(A1=mean(A1), A2=mean(A2)), 
+             aes(x=A1, y=A2, colour=factor(FG)), size=2)+
+  geom_segment(data=enviro.species.scores[1:2,], aes(y=0, x=0, yend=Comp2, xend=Comp1),
+               arrow=arrow(length=unit(0.3,'lines')))+
+  geom_text(data=enviro.species.scores[1:2,], aes(y=Comp2, x=Comp1, label=Predictors))+
+
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
+                                          100* colon_dudi$eig[2]/sum(colon_dudi$eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
+                                          100* colon_dudi$eig[1]/sum(colon_dudi$eig))))
+# non-multidimensional approach
+
+ggplot(data=dat, aes(x=ParentalMode, y=PLD))+geom_boxplot()+facet_wrap(~FG)
+
+ggplot(data=dat, aes(x=factor(FG), y=PLD))+geom_boxplot()+facet_wrap(~ParentalMode)
+
+dat$ord_ParentalMode<-factor(dat$ParentalMode, 
+    levels=c("Live bearers", "brooders","Nesters", "demersal","scatterers"),
+    ordered = T)
+ggplot(data=dat, aes(x=ord_ParentalMode, y=PLD, colour=factor(FG)))+
+  geom_point()+
+  geom_point(data=dat%>%group_by(FG)%>%summarize(PM=names(which.max(table(ParentalMode))), 
+            PLD=mean(PLD, na.rm=T)),aes(x=PM, y=PLD), size=2, colour='black')+
+              facet_wrap(~FG)+theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
