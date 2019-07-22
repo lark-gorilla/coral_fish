@@ -55,6 +55,10 @@ dat$Aggregation<-factor(dat$Aggregation, levels=c("solitary", "pairs","groups","
 #dat$Position<-factor(dat$Position, levels=c("SubBenthic", "Benthic","UpperBenthic",
 #                                            "Demersal", "ReefPelagic","Pelagic"), ordered = T)
 
+# create thermal affinity variable with just tropical/non-tropical
+dat$ThermalAffinity2<-as.character(dat$ThermalAffinity)
+dat[dat$ThermalAffinity2!='tropical',]$ThermalAffinity2<-'subtropical'
+
 eff_both<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')], metric='gower', stand = FALSE)
 
 both_FG<-cutree(hclust(eff_both, method='average'), k=12)
@@ -70,7 +74,7 @@ dat_jpn<-dat[which(dat$JPN_sp>0),]
 
 dat_mice<-mice(dat[,c(2:9)], m=5, method=c('polyreg',rep('norm.predict', 3), rep('polyreg', 4)))
 dat_imp<-complete(dat_mice)
-dat_imp<-cbind(Species=dat[,1], dat_imp, dat[,10:15])
+dat_imp<-cbind(Species=dat[,1], dat_imp, dat[,10:16])
 
 # Bodysize
 
@@ -94,14 +98,23 @@ red_dat<-rbind(dat_aus %>% group_by(FG) %>% summarise(num=n()) %>%
   dat_jpn %>% group_by(FG) %>% summarise(num=n()) %>%
     arrange(num) %>% mutate(val=10:1, dat='Japan'))
 
+red_dat_therm<-rbind(dat_aus %>% group_by(ThermalAffinity2, FG) %>%
+                       summarise(num=n()) %>% mutate(dat='Australia'),
+                     dat_jpn %>% group_by(ThermalAffinity2, FG) %>%
+                       summarise(num=n())%>% mutate( dat='Japan'))
+
+red_dat_therm$val<-left_join(red_dat_therm, red_dat, by=c('dat', 'FG'))$val
+
 ggplot()+
-  geom_bar(data=red_dat, aes(x=val, y=num, fill=factor(FG)),stat='identity')+
-  geom_hline(data=red_dat%>%group_by(dat)%>%summarise_all(mean),
-             aes(yintercept=num), linetype='dashed')+
+  geom_bar(data=red_dat_therm, aes(x=val, y=num, fill=ThermalAffinity2),
+           stat='identity',position=position_dodge(preserve = 'single'))+
+  geom_hline(data=red_dat_therm%>%group_by(dat, ThermalAffinity2)%>%summarise_all(mean),
+             aes(yintercept=num, colour=ThermalAffinity2), linetype='dashed')+
   facet_grid(dat~.)+
   scale_x_continuous(breaks=1:12)+
   xlab('Rank of functional group')+ylab('# of species per FG')+
   theme_bw()
+
   
 ## Redundancy/complimentarity plot
 
