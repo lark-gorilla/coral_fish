@@ -195,46 +195,43 @@ write.csv(df4, 'C:/coral_fish/data/Japan/JPN_species_tropical_class.csv', quote=
 
 specs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
 
-specs<-specs[which(specs$JPN_sp>0),] 
+specs_aus<-specs[which(specs$AUS_sp>0),] 
 
-dat<-read.csv('C:/coral_fish/data/Japan/FishData_JP_2016_final.csv', h=T)
+#read in australia survey species
+dat_aus<-read.csv('C:/coral_fish/data/Australia/LongTransect_Subtropical_fish_Aug2017_18Aug2018.csv')
 
-dat$SpeciesFish<-as.character(dat$SpeciesFish)
+#get list of aus_species names
+aus_species<-aus_species_list$species
 
-nrow(specs);length(unique(dat$SpeciesFish))
-specs$Species[which(!specs$Species %in% dat$SpeciesFish)]
+dat_aus$Fish<-as.character(dat_aus$Fish)
+specs_aus$Species<-as.character(specs_aus$Species)
 
-dat$SpeciesFish[dat$SpeciesFish=="Apogon aureus"]<- "Ostorhinchus aureus"
-dat$SpeciesFish[dat$SpeciesFish=='PLectroglyphidodon dickii']<-'Plectroglyphidodon dickii'
-dat$SpeciesFish[dat$SpeciesFish=='Goniistius zebra']<-'Cheilodactylus zebra'
-dat$SpeciesFish[dat$SpeciesFish=='Diagramma picta']<-'Diagramma pictum'
-dat$SpeciesFish[dat$SpeciesFish=='Goniistius zonatus']<-'Cheilodactylus zonatus'
-dat$SpeciesFish[dat$SpeciesFish=='Halichoeres poecilopterus']<-'Parajulis poecilepterus'
-dat$SpeciesFish[dat$SpeciesFish=='Sebasticus marmoratus']<-'Sebastiscus marmoratus'
-dat$SpeciesFish[dat$SpeciesFish=="Apogon doederleini"]<-'Ostorhinchus doederleini'
-dat$SpeciesFish[dat$SpeciesFish=='Siganus stellatus']<-'Siganus punctatus'
-dat$SpeciesFish[dat$SpeciesFish=="Apogon limenus"]<-'Ostorhinchus limenus'
-dat$SpeciesFish[dat$SpeciesFish=="Chaetodon modestus"]<-'Roa modesta'
+nrow(specs_aus);length(unique(dat_aus$Fish)) # hmm extra 50 sp in Maria's list?
+specs_aus$Species[which(!specs_aus$Species %in% dat_aus$Fish)]
+## Hmm 72 species not shared, not ~ 50.. naming issues? Hopefully there is updated sheet somewhere
 
+# remove
+dat_aus<-dat_aus[dat_aus$Site!='Siganus fuscescens',]
 
-locs<-read.csv('C:/coral_fish/data/Japan/jp2015_16_waypoints.csv', h=T)
+locs<-read.csv('C:/coral_fish/data/Australia/Australia_SitesMar2010toAug2017.csv', h=T)
 
-dat<-left_join(dat, locs, by=c('SiteID'= 'Site'))
+dat_aus<-left_join(dat_aus, locs[,c(1, 4, 5)], by=c('Site'= 'Site.name'))
 
-# rm blanks
-dat<-dat[-which(dat$SiteID==''),]
 # abun to PA
-dat$PA<-1
+dat_aus$PA<-1
+
+table(dat_aus[dat_aus$Year==2015,]$Site)
 
 # sp in trait dataset filter?
 
 library(labdsv)
 library(ade4)
 
-mat1<-matrify(data.frame(round(dat$lat, 2), dat$SpeciesFish, dat$PA))
+dat_aus%>%group_by(Site)%>%summarise(length(unique(Lat)))%>%View()
+# ok a bit screwed up but proceed anyway
 
-table(dat[dat$Year==2015,]$SiteID)
-table(dat[dat$Year==2016,]$SiteID)
+dat_aus_yr<-dat_aus[dat_aus$Year>2015,]
+mat1<-matrify(data.frame(dat_aus_yr$Site, dat_aus_yr$Fish, dat_aus_yr$PA))
 
 bdist<-dist.binary(mat1, method=1) # jaccard dist
 
