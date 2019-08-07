@@ -164,32 +164,37 @@ table(dat[dat$Year==2016,]$SiteID)
 bdist<-dist.binary(mat1, method=1) # jaccard dist
 
 #shouldn't use ward centroid or median methods for jaccard dist
-plot(hclust(bdist, 'single'))  #splits sites into 2 clusts from lat 30deg N
+plot(hclust(bdist, 'single'))  #splits sites into 2 clusts from lat <31deg N
 
 cor(cophenetic(hclust(bdist, 'average')), bdist) # best
 cor(cophenetic(hclust(bdist, 'single')), bdist)
 cor(cophenetic(hclust(bdist, 'complete')), bdist)
 
+#make split and species list for each community
+specs$JPN_trop<-ifelse(specs$Species%in% dat[dat$lat<31,]$SpeciesFish, 1, 0)
+specs$JPN_temp<-ifelse(specs$Species%in% dat[dat$lat>31,]$SpeciesFish, 1, 0)
 
-df1<-data.frame(mat1)
-df1$lat<-as.numeric(row.names(df1))
-df1<-df1[order(df1$lat),]
-df1$comm_div<-'subtropical'
-df1[df1$lat<31,]$comm_div<-'tropical'
-
-library(reshape2)
-
-df2<-melt(df1,id.vars = c('lat', 'comm_div'))
-
-df3<-filter(df2, value>0) %>% group_by(variable, comm_div) %>% summarise(n_pres=n())
-
-df4<-df3 %>% group_by(variable) %>%
-  summarise(class=ifelse(n()>1,
-  ifelse((min(n_pres)/max(n_pres)*100)>50, 'generalist',comm_div[which.max(n_pres)]),
-  comm_div))
+df4<-specs[,c(1,15, 16)]
 
 write.csv(df4, 'C:/coral_fish/data/Japan/JPN_species_tropical_class.csv', quote=F, row.names=F)
 
+# alternate approach n tropical and n temperate sp per site
+
+dat<-left_join(dat, specs[,1:2], by=c('SpeciesFish'= 'Species'))
+dat[dat$ThermalAffinity!='tropical',]$ThermalAffinity<-'subtropical'
+
+d2<-dat%>%group_by(lat)%>%distinct(SpeciesFish, .keep_all=T)%>%
+  summarize(n_trop=length(which(ThermalAffinity=='tropical')),
+            n_subt=length(which(ThermalAffinity=='subtropical')))%>%
+  as.data.frame()
+
+row.names(d2)<-round(d2$lat, 4)
+d3<-dist(d2[,2:3])
+plot(hclust(d3, 'average'))
+
+cor(cophenetic(hclust(d3, 'average')), d3) # best
+cor(cophenetic(hclust(d3, 'single')), d3)
+cor(cophenetic(hclust(d3, 'complete')), d3)
 
 ## calcing species occurence along latitudinal gradient - Australia data
 
@@ -230,7 +235,7 @@ library(ade4)
 dat_aus%>%group_by(Site)%>%summarise(length(unique(Lat)))%>%View()
 # ok a bit screwed up but proceed anyway
 
-dat_aus_yr<-dat_aus[dat_aus$Year>2015,]
+dat_aus_yr<-dat_aus[dat_aus$Year>2010,]
 mat1<-matrify(data.frame(dat_aus_yr$Site, dat_aus_yr$Fish, dat_aus_yr$PA))
 
 bdist<-dist.binary(mat1, method=1) # jaccard dist
