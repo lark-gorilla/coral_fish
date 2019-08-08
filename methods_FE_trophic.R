@@ -206,7 +206,6 @@ specs_aus<-specs[which(specs$AUS_sp>0),]
 dat_aus<-read.csv('C:/coral_fish/data/Australia/LongTransect_Subtropical_fish_Aug2017_18Aug2018.csv')
 
 #get list of aus_species names
-aus_species<-aus_species_list$species
 
 dat_aus$Fish<-as.character(dat_aus$Fish)
 specs_aus$Species<-as.character(specs_aus$Species)
@@ -215,10 +214,38 @@ nrow(specs_aus);length(unique(dat_aus$Fish)) # hmm extra 50 sp in Maria's list?
 specs_aus$Species[which(!specs_aus$Species %in% dat_aus$Fish)]
 ## Hmm 72 species not shared, not ~ 50.. naming issues? Hopefully there is updated sheet somewhere
 
-# remove
+# remove and fix
+dat_aus$Site<-as.character(dat_aus$Site)
 dat_aus<-dat_aus[dat_aus$Site!='Siganus fuscescens',]
+dat_aus[dat_aus$Site=="Flinders Reef ",]$Site<-"Flinders Reef"
+dat_aus[dat_aus$Site=="Southwest Solitaries",]$Site<-"SW-Solitaries"
+dat_aus[dat_aus$Site=="Julian Rock Site2",]$Site<-"Julian Rocks Site2"
+dat_aus[dat_aus$Site=="Julian Rocks Nursery",]$Site<-"Julian_Nursery"
+dat_aus[dat_aus$Site=="Julian Rock Nursery",]$Site<-"Julian_Nursery"
 
 locs<-read.csv('C:/coral_fish/data/Australia/Australia_SitesMar2010toAug2017.csv', h=T)
+
+# edit locs Site.name so it lines up
+locs$Site.name<-as.character(locs$Site.name)
+locs[locs$Site.name=='Pialba',]$Site.name<-"Pialba Shallow"
+locs[locs$Site.name=='Big Woody',]$Site.name<-"Big Woody Shallow"
+locs[locs$Site.name=='Gatakers hig div site',]$Site.name<-"Gataker High Diversity Site"
+locs[locs$Site.name=='NW Solitary Island',]$Site.name<-"NW-Solitaries"
+locs[locs$Site.name=='SW Solitary Island',]$Site.name<-"SW-Solitaries"
+locs[locs$Site.name=='Woolgoolga Headland Reef',]$Site.name<-"Woolgoolga Headland"
+locs[locs$Site.name=='Inner Gneering Shoals',]$Site.name<-"Inner Gneerings"
+locs[locs$Site.name=='Hendersons Shoals',]$Site.name<-"Hendersons Rock"
+locs[locs$Site.name=='Latitude Rock, Forster',]$Site.name<-"Latitude Rock"
+locs[locs$Site.name=='Julian Rocks False Trench',]$Site.name<-"Julian_FalseTrench"
+
+a1<-locs[locs$Site.name=='Inner Gneerings',][1,];a1$Site.name<-'Gneerings'
+locs<-rbind(locs,a1)
+a1<-locs[locs$Site.name=='Julian Rocks South',][1,];a1$Site.name<-'Julian Rocks Site2'
+locs<-rbind(locs,a1)
+a1<-locs[locs$Site.name=='Julian Rocks South',][1,];a1$Site.name<-'Julian_Nursery'
+locs<-rbind(locs,a1)
+
+
 
 dat_aus<-left_join(dat_aus, locs[,c(1, 4, 5)], by=c('Site'= 'Site.name'))
 
@@ -226,7 +253,7 @@ aggregate(Lat~Site, dat_aus, unique)
 # sort different lats for Mudjima
 dat_aus[dat_aus$Site=='Mudjimba Island',]$Lat<--26.61623
 
-# site names that did not line up or had NA for lat, not fixing as subject to change
+# site names that did not line up or had NA for lat - fixed
 unique(dat_aus[is.na(dat_aus$Lat),]$Site)
 paste(unique(locs$Site.name)[!unique(locs$Site.name)  %in%  unique(dat_aus$Site)])
 # abun to PA
@@ -251,12 +278,16 @@ bdist<-dist.binary(mat1, method=1) # jaccard dist
 plot(hclust(bdist, 'single'))  #splits sites into 3 clusts, make cut at Flat Rock 28 deg S
 
 
-specs_aus$AUS_trop<-ifelse(specs_aus$Species%in% dat[dat$lat<31,]$SpeciesFish, 1, 0)
-specs_aus$AUS_temp<-ifelse(specs_aus$Species%in% dat[dat$lat>31,]$SpeciesFish, 1, 0)
+specs_aus$AUS_trop<-ifelse(specs_aus$Species%in% dat_aus[dat_aus$Lat<'-28',]$Fish, 1, 0)
+specs_aus$AUS_temp<-ifelse(specs_aus$Species%in% dat_aus[dat_aus$Lat>'-28',]$Fish, 1, 0)
 
-df4<-specs[,c(1,15, 16)]
+length(which(rowSums(specs_aus[,15:16])==0)) # here are the 72 missing sp
+# make them all tropical comm as GBR species - Maria
+specs_aus[which(rowSums(specs_aus[,15:16])==0),]$AUS_trop<-1
 
-write.csv(df4, 'C:/coral_fish/data/Japan/JPN_species_tropical_class.csv', quote=F, row.names=F)
+df4<-specs_aus[,c(1,15, 16)]
+
+write.csv(df4, 'C:/coral_fish/data/Australia/AUS_species_tropical_class.csv', quote=F, row.names=F)
 
 
 write.csv(df4, 'C:/coral_fish/data/Japan/JPN_species_tropical_class.csv', quote=F, row.names=F)
