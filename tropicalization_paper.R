@@ -121,7 +121,7 @@ ggplot()+
   xlab('Rank of functional group')+ylab('# of species per FG')+
   theme_bw()
 
-## Redundancy plot with thermal affinity and community splits - JPN only
+## Redundancy plot with thermal affinity and community splits - JAPAN
 
 jpn_dat_therm<-rbind(dat_jpn %>% filter(JPN_trop==1) %>% 
                        group_by(ThermalAffinity2, FG) %>%
@@ -133,17 +133,49 @@ jpn_dat_therm<-rbind(dat_jpn %>% filter(JPN_trop==1) %>%
 
 jpn_dat_therm$val<-left_join(jpn_dat_therm, filter(red_dat,dat=='Japan'), by='FG')$val
 
+
 ggplot()+
   geom_bar(data=jpn_dat_therm, aes(x=val, y=num,
   fill=interaction(ThermalAffinity2, dat)),stat='identity',
   position=position_dodge2(preserve = 'single'))+
   geom_hline(data=jpn_dat_therm%>%group_by(dat)%>%summarise_all(mean),
-             aes(yintercept=num),colour=c('#7CAE00', '#C77CFF'))+
+             aes(yintercept=num),colour=c('#abd9e9','#d7191c'))+
   geom_hline(data=jpn_dat_therm%>%group_by(dat)%>%summarise_all(mean),
-             aes(yintercept=num),colour=c('#F8766D', '#00BFC4'), linetype='dotted', size=1)+
+             aes(yintercept=num),colour=c('#2c7bb6', '#fdae61'), linetype='dotted', size=1)+
   scale_x_continuous(breaks=1:10, labels=c(4,6,1,2,8,3,5,10,9, 7))+
   ylab('# of species per FG')+xlab('Rank of functional group')+
-  theme_bw()+ guides(fill=guide_legend(title="ThermAffin.Comm"))
+  theme_bw()+ guides(fill=guide_legend(title="ThermAffin.Comm"))+
+  scale_fill_manual(values = c('#abd9e9','#2c7bb6', '#fdae61', '#d7191c'))+
+  theme(legend.justification = c(1, 1), legend.position = c(1, 1), 
+        legend.background = element_rect(colour = "black"))
+
+## Redundancy plot with thermal affinity and community splits - AUSTRALIA
+
+aus_dat_therm<-rbind(dat_aus %>% filter(AUS_trop==1) %>% 
+                       group_by(ThermalAffinity2, FG) %>%
+                       summarise(num=n()) %>% mutate(dat='Trop'),
+                     dat_aus %>% filter(AUS_temp==1) %>%
+                       group_by(ThermalAffinity2, FG) %>%
+                       summarise(num=n())%>% mutate( dat='Temp'))
+
+
+aus_dat_therm$val<-left_join(aus_dat_therm, filter(red_dat,dat=='Australia'), by='FG')$val
+
+
+ggplot()+
+  geom_bar(data=aus_dat_therm, aes(x=val, y=num,
+                                   fill=interaction(ThermalAffinity2, dat)),stat='identity',
+           position=position_dodge2(preserve = 'single'))+
+  geom_hline(data=aus_dat_therm%>%group_by(dat)%>%summarise_all(mean),
+             aes(yintercept=num),colour=c('#abd9e9','#d7191c'))+
+  geom_hline(data=aus_dat_therm%>%group_by(dat)%>%summarise_all(mean),
+             aes(yintercept=num),colour=c('#2c7bb6', '#fdae61'), linetype='dotted', size=1)+
+  scale_x_continuous(breaks=1:12, labels=unique(aus_dat_therm[order(aus_dat_therm$val),]$FG))+
+  ylab('# of species per FG')+xlab('Rank of functional group')+
+  theme_bw()+ guides(fill=guide_legend(title="ThermAffin.Comm"))+
+  scale_fill_manual(values = c('#abd9e9','#2c7bb6', '#fdae61', '#d7191c'))+
+  theme(legend.justification = c(1, 1), legend.position = c(1, 1), 
+        legend.background = element_rect(colour = "black"))
 
 
   
