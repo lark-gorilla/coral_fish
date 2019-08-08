@@ -141,6 +141,12 @@ out<-lapply(FEword.agg.cl, function(x){
 
 do.call('grid.arrange', out)
 
+# get names for future plots
+FEword.agg%>%group_by(FG)%>%
+mutate(totword=sum(sum_word), cumword=cumsum(sum_word), wordperc=cumword/totword*100)%>%
+filter(wordperc<59) ->FGnames
+
+aggregate(FEcomp~FG, FGnames, paste)
 
 ## first Redundancy plot with thermal affinity split
 
@@ -295,7 +301,7 @@ for(i in 1:1000){
                         summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n())%>%
                         mutate(run=i))}
 
-#full latuitude data
+#full latitude data
 jpn_full_trop<-dat_jpn%>%filter(JPN_trop==1)%>%group_by(FG)%>%
   summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n())
 jpn_full_temp<-dat_jpn%>%filter(JPN_temp==1)%>%group_by(FG)%>%
