@@ -222,6 +222,13 @@ locs<-read.csv('C:/coral_fish/data/Australia/Australia_SitesMar2010toAug2017.csv
 
 dat_aus<-left_join(dat_aus, locs[,c(1, 4, 5)], by=c('Site'= 'Site.name'))
 
+aggregate(Lat~Site, dat_aus, unique)
+# sort different lats for Mudjima
+dat_aus[dat_aus$Site=='Mudjimba Island',]$Lat<--26.61623
+
+# site names that did not line up or had NA for lat, not fixing as subject to change
+unique(dat_aus[is.na(dat_aus$Lat),]$Site)
+paste(unique(locs$Site.name)[!unique(locs$Site.name)  %in%  unique(dat_aus$Site)])
 # abun to PA
 dat_aus$PA<-1
 
@@ -235,34 +242,21 @@ library(ade4)
 dat_aus%>%group_by(Site)%>%summarise(length(unique(Lat)))%>%View()
 # ok a bit screwed up but proceed anyway
 
-dat_aus_yr<-dat_aus[dat_aus$Year>2010,]
+dat_aus_yr<-dat_aus[dat_aus$Year==2010,]
 mat1<-matrify(data.frame(dat_aus_yr$Site, dat_aus_yr$Fish, dat_aus_yr$PA))
 
 bdist<-dist.binary(mat1, method=1) # jaccard dist
 
 #shouldn't use ward centroid or median methods for jaccard dist
-plot(hclust(bdist, 'single'))  #splits sites into 2 clusts from lat 30deg N
-
-cor(cophenetic(hclust(bdist, 'average')), bdist) # best
-cor(cophenetic(hclust(bdist, 'single')), bdist)
-cor(cophenetic(hclust(bdist, 'complete')), bdist)
+plot(hclust(bdist, 'single'))  #splits sites into 3 clusts, make cut at Flat Rock 28 deg S
 
 
-df1<-data.frame(mat1)
-df1$lat<-as.numeric(row.names(df1))
-df1<-df1[order(df1$lat),]
-df1$comm_div<-'subtropical'
-df1[df1$lat<31,]$comm_div<-'tropical'
+specs_aus$AUS_trop<-ifelse(specs_aus$Species%in% dat[dat$lat<31,]$SpeciesFish, 1, 0)
+specs_aus$AUS_temp<-ifelse(specs_aus$Species%in% dat[dat$lat>31,]$SpeciesFish, 1, 0)
 
-library(reshape2)
+df4<-specs[,c(1,15, 16)]
 
-df2<-melt(df1,id.vars = c('lat', 'comm_div'))
+write.csv(df4, 'C:/coral_fish/data/Japan/JPN_species_tropical_class.csv', quote=F, row.names=F)
 
-df3<-filter(df2, value>0) %>% group_by(variable, comm_div) %>% summarise(n_pres=n())
-
-df4<-df3 %>% group_by(variable) %>%
-  summarise(class=ifelse(n()>1,
-                         ifelse((min(n_pres)/max(n_pres)*100)>50, 'generalist',comm_div[which.max(n_pres)]),
-                         comm_div))
 
 write.csv(df4, 'C:/coral_fish/data/Japan/JPN_species_tropical_class.csv', quote=F, row.names=F)
