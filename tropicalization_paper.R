@@ -27,15 +27,15 @@ dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_op
 dat<-dat[which(dat$AUS_sp>0 | dat$JPN_sp>0),] # we will focus on Australia and Japan for this prelim
 
 # remove functional duplicates
-dup_trait<-paste(dat$BodySize, dat$DepthRange, dat$PLD, dat$Diet, dat$Aggregation, dat$Position, 
-                 dat$ParentalMode)
-dat<-dat[-which(duplicated(dup_trait)),]
-dat$Species<-as.character(dat$Species)
-dat[which(dat$Species=='Scarus psittacus'),]$Species<-'Scarus psittacus/spinus' # edit for one
+#dup_trait<-paste(dat$BodySize, dat$DepthRange, dat$PLD, dat$Diet, dat$Aggregation, dat$Position, 
+#                 dat$ParentalMode)
+#dat<-dat[-which(duplicated(dup_trait)),]
+#dat$Species<-as.character(dat$Species)
+#dat[which(dat$Species=='Scarus psittacus'),]$Species<-'Scarus psittacus/spinus' # edit for one
 
 # Including those that default to duplicates via NA after gower dist
-dat<-dat[-which(dat$Species=='Caesio sp.'),]
-dat<-dat[-which(dat$Species=='Ostracion immaculatus'),]
+#dat<-dat[-which(dat$Species=='Caesio sp.'),]
+#dat<-dat[-which(dat$Species=='Ostracion immaculatus'),]
 
 row.names(dat)<-dat$Species
 
@@ -65,22 +65,18 @@ both_FG<-cutree(hclust(eff_both, method='average'), k=12)
 
 dat$FG<-both_FG
 
-# Add regional tropical/sub-tropical comm data
-# trial with local classification
+# Add regional tropical/sub-tropical comm data and split to regions
 jpn_trop<-read.csv('C:/coral_fish/data/Japan/JPN_species_tropical_class.csv')
-jpn_trop$variable<-gsub('\\.', ' ', jpn_trop$variable)
+aus_trop<-read.csv('C:/coral_fish/data/Australia/AUS_species_tropical_class.csv')
 
-dat$JPN_trop<-ifelse(dat$Species %in% 
-                       filter(jpn_trop, class=='tropical'|class=='generalist')$variable, 1, 0)
-dat$JPN_temp<-ifelse(dat$Species %in% 
-                       filter(jpn_trop, class=='subtropical'|class=='generalist')$variable, 1, 0)
 
 dat_aus<-dat[which(dat$AUS_sp>0),]
-
 dat_jpn<-dat[which(dat$JPN_sp>0),]
 
-### Functional Entity creation
+dat_aus<-left_join(dat_aus, aus_trop, by='Species')
+dat_jpn<-left_join(dat_jpn, jpn_trop, by='Species')
 
+### Functional Entity creation
 
 dat_mice<-mice(dat[,c(2:9)], m=5, method=c('polyreg',rep('norm.predict', 3), rep('polyreg', 4)))
 dat_imp<-complete(dat_mice)
