@@ -146,7 +146,8 @@ FEword.agg%>%group_by(FG)%>%
 mutate(totword=sum(sum_word), cumword=cumsum(sum_word), wordperc=cumword/totword*100)%>%
 filter(wordperc<59) ->FGnames
 
-aggregate(FEcomp~FG, FGnames, paste)
+FGnames<-as.data.frame(aggregate(FEcomp~FG, FGnames, 
+                                 function(x){paste(x, collapse='-')}))
 
 ## first Redundancy plot with thermal affinity split
 
@@ -191,12 +192,13 @@ ggplot()+
              aes(yintercept=num),colour=c('#abd9e9','#d7191c'))+
   geom_hline(data=jpn_dat_therm%>%group_by(dat)%>%summarise_all(mean),
              aes(yintercept=num),colour=c('#2c7bb6', '#fdae61'), linetype='dotted', size=1)+
-  scale_x_continuous(breaks=1:10, labels=c(4,6,1,2,8,3,5,10,9, 7))+
-  ylab('# of species per FG')+xlab('Rank of functional group')+
+  scale_x_continuous(breaks=1:10, labels=FGnames[c(4,6,1,2,8,3,5,10,9, 7),]$FEcomp)+
+  ylab('# of species per FG')+xlab('Functional niche')+
   theme_bw()+ guides(fill=guide_legend(title="ThermAffin.Comm"))+
-  scale_fill_manual(values = c('#abd9e9','#2c7bb6', '#fdae61', '#d7191c'))+
+  scale_fill_manual(values = c('#2c7bb6','#abd9e9', '#fdae61', '#d7191c'))+
   theme(legend.justification = c(1, 1), legend.position = c(1, 1), 
-        legend.background = element_rect(colour = "black"))
+        legend.background = element_rect(colour = "black"), 
+        axis.text.x = element_text(angle = 60, hjust = 1))
 
 ## Redundancy plot with thermal affinity and community splits - AUSTRALIA
 
@@ -217,12 +219,15 @@ ggplot()+
              aes(yintercept=num),colour=c('#abd9e9','#d7191c'))+
   geom_hline(data=aus_dat_therm%>%group_by(dat)%>%summarise_all(mean),
              aes(yintercept=num),colour=c('#2c7bb6', '#fdae61'), linetype='dotted', size=1)+
-  scale_x_continuous(breaks=1:12, labels=unique(aus_dat_therm[order(aus_dat_therm$val),]$FG))+
+  scale_x_continuous(breaks=1:12, labels=
+                       FGnames[c(4,6,1,2,5,8,7,3,9,10,12,11),]$FEcomp)+
   ylab('# of species per FG')+xlab('Rank of functional group')+
   theme_bw()+ guides(fill=guide_legend(title="ThermAffin.Comm"))+
-  scale_fill_manual(values = c('#abd9e9','#2c7bb6', '#fdae61', '#d7191c'))+
+  scale_fill_manual(values = c('#2c7bb6','#abd9e9', '#fdae61', '#d7191c'))+
   theme(legend.justification = c(1, 1), legend.position = c(1, 1), 
-        legend.background = element_rect(colour = "black"))
+        legend.background = element_rect(colour = "black"), 
+        axis.text.x = element_text(angle = 60, hjust = 1))+
+  scale_y_continuous(breaks=c(0,25,50,75,100,125))
 
 
 ##### Proportion of tropical species plot
@@ -284,7 +289,7 @@ grid.arrange(pa, pj, nrow=2)
 imp_aus %>% group_by(FE) %>% summarise(n(), n_therm=length(unique(ThermalAffinity))) %>% as.data.frame()
 dat_jpn %>% group_by(FG, ThermalAffinity) %>% summarise(n()) %>% as.data.frame()
 
-# Compare ThermalAffinity class vs latitudinal sampling class
+# Compare ThermalAffinity class vs latitudinal sampling class JAPAN
 
 # run with latitude data
 out_jpn_trop<-NULL
@@ -293,7 +298,6 @@ for(i in 1:1000){
                         mutate(FG2=sample(FG, replace=F))%>% group_by(FG2)%>%
                         summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n())%>%
                    mutate(run=i))}
-
 out_jpn_temp<-NULL
 for(i in 1:1000){
   out_jpn_temp<-rbind(out_jpn_temp, dat_jpn%>% filter(JPN_temp==1)%>%
@@ -307,11 +311,10 @@ jpn_full_trop<-dat_jpn%>%filter(JPN_trop==1)%>%group_by(FG)%>%
 jpn_full_temp<-dat_jpn%>%filter(JPN_temp==1)%>%group_by(FG)%>%
   summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n())
 
-
 # plot ThermalAffin vs Latitudeinal classification
 
-ggplot()+geom_violin(data=out_jpn_trop, aes(x=factor(FG2), y=prop_trop), fill='red', alpha=0.3)+
-  geom_violin(data=out_jpn_temp, aes(x=factor(FG2), y=prop_trop), fill='blue', alpha=0.3)+
+ggplot()+geom_violin(data=out_jpn_trop, aes(x=factor(FG2), y=prop_trop), fill='red', alpha=0.3, colour=NA)+
+  geom_violin(data=out_jpn_temp, aes(x=factor(FG2), y=prop_trop), fill='blue', alpha=0.3, colour=NA)+
   geom_hline(yintercept = length(which(dat_jpn[dat_jpn$JPN_trop==1,]$ThermalAffinity2=='tropical'))/nrow(dat_jpn[dat_jpn$JPN_trop==1,]),
              linetype='dashed', colour='dark red')+
   geom_point(data=jpn_full_trop, aes(x=factor(FG), y=prop_trop), colour='red', size=2.2)+
@@ -319,16 +322,124 @@ ggplot()+geom_violin(data=out_jpn_trop, aes(x=factor(FG2), y=prop_trop), fill='r
   geom_hline(yintercept = length(which(dat_jpn[dat_jpn$JPN_temp==1,]$ThermalAffinity2=='tropical'))/nrow(dat_jpn[dat_jpn$JPN_temp==1,]),
              linetype='dashed', colour='dark blue')+
   geom_point(data=jpn_full_temp, aes(x=factor(FG), y=prop_trop), colour='blue', size=2)+
-  geom_label(data=dat_jpn%>%group_by(FG)%>%summarize(n=n()),
-             aes(x=as.factor(FG), y=0.1, label=n), colour='blue')+
-  xlab('Japan FGs')+ylab('Proportion of tropical sp.')+
+  geom_label(data=dat_jpn%>%filter(JPN_trop==1)%>%group_by(FG)%>%summarize(n=n()),
+             aes(x=as.factor(FG), y=0.15, label=n), colour='red')+
+  geom_label(data=dat_jpn%>%filter(JPN_temp==1)%>%group_by(FG)%>%summarize(n=n()),
+             aes(x=as.factor(FG), y=0.05, label=n), colour='blue')+
+  xlab('Functional Niche')+ylab('Proportion of tropical sp.')+
   scale_x_discrete(limits=c(4,6, 1, 2, 8, 3, 5, 10, 9, 7),
-                  labels=c('1'='4','2'='6', '3'='1', '4'='2', '5'='8', '6'='3', '7'='5', '8'='10', '9'='9', '10'='7'))
+                  labels=c('1'=FGnames[4,]$FEcomp,'2'=FGnames[6,]$FEcomp,
+                           '3'=FGnames[1,]$FEcomp, '4'=FGnames[2,]$FEcomp,
+                           '5'=FGnames[8,]$FEcomp, '6'=FGnames[3,]$FEcomp,
+                           '7'=FGnames[5,]$FEcomp, '8'=FGnames[10,]$FEcomp,
+                           '9'=FGnames[9,]$FEcomp, '10'=FGnames[7,]$FEcomp))+
+  theme_bw()+theme(axis.text.x = element_text(angle = 55, hjust = 1))
 
-#check for subtropical thermalaffin sp that have become generalists?
-table(dat_jpn[dat_jpn$ThermalAffinity!='tropical',]$class)
+# Compare ThermalAffinity class vs latitudinal sampling class AUSTRALIA
+
+# run with latitude data
+out_aus_trop<-NULL
+for(i in 1:1000){
+  out_aus_trop<-rbind(out_aus_trop, dat_aus%>% filter(AUS_trop==1)%>%
+                        mutate(FG2=sample(FG, replace=F))%>% group_by(FG2)%>%
+                        summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n())%>%
+                        mutate(run=i))}
+out_aus_temp<-NULL
+for(i in 1:1000){
+  out_aus_temp<-rbind(out_aus_temp, dat_aus%>% filter(AUS_temp==1)%>%
+                        mutate(FG2=sample(FG, replace=F))%>% group_by(FG2)%>%
+                        summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n())%>%
+                        mutate(run=i))}
+
+#full latitude data
+aus_full_trop<-dat_aus%>%filter(AUS_trop==1)%>%group_by(FG)%>%
+  summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n())
+aus_full_temp<-dat_aus%>%filter(AUS_temp==1)%>%group_by(FG)%>%
+  summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n())
+
+# plot ThermalAffin vs Latitudeinal classification
+
+ggplot()+geom_violin(data=out_aus_trop, aes(x=factor(FG2), y=prop_trop), fill='red', alpha=0.3, colour=NA)+
+  geom_violin(data=out_aus_temp, aes(x=factor(FG2), y=prop_trop), fill='blue', alpha=0.3, colour=NA)+
+  geom_hline(yintercept = length(which(dat_aus[dat_aus$AUS_trop==1,]$ThermalAffinity2=='tropical'))/nrow(dat_aus[dat_aus$AUS_trop==1,]),
+             linetype='dashed', colour='dark red')+
+  geom_point(data=aus_full_trop, aes(x=factor(FG), y=prop_trop), colour='red', size=2.2)+
+  
+  geom_hline(yintercept = length(which(dat_aus[dat_aus$AUS_temp==1,]$ThermalAffinity2=='tropical'))/nrow(dat_aus[dat_aus$AUS_temp==1,]),
+             linetype='dashed', colour='dark blue')+
+  geom_point(data=aus_full_temp, aes(x=factor(FG), y=prop_trop), colour='blue', size=2)+
+  geom_label(data=dat_aus%>%filter(AUS_trop==1)%>%group_by(FG)%>%summarize(n=n()),
+             aes(x=as.factor(FG), y=0.15, label=n), colour='red')+
+  geom_label(data=dat_aus%>%filter(AUS_temp==1)%>%group_by(FG)%>%summarize(n=n()),
+             aes(x=as.factor(FG), y=0.05, label=n), colour='blue')+
+  xlab('Functional Niche')+ylab('Proportion of tropical sp.')+
+  scale_x_discrete(limits=c(4,6,1,2,5,8,7,3,9,10,12,11),
+                   labels=c('1'=FGnames[4,]$FEcomp,'2'=FGnames[6,]$FEcomp,
+                            '3'=FGnames[1,]$FEcomp, '4'=FGnames[2,]$FEcomp,
+                            '5'=FGnames[5,]$FEcomp, '6'=FGnames[8,]$FEcomp,
+                            '7'=FGnames[7,]$FEcomp, '8'=FGnames[3,]$FEcomp,
+                            '9'=FGnames[9,]$FEcomp, '10'=FGnames[10,]$FEcomp, 
+                            '11'=FGnames[12,]$FEcomp, '12'=FGnames[11,]$FEcomp))+
+  theme_bw()+theme(axis.text.x = element_text(angle = 55, hjust = 1))
+
+## Get delta values between community prop trop and FG prop trop
+
+aus_full_temp$comm_trop<-length(which(dat_aus[dat_aus$AUS_temp==1,]$ThermalAffinity2=='tropical'))/nrow(dat_aus[dat_aus$AUS_temp==1,])
+aus_full_temp$delta_trop<-aus_full_temp$prop_trop-aus_full_temp$comm_trop
+aus_full_temp$comm='temp'
+aus_full_temp$region='Australia'
+aus_full_trop$comm_trop<-length(which(dat_aus[dat_aus$AUS_trop==1,]$ThermalAffinity2=='tropical'))/nrow(dat_aus[dat_aus$AUS_trop==1,])
+aus_full_trop$delta_trop<-aus_full_trop$prop_trop-aus_full_trop$comm_trop
+aus_full_trop$comm='trop'
+aus_full_trop$region='Australia'
+jpn_full_temp$comm_trop<-length(which(dat_jpn[dat_jpn$JPN_temp==1,]$ThermalAffinity2=='tropical'))/nrow(dat_jpn[dat_jpn$JPN_temp==1,])
+jpn_full_temp$delta_trop<-jpn_full_temp$prop_trop-jpn_full_temp$comm_trop
+jpn_full_temp$comm='temp'
+jpn_full_temp$region='Japan'
+jpn_full_trop$comm_trop<-length(which(dat_jpn[dat_jpn$JPN_trop==1,]$ThermalAffinity2=='tropical'))/nrow(dat_jpn[dat_jpn$JPN_trop==1,])
+jpn_full_trop$delta_trop<-jpn_full_trop$prop_trop-jpn_full_trop$comm_trop
+jpn_full_trop$comm='trop'
+jpn_full_trop$region='Japan'
+
+delta_trop<-rbind(aus_full_trop, aus_full_temp, jpn_full_trop, jpn_full_temp)
+
+# compare delta values with mean FG thermal midpoint data (stuart-smith)
+library(readxl)
+therm_mid<-read_xlsx('C:/coral_fish/sourced_data/stuart_smith_thermal_midpoints/Thermal niche midpoints.xlsx')
+
+#dat$thermal_mid<-left_join(dat, therm_mid, by=c('Species'='SPECIES_NAME'))$'MP(5min-95max)'
+#which(is.na(dat$thermal_mid)) # some naming mis-matches/ missing sp ~90
+
+# do by region
+dat_aus$thermal_mid<-left_join(dat_aus, therm_mid, by=c('Species'='SPECIES_NAME'))$'MP(5min-95max)'
+dat_jpn$thermal_mid<-left_join(dat_jpn, therm_mid, by=c('Species'='SPECIES_NAME'))$'MP(5min-95max)'
+
+therms<-rbind(
+dat_aus%>%filter(AUS_trop==1)%>%group_by(FG)%>%
+  summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
+            sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='trop', region='Australia'),
+dat_aus%>%filter(AUS_temp==1)%>%group_by(FG)%>%
+  summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
+            sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='temp', region='Australia'),
+dat_jpn%>%filter(JPN_trop==1)%>%group_by(FG)%>%
+  summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
+            sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='trop', region='Japan'),
+dat_jpn%>%filter(JPN_temp==1)%>%group_by(FG)%>%
+  summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
+            sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='temp', region='Japan'))
+
+delta_trop_therm<-left_join(delta_trop, therms, by=c('region', 'comm', 'FG'))
+
+ggplot(data=delta_trop_therm, aes(x=delta_trop, y=mean_tm))+
+  geom_pointrange(aes(ymin=mean_tm-sd_tm, ymax=mean_tm+sd_tm))+
+  facet_wrap(~region+comm)
 
 
+ggplot(data=filter(delta_trop_therm, FG%in%c(4,6,1,2)),
+       aes(x=delta_trop, y=mean_tm))+geom_vline(xintercept=0, linetype='dotted')+
+  geom_pointrange(aes(ymin=mean_tm-sd_tm, ymax=mean_tm+sd_tm))+
+  facet_wrap(~region+comm)+theme_bw()+xlab('Delta community prop. tropical')+
+  ylab('Thermal midpoint C')
 
 # projection of FGs into 'colonisation space'
 
