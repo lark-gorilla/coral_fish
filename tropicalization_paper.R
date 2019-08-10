@@ -55,6 +55,9 @@ dat$Aggregation<-factor(dat$Aggregation, levels=c("solitary", "pairs","groups","
 #dat$Position<-factor(dat$Position, levels=c("SubBenthic", "Benthic","UpperBenthic",
 #                                            "Demersal", "ReefPelagic","Pelagic"), ordered = T)
 
+# Set non-arctic to tropical ThermalAffinuty
+dat[dat$ThermalAffinity=='nonarctic',]$ThermalAffinity<-'tropical'
+dat$ThermalAffinity<-factor(dat$ThermalAffinity)
 # create thermal affinity variable with just tropical/non-tropical
 dat$ThermalAffinity2<-as.character(dat$ThermalAffinity)
 dat[dat$ThermalAffinity2!='tropical',]$ThermalAffinity2<-'subtropical'
@@ -407,8 +410,22 @@ delta_trop<-rbind(aus_full_trop, aus_full_temp, jpn_full_trop, jpn_full_temp)
 library(readxl)
 therm_mid<-read_xlsx('C:/coral_fish/sourced_data/stuart_smith_thermal_midpoints/Thermal niche midpoints.xlsx')
 
-#dat$thermal_mid<-left_join(dat, therm_mid, by=c('Species'='SPECIES_NAME'))$'MP(5min-95max)'
-#which(is.na(dat$thermal_mid)) # some naming mis-matches/ missing sp ~90
+dat_ss<-left_join(dat, therm_mid, by=c('Species'='SPECIES_NAME'))
+which(is.na(dat_ss$`95th SSTmax`)) # some naming mis-matches/ missing sp ~90
+table(dat_ss$ThermalAffinity2, dat_ss$`Temp-Trop (23cutoff)`)
+
+# confidence > 1 to filter out low confidence midpoints
+qplot(data=dat_ss[dat_ss$confidence>1,], x=ThermalAffinity, y=`MP(5min-95max)`)+geom_violin()
+dat_ss%>%group_by(ThermalAffinity)%>%summarize(n(), mn=mean(`MP(5min-95max)`, na.rm=T),
+     md=median(`MP(5min-95max)`, na.rm=T), sd=sd(`MP(5min-95max)`, na.rm=T))
+
+# check for sig dif between classes
+library(agricolae)
+m1<-lm(`MP(5min-95max)`~ThermalAffinity, data=dat_ss[dat_ss$confidence>1 &
+                         dat_ss$ThermalAffinity!='nonarctic',])
+t1<-HSD.test(m1, 'ThermalAffinity')
+
+# could us stu smith class or just keep mine. or blend?
 
 # do by region
 dat_aus$thermal_mid<-left_join(dat_aus, therm_mid, by=c('Species'='SPECIES_NAME'))$'MP(5min-95max)'
