@@ -385,6 +385,118 @@ ggplot()+geom_violin(data=out_aus_trop, aes(x=factor(FG2), y=prop_trop), fill='r
                             '11'=FGnames[12,]$FEcomp, '12'=FGnames[11,]$FEcomp))+
   theme_bw()+theme(axis.text.x = element_text(angle = 55, hjust = 1))
 
+# Compare ThermalAffinity within TRANSITION ZONE class JAPAN
+
+# run with latitude data
+out_jpn_temp1<-NULL
+for(i in 1:1000){
+  out_jpn_temp1<-rbind(out_jpn_temp1, dat_jpn%>% filter(JPN_temp==1 &
+                         FG %in% c(4,6,1,2))%>%
+                        mutate(FG2=sample(FG, replace=F))%>% group_by(FG2)%>%
+                        summarize(prop=length(which(ThermalAffinity=='subtropical'))/n())%>%
+                        mutate(run=i, therm.niche='subtropical'))}
+out_jpn_temp2<-NULL
+for(i in 1:1000){
+  out_jpn_temp2<-rbind(out_jpn_temp2, dat_jpn%>% filter(JPN_temp==1 &
+                        FG %in% c(4,6,1,2))%>%
+                        mutate(FG2=sample(FG, replace=F))%>% group_by(FG2)%>%
+                        summarize(prop=length(which(ThermalAffinity=='temperate'))/n())%>%
+                        mutate(run=i, therm.niche='temperate'))}
+
+out_jpn_temp<-rbind(out_jpn_temp1, out_jpn_temp2)
+
+#full latitude data
+jpn_full_temp<-rbind(dat_jpn%>%filter(JPN_temp==1&
+   FG %in% c(4,6,1,2))%>%group_by(FG)%>%
+  summarize(prop=length(which(ThermalAffinity=='subtropical'))/n())%>%
+    mutate(therm.niche='subtropical'),
+  dat_jpn%>%filter(JPN_temp==1&
+  FG %in% c(4,6,1,2))%>%group_by(FG)%>%summarize(
+  prop=length(which(ThermalAffinity=='temperate'))/n())%>%
+  mutate(therm.niche='temperate'))
+
+# plot ThermalAffin vs Latitudeinal classification
+
+out_jpn_temp$FG2<-factor(out_jpn_temp$FG2, levels=c(4,6,1,2))
+jpn_full_temp$FG<-factor(jpn_full_temp$FG, levels=c(4,6,1,2))
+
+ggplot()+
+  geom_violin(data=out_jpn_temp, aes(x=FG2, y=prop, fill=therm.niche),
+              alpha=0.3, colour=NA, position=position_dodge())+
+    scale_fill_manual(values = c('cyan','blue'))+
+  geom_hline(yintercept = length(which(dat_jpn[dat_jpn$JPN_temp==1,]$ThermalAffinity=='temperate'))/nrow(dat_jpn[dat_jpn$JPN_temp==1,]),
+             linetype='dashed', colour='dark blue')+
+  geom_hline(yintercept = length(which(dat_jpn[dat_jpn$JPN_temp==1,]$ThermalAffinity=='subtropical'))/nrow(dat_jpn[dat_jpn$JPN_temp==1,]),
+             linetype='dashed', colour='#238b45')+
+  geom_point(data=jpn_full_temp, aes(x=FG, y=prop, colour=therm.niche), size=2,
+             position=position_dodge(width=0.9))+
+    scale_colour_manual(values = c('#238b45','blue'))+
+
+  xlab('Functional Niche')+ylab('Proportion of subtropical/temperate sp.')+
+  scale_x_discrete(labels=c(FGnames[4,]$FEcomp,FGnames[6,]$FEcomp,
+                            FGnames[1,]$FEcomp,FGnames[2,]$FEcomp))+
+  theme_bw()+theme(axis.text.x = element_text(angle = 55, hjust = 1),
+                   legend.justification = c(0, 1), legend.position = c(0, 1), 
+                   legend.background = element_rect(colour = "black"))+
+  labs(fill='Thermal Niche', colour='Thermal Niche')+ylim(c(0, 0.4))
+
+# Compare ThermalAffinity within TRANSITION ZONE class Australia
+
+# run with latitude data
+out_aus_temp1<-NULL
+for(i in 1:1000){
+  out_aus_temp1<-rbind(out_aus_temp1, dat_aus%>% filter(AUS_temp==1 &
+                                                          FG %in% c(4,6,1,2))%>%
+                         mutate(FG2=sample(FG, replace=F))%>% group_by(FG2)%>%
+                         summarize(prop=length(which(ThermalAffinity=='subtropical'))/n())%>%
+                         mutate(run=i, therm.niche='subtropical'))}
+out_aus_temp2<-NULL
+for(i in 1:1000){
+  out_aus_temp2<-rbind(out_aus_temp2, dat_aus%>% filter(AUS_temp==1 &
+                                                          FG %in% c(4,6,1,2))%>%
+                         mutate(FG2=sample(FG, replace=F))%>% group_by(FG2)%>%
+                         summarize(prop=length(which(ThermalAffinity=='temperate'))/n())%>%
+                         mutate(run=i, therm.niche='temperate'))}
+
+out_aus_temp<-rbind(out_aus_temp1, out_aus_temp2)
+
+#full latitude data
+aus_full_temp<-rbind(dat_aus%>%filter(AUS_temp==1&
+                     FG %in% c(4,6,1,2))%>%group_by(FG)%>%
+                       summarize(prop=length(which(ThermalAffinity=='subtropical'))/n())%>%
+                       mutate(therm.niche='subtropical'),
+                     dat_aus%>%filter(AUS_temp==1&
+                     FG %in% c(4,6,1,2))%>%group_by(FG)%>%summarize(
+                     prop=length(which(ThermalAffinity=='temperate'))/n())%>%
+                       mutate(therm.niche='temperate'))
+
+# plot ThermalAffin vs Latitudeinal classification
+
+out_aus_temp$FG2<-factor(out_aus_temp$FG2, levels=c(4,6,1,2))
+aus_full_temp$FG<-factor(aus_full_temp$FG, levels=c(4,6,1,2))
+
+ggplot()+
+  geom_violin(data=out_aus_temp, aes(x=FG2, y=prop, fill=therm.niche),
+              alpha=0.3, colour=NA, position=position_dodge())+
+  scale_fill_manual(values = c('cyan','blue'))+
+  geom_hline(yintercept = length(which(dat_aus[dat_aus$AUS_temp==1,]$ThermalAffinity=='temperate'))/nrow(dat_aus[dat_aus$AUS_temp==1,]),
+             linetype='dashed', colour='dark blue')+
+  geom_hline(yintercept = length(which(dat_aus[dat_aus$AUS_temp==1,]$ThermalAffinity=='subtropical'))/nrow(dat_aus[dat_aus$AUS_temp==1,]),
+             linetype='dashed', colour='#238b45')+
+  geom_point(data=aus_full_temp, aes(x=FG, y=prop, colour=therm.niche), size=2,
+             position=position_dodge(width=0.9))+
+  scale_colour_manual(values = c('#238b45','blue'))+
+  
+  xlab('Functional Niche')+ylab('Proportion of subtropical/temperate sp.')+
+  scale_x_discrete(labels=c(FGnames[4,]$FEcomp,FGnames[6,]$FEcomp,
+                            FGnames[1,]$FEcomp,FGnames[2,]$FEcomp))+
+  theme_bw()+theme(axis.text.x = element_text(angle = 55, hjust = 1),
+                   legend.justification = c(0, 1), legend.position = c(0, 1), 
+                   legend.background = element_rect(colour = "black"))+
+  labs(fill='Thermal Niche', colour='Thermal Niche')+ylim(c(0, 0.4))
+
+
+
 ## Get delta values between community prop trop and FG prop trop
 
 aus_full_temp$comm_trop<-length(which(dat_aus[dat_aus$AUS_temp==1,]$ThermalAffinity2=='tropical'))/nrow(dat_aus[dat_aus$AUS_temp==1,])
