@@ -406,7 +406,7 @@ for(i in 1:1000){
 out_jpn_temp<-rbind(out_jpn_temp1, out_jpn_temp2)
 
 #full latitude data
-jpn_full_temp<-rbind(dat_jpn%>%filter(JPN_temp==1&
+jpn_full_temp_trans<-rbind(dat_jpn%>%filter(JPN_temp==1&
    FG %in% c(4,6,1,2))%>%group_by(FG)%>%
   summarize(prop=length(which(ThermalAffinity=='subtropical'))/n())%>%
     mutate(therm.niche='subtropical'),
@@ -418,7 +418,7 @@ jpn_full_temp<-rbind(dat_jpn%>%filter(JPN_temp==1&
 # plot ThermalAffin vs Latitudeinal classification
 
 out_jpn_temp$FG2<-factor(out_jpn_temp$FG2, levels=c(4,6,1,2))
-jpn_full_temp$FG<-factor(jpn_full_temp$FG, levels=c(4,6,1,2))
+jpn_full_temp_trans$FG<-factor(jpn_full_temp_trans$FG, levels=c(4,6,1,2))
 
 ggplot()+
   geom_violin(data=out_jpn_temp, aes(x=FG2, y=prop, fill=therm.niche),
@@ -428,7 +428,7 @@ ggplot()+
              linetype='dashed', colour='dark blue')+
   geom_hline(yintercept = length(which(dat_jpn[dat_jpn$JPN_temp==1,]$ThermalAffinity=='subtropical'))/nrow(dat_jpn[dat_jpn$JPN_temp==1,]),
              linetype='dashed', colour='#238b45')+
-  geom_point(data=jpn_full_temp, aes(x=FG, y=prop, colour=therm.niche), size=2,
+  geom_point(data=jpn_full_temp_trans, aes(x=FG, y=prop, colour=therm.niche), size=2,
              position=position_dodge(width=0.9))+
     scale_colour_manual(values = c('#238b45','blue'))+
 
@@ -461,7 +461,7 @@ for(i in 1:1000){
 out_aus_temp<-rbind(out_aus_temp1, out_aus_temp2)
 
 #full latitude data
-aus_full_temp<-rbind(dat_aus%>%filter(AUS_temp==1&
+aus_full_temp_trans<-rbind(dat_aus%>%filter(AUS_temp==1&
                      FG %in% c(4,6,1,2))%>%group_by(FG)%>%
                        summarize(prop=length(which(ThermalAffinity=='subtropical'))/n())%>%
                        mutate(therm.niche='subtropical'),
@@ -473,7 +473,7 @@ aus_full_temp<-rbind(dat_aus%>%filter(AUS_temp==1&
 # plot ThermalAffin vs Latitudeinal classification
 
 out_aus_temp$FG2<-factor(out_aus_temp$FG2, levels=c(4,6,1,2))
-aus_full_temp$FG<-factor(aus_full_temp$FG, levels=c(4,6,1,2))
+aus_full_temp_trans$FG<-factor(aus_full_temp_trans$FG, levels=c(4,6,1,2))
 
 ggplot()+
   geom_violin(data=out_aus_temp, aes(x=FG2, y=prop, fill=therm.niche),
@@ -483,7 +483,7 @@ ggplot()+
              linetype='dashed', colour='dark blue')+
   geom_hline(yintercept = length(which(dat_aus[dat_aus$AUS_temp==1,]$ThermalAffinity=='subtropical'))/nrow(dat_aus[dat_aus$AUS_temp==1,]),
              linetype='dashed', colour='#238b45')+
-  geom_point(data=aus_full_temp, aes(x=FG, y=prop, colour=therm.niche), size=2,
+  geom_point(data=aus_full_temp_trans, aes(x=FG, y=prop, colour=therm.niche), size=2,
              position=position_dodge(width=0.9))+
   scale_colour_manual(values = c('#238b45','blue'))+
   
@@ -569,6 +569,58 @@ ggplot(data=filter(delta_trop_therm, FG%in%c(4,6,1,2)),
   geom_pointrange(aes(ymin=mean_tm-sd_tm, ymax=mean_tm+sd_tm))+
   facet_wrap(~region+comm)+theme_bw()+xlab('Delta community prop. tropical')+
   ylab('Thermal midpoint C')
+
+
+### calculate functional distance/overlap between tropical invaders and
+## higher latitude residents in transititon zone
+
+func_dudi<-dudi.pco(d = sqrt(eff_both), scannf = FALSE, nf = 4)
+# could do func distances for only 4 FGs?
+
+func_pco<-data.frame(func_dudi$li,dat)
+
+# add to regional datasets
+dat_aus<-left_join(dat_aus, func_pco[,c(1:5)], by='Species')
+dat_jpn<-left_join(dat_jpn, func_pco[,c(1:5)], by='Species')
+
+ppp<- ggplot()+
+  geom_hline(yintercept=0, linetype="dotted") + 
+  geom_vline(xintercept=0,  linetype="dotted")
+
+ppp+geom_point(data=func_pco, aes(x=A1, y=A2))
+
+# plot with variable contribution
+#https://www.researchgate.net/post/how_can_i_produce_a_PCoA_biplot_using_R
+
+efit <- envfit(func_dudi, dat[c(c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange'))], na.rm=T)
+varibs<-data.frame(rbind(efit$vectors$arrows, efit$factors$centroids))
+varibs$predictors=row.names(varibs)
+
+ppp+geom_segment(data=varibs, aes(y=0, x=0, xend=A1, yend=A2),
+                 arrow=arrow(length=unit(0.3,'lines')))+
+  geom_text(data=varibs, aes(x=A1, y=A2, label=predictors))+
+  
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
+                                          100* func_dudi$eig[2]/sum(func_dudi$eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
+                                          100* func_dudi$eig[1]/sum(func_dudi$eig))))
+
+ppp+geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2)),
+                   aes(x=A1, y=A2, colour=ThermalAffinity2))+
+  geom_polygon(data=dat_aus %>% filter(AUS_temp==1 & FG %in% c(4,6,1,2))%>%
+                 group_by(FG, ThermalAffinity2) %>% slice(chull(A1, A2)),
+               aes(x=A1, y=A2, fill=ThermalAffinity2), alpha=0.2)+
+  geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2))%>%
+               group_by(FG, ThermalAffinity2)%>%summarize(A1=mean(A1), A2=mean(A2)),
+             aes(x=A1, y=A2, colour=ThermalAffinity2), size=2)+
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
+                                          100* func_dudi$eig[2]/sum(func_dudi$eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
+                                          100* func_dudi$eig[1]/sum(func_dudi$eig))))+
+  facet_wrap(~FG)+theme_minimal()
+
+
+
 
 # projection of FGs into 'colonisation space'
 
