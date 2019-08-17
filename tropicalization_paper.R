@@ -507,13 +507,13 @@ ggplot()+
 
 ## Get delta values between community prop trop and FG prop trop
 
-aus_full_temp<-dat_aus%>%filter(AUS_temp==1)%>%group_by(FG, FG_36)%>%
+aus_full_temp<-dat_aus%>%filter(AUS_temp==1)%>%group_by(FG)%>%
   summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n(), n=n())
-aus_full_trop<-dat_aus%>%filter(AUS_trop==1)%>%group_by(FG, FG_36)%>%
+aus_full_trop<-dat_aus%>%filter(AUS_trop==1)%>%group_by(FG)%>%
   summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n(), n=n())
-jpn_full_temp<-dat_jpn%>%filter(JPN_temp==1)%>%group_by(FG, FG_36)%>%
+jpn_full_temp<-dat_jpn%>%filter(JPN_temp==1)%>%group_by(FG)%>%
   summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n(), n=n())
-jpn_full_trop<-dat_jpn%>%filter(JPN_trop==1)%>%group_by(FG, FG_36)%>%
+jpn_full_trop<-dat_jpn%>%filter(JPN_trop==1)%>%group_by(FG)%>%
   summarize(prop_trop=length(which(ThermalAffinity2=='tropical'))/n(), n=n())
 
 
@@ -559,18 +559,20 @@ t1<-HSD.test(m1, 'ThermalAffinity')
 # do by region
 dat_aus$thermal_mid<-left_join(dat_aus, therm_mid, by=c('Species'='SPECIES_NAME'))$'MP(5min-95max)'
 dat_jpn$thermal_mid<-left_join(dat_jpn, therm_mid, by=c('Species'='SPECIES_NAME'))$'MP(5min-95max)'
+dat_aus$confidence<-left_join(dat_aus, therm_mid, by=c('Species'='SPECIES_NAME'))$confidence
+dat_jpn$confidence<-left_join(dat_jpn, therm_mid, by=c('Species'='SPECIES_NAME'))$confidence
 
 therms<-rbind(
-dat_aus%>%filter(AUS_trop==1)%>%group_by(FG)%>%
+dat_aus%>%filter(AUS_trop==1 & confidence>1)%>%group_by(FG)%>%
   summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
             sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='trop', region='Australia'),
-dat_aus%>%filter(AUS_temp==1)%>%group_by(FG)%>%
+dat_aus%>%filter(AUS_temp==1& confidence>1)%>%group_by(FG)%>%
   summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
             sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='temp', region='Australia'),
-dat_jpn%>%filter(JPN_trop==1)%>%group_by(FG)%>%
+dat_jpn%>%filter(JPN_trop==1& confidence>1)%>%group_by(FG)%>%
   summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
             sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='trop', region='Japan'),
-dat_jpn%>%filter(JPN_temp==1)%>%group_by(FG)%>%
+dat_jpn%>%filter(JPN_temp==1& confidence>1)%>%group_by(FG)%>%
   summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
             sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='temp', region='Japan'))
 
@@ -587,6 +589,10 @@ ggplot(data=filter(delta_trop_therm, FG%in%c(4,6,1,2)),
   facet_wrap(~region+comm)+theme_bw()+xlab('Delta community prop. tropical')+
   ylab('Thermal midpoint C')
 
+# plots per FG
+
+ggplot(data=dat_jpn%>%filter(JPN_temp==1 &  FG %in%c(4,6,1,2)),
+       aes(x=factor(FG), y=thermal_mid))+geom_violin()
 
 ### calculate functional distance/overlap between tropical invaders and
 ## higher latitude residents in transititon zone
@@ -609,7 +615,7 @@ ppp+geom_point(data=func_pco, aes(x=A1, y=A2))
 # plot with variable contribution
 #https://www.researchgate.net/post/how_can_i_produce_a_PCoA_biplot_using_R
 
-efit <- envfit(func_dudi, dat[c(c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange'))], na.rm=T)
+efit <- envfit(func_dudi, dat[c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')], na.rm=T)
 varibs<-data.frame(rbind(efit$vectors$arrows, efit$factors$centroids))
 varibs$predictors=row.names(varibs)
 
@@ -656,28 +662,22 @@ ppp+geom_point(data=dat_jpn%>% filter(JPN_temp==1 & FG %in% c(4,6,1,2)),
                                           100* func_dudi$eig[1]/sum(func_dudi$eig))))+
   facet_wrap(~FG)+theme_minimal()
 
-#proff of concept for FG_36 split
-ppp+geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG ==4),
-   aes(x=A1, y=A2, colour=factor(FG_36), shape=ThermalAffinity2))+
-  geom_polygon(data=dat_aus %>% filter(AUS_temp==1 & FG==4)%>%
-    group_by(FG_36, ThermalAffinity2) %>% slice(chull(A1, A2)),
-    aes(x=A1, y=A2, fill=interaction(factor(FG_36), ThermalAffinity2)), alpha=0.2)
 
 # euc_distance vals
 fd_aus<-dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2))%>%
-  group_by(FG, FG_36, ThermalAffinity2)%>%summarize(A1=mean(A1), A2=mean(A2))%>%ungroup()%>%
-  group_by(FG, FG_36)%>%summarise(fn_d=ifelse(n()>1, dist(cbind(A1, A2)), 0.5))%>%
+  group_by(FG,  ThermalAffinity2)%>%summarize(A1=mean(A1), A2=mean(A2))%>%ungroup()%>%
+  group_by(FG)%>%summarise(fn_d=ifelse(n()>1, dist(cbind(A1, A2)), 0.5))%>%
   mutate(comm='temp', region='Australia')
 
 fd_jpn<-dat_jpn%>% filter(JPN_temp==1 & FG %in% c(4,6,1,2))%>%
-  group_by(FG, FG_36, ThermalAffinity2)%>%summarize(A1=mean(A1), A2=mean(A2))%>%ungroup()%>%
-  group_by(FG, FG_36)%>%summarise(fn_d=ifelse(n()>1, dist(cbind(A1, A2)), 0.5))%>%
+  group_by(FG,  ThermalAffinity2)%>%summarize(A1=mean(A1), A2=mean(A2))%>%ungroup()%>%
+  group_by(FG)%>%summarise(fn_d=ifelse(n()>1, dist(cbind(A1, A2)), 0.5))%>%
   mutate(comm='temp', region='Japan')
 
 fdz<-rbind(fd_aus, fd_jpn)
 
 trans_testdat<-left_join(filter(delta_trop, comm=='temp'& FG %in% c(1,2,4,6)),
-                         fdz, by=c('region', 'FG', 'FG_36'))
+                         fdz, by=c('region', 'FG'))
 
 # calc anbsolute difference (n species different from expected rather than proportion)
 # this adds in differences between groups in terms of size
@@ -694,11 +694,62 @@ qplot(data=trans_testdat, x=delta_trop, y=fn_d, colour=factor(FG))
 qplot(data=trans_testdat, x=delta_trop, y=fn_d, colour=factor(FG), shape=region)
 qplot(data=trans_testdat, x=delta_trop_absol, y=fn_d, colour=factor(FG), shape=region)
 
+
 # projection of FGs into 'colonisation space'
 
 d_colon<-daisy(dat[c('BodySize', 'PLD', 'ParentalMode')], metric='gower', stand = FALSE)
 
 colon_dudi<-dudi.pco(d = sqrt(d_colon), scannf = FALSE, nf = 4)
+
+
+efit <- envfit(colon_dudi, dat[c('BodySize', 'PLD', 'ParentalMode')], na.rm=T)
+varibs<-data.frame(rbind(efit$vectors$arrows, efit$factors$centroids))
+varibs$predictors=row.names(varibs)
+
+ppp+geom_segment(data=varibs, aes(y=0, x=0, xend=A1, yend=A2),
+                 arrow=arrow(length=unit(0.3,'lines')))+
+  geom_text(data=varibs, aes(x=A1, y=A2, label=predictors))+
+  
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
+                                          100* colon_dudi$eig[2]/sum(colon_dudi$eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
+                                          100* colon_dudi$eig[1]/sum(colon_dudi$eig))))
+
+ppp+geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2)),
+               aes(x=A1.colon, y=A2.colon, colour=ThermalAffinity2))+
+  geom_polygon(data=dat_aus %>% filter(AUS_temp==1 & FG %in% c(4,6,1,2))%>%
+                 group_by(FG, ThermalAffinity2) %>% slice(chull(A1.colon, A2.colon)),
+               aes(x=A1.colon, y=A2.colon, fill=ThermalAffinity2), alpha=0.2)+
+  geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2))%>%
+               group_by(FG, ThermalAffinity2)%>%summarize(A1.colon=mean(A1.colon), A2.colon=mean(A2.colon)),
+             aes(x=A1.colon, y=A2.colon, colour=ThermalAffinity2), size=2)+
+  geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2))%>%
+               group_by(FG, ThermalAffinity2)%>%summarize(A1.colon=mean(A1.colon), A2.colon=mean(A2.colon)),
+             aes(x=A1.colon, y=A2.colon, group=ThermalAffinity2), colour='black', size=2, shape=1)+
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
+                                          100* colon_dudi$eig[2]/sum(colon_dudi$eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
+                                          100* colon_dudi$eig[1]/sum(colon_dudi$eig))))+
+  facet_wrap(~FG)+theme_minimal()
+
+ppp+geom_point(data=dat_jpn%>% filter(JPN_temp==1 & FG %in% c(4,6,1,2)),
+               aes(x=A1.colon, y=A2.colon, colour=ThermalAffinity2))+
+  geom_polygon(data=dat_jpn %>% filter(JPN_temp==1 & FG %in% c(4,6,1,2))%>%
+                 group_by(FG, ThermalAffinity2) %>% slice(chull(A1.colon, A2.colon)),
+               aes(x=A1.colon, y=A2.colon, fill=ThermalAffinity2), alpha=0.2)+
+  geom_point(data=dat_jpn%>% filter(JPN_temp==1 & FG %in% c(4,6,1,2))%>%
+               group_by(FG, ThermalAffinity2)%>%summarize(A1.colon=mean(A1.colon), A2.colon=mean(A2.colon)),
+             aes(x=A1.colon, y=A2.colon, colour=ThermalAffinity2), size=2)+
+  geom_point(data=dat_jpn%>% filter(JPN_temp==1 & FG %in% c(4,6,1,2))%>%
+               group_by(FG, ThermalAffinity2)%>%summarize(A1.colon=mean(A1.colon), A2.colon=mean(A2.colon)),
+             aes(x=A1.colon, y=A2.colon, group=ThermalAffinity2), colour='black', size=2, shape=1)+
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
+                                          100* colon_dudi$eig[2]/sum(colon_dudi$eig))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
+                                          100* colon_dudi$eig[1]/sum(colon_dudi$eig))))+
+  facet_wrap(~FG)+theme_minimal()
+
+
 
 colon_pco<-data.frame(colon_dudi$li,dat)
 names(colon_pco)[1]<-'A1.colon'
@@ -711,19 +762,19 @@ dat_aus<-left_join(dat_aus, colon_pco[,c(1:5)], by='Species')
 dat_jpn<-left_join(dat_jpn, colon_pco[,c(1:5)], by='Species')
 
 colon_lh<-rbind(
-dat_aus%>%filter(AUS_temp==1)%>% group_by(FG, FG_36, ThermalAffinity2)%>%
+dat_aus%>%filter(AUS_temp==1)%>% group_by(FG, ThermalAffinity2)%>%
   summarize(Investment=mean(A1.colon), Dispersal=mean(A2.colon))%>%mutate(region='Australia'),
-dat_jpn%>%filter(JPN_temp==1)%>% group_by(FG, FG_36,ThermalAffinity2)%>%
+dat_jpn%>%filter(JPN_temp==1)%>% group_by(FG,ThermalAffinity2)%>%
   summarize(Investment=mean(A1.colon), Dispersal=mean(A2.colon))%>%mutate(region='Japan'))
 
 trans_testdat<-left_join(trans_testdat, filter(colon_lh,
-               ThermalAffinity2=='tropical'), by=c('region', 'FG', 'FG_36'))
+               ThermalAffinity2=='tropical'), by=c('region', 'FG'))
 trans_testdat$comm.y<-NULL
 trans_testdat$ThermalAffinity2<-NULL
 names(trans_testdat)[13]<-'Investment.trop'
 names(trans_testdat)[14]<-'Dispersal.trop'
 trans_testdat<-left_join(trans_testdat, filter(colon_lh,
- ThermalAffinity2=='subtropical'), by=c('region', 'FG', 'FG_36'))
+ ThermalAffinity2=='subtropical'), by=c('region', 'FG'))
 trans_testdat$ThermalAffinity2<-NULL
 names(trans_testdat)[15]<-'Investment.resi'
 names(trans_testdat)[16]<-'Dispersal.resi'
@@ -736,6 +787,137 @@ qplot(data=trans_testdat, x=Dispersal.resi, y=delta_trop, colour=factor(FG), sha
 
 m1<-lm(delta_trop~fn_d+Investment.trop+Dispersal.trop+Investment.resi+Dispersal.resi+
          region+factor(FG),data=trans_testdat)
+
+# Modelling resident vs invader dfferences within group
+
+# Functional space
+
+# Australia
+
+dat_aus$TA_bin<-0
+dat_aus[dat_aus$ThermalAffinity2=='tropical',]$TA_bin<-1
+
+aus_mod<-dat_aus[dat_aus$FG %in% c(4,6,2,1) & 
+                   dat_aus$AUS_temp==1,]
+aus_mod$FG<-factor(aus_mod$FG, levels=c(4,6,1,2))
+
+m2<-glm(TA_bin~A1:FG + A2:FG + A3:FG +
+          A1.colon:FG + A2.colon:FG, data=aus_mod, family = 'binomial')
+summary(m2)
+
+m2<-glm(TA_bin~A1:FG, data=aus_mod, family = 'binomial')
+
+library(car)
+Anova(m2)
+summary(m2)
+
+td<-expand.grid(A1=seq(min(aus_mod$A1),max(aus_mod$A1), length=100),
+                
+                FG=factor(c(4,6,1,2), levels=c(4,6,1,2)))
+
+td<-cbind(td, predict(m2, td, se.fit=T), type='link')
+
+ggplot()+geom_ribbon(data=td,aes(x=A1, ymin=plogis(fit-se.fit*1.96), 
+       ymax=plogis(fit+se.fit*1.96)), alpha=0.5)+
+  geom_line(data=td, aes(x=A1, y=plogis(fit)))+facet_wrap(~FG)
+
+# Japan
+
+dat_jpn$TA_bin<-0
+dat_jpn[dat_jpn$ThermalAffinity2=='tropical',]$TA_bin<-1
+
+jpn_mod<-dat_jpn[dat_jpn$FG %in% c(4,6,2,1) & 
+                   dat_jpn$JPN_temp==1,]
+jpn_mod$FG<-factor(jpn_mod$FG, levels=c(4,6,1,2))
+
+m2a<-glm(TA_bin~A1:FG,
+         data=jpn_mod, family = 'binomial')
+Anova(m2a)
+m2b<-glm(TA_bin~
+           A1.colon:FG + A2.colon:FG, data=jpn_mod, family = 'binomial')
+Anova(m2b)
+
+
+summary(m2)
+
+m2<-glm(TA_bin~A1:FG, data=jpn_mod, family = 'binomial')
+summary(m2)
+
+td<-expand.grid(A1=seq(min(jpn_mod$A1),max(jpn_mod$A1), length=100),
+                
+                FG=factor(c(4,6,1,2), levels=c(4,6,1,2)))
+
+td<-cbind(td, predict(m2, td, se.fit=T), type='link')
+
+ggplot()+geom_ribbon(data=td,aes(x=A1, ymin=plogis(fit-se.fit*1.96), 
+                                 ymax=plogis(fit+se.fit*1.96)), alpha=0.5)+
+  geom_line(data=td, aes(x=A1, y=plogis(fit)))+facet_wrap(~FG)
+
+m3<-glm(TA_bin~factor(FG):A1,
+        data=dat_jpn[dat_jpn$FG %in% c(4,6,1,2) & 
+                       dat_jpn$JPN_temp==1,], family = 'binomial')
+
+
+library(agricolae)
+tk2<-HSD.test(m2, 'A1.colon:FG ')
+tk2
+aus_full_temp # modelled correctly
+tk3<-HSD.test(m3, 'factor(FG')
+tk3
+jpn_full_temp # modelled correctly
+
+libarary(emmeans)
+em3<-emmeans(m3, 'FG')
+pairs(em3, type='lp')
+
+# Modelling inter-group differences in PLD and Life-history
+
+jpn_diff_dat<-dat_jpn%>% filter(JPN_temp==1 & FG %in% c(4,6,1,2) & ThermalAffinity2=='tropical')
+aus_diff_dat<-dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2) & ThermalAffinity2=='tropical')
+
+jpn_diff_dat$FG<-factor(jpn_diff_dat$FG, levels=c(4,6,1,2))
+aus_diff_dat$FG<-factor(aus_diff_dat$FG, levels=c(4,6,1,2))
+
+pld_aus<-lm(PLD~FG, data=aus_diff_dat)
+HSD.test(pld_aus, 'FG', console=T)
+lh_aus<-lm(A1.colon~FG, data=aus_diff_dat)
+HSD.test(lh_aus, 'FG', console=T)
+
+pld_jpn<-lm(PLD~FG, data=jpn_diff_dat)
+summary(pld_jpn)
+HSD.test(pld_jpn, 'FG', console=T)
+lh_jpn<-lm(A1.colon~FG, data=jpn_diff_dat)
+HSD.test(lh_jpn, 'FG', console=T)
+
+# check ratio of tropical to sub-tropical
+subt_rat<-rbind(
+dat_jpn%>% filter(JPN_temp==1 & FG %in% c(4,6,1,2))%>%
+  group_by(FG) %>% summarise(n_nontrop=length(ThermalAffinity),
+ n_subt=length(which(ThermalAffinity=='subtropical')),
+ n_temp=length(which(ThermalAffinity=='temperate')))%>%
+  mutate(subt_2_temp=n_subt/(n_subt+n_temp), region='Japan'),
+
+dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2))%>%
+  group_by(FG) %>% summarise(n_nontrop=length(ThermalAffinity),
+  n_subt=length(which(ThermalAffinity=='subtropical')),
+  n_temp=length(which(ThermalAffinity=='temperate')))%>%
+  mutate(subt_2_temp=n_subt/(n_subt+n_temp), region='Australia'))
+
+trans_testdat<-left_join(trans_testdat, subt_rat, by=c('region', 'FG'))
+
+qplot(data=trans_testdat, x=subt_2_temp, y=delta_trop, colour=factor(FG), shape=region)
+qplot(data=trans_testdat, x=subt_2_temp, y=delta_trop, colour=factor(FG))+facet_wrap(~region)
+
+m_aus<-lm(delta_trop~fn_d+Investment.trop+Dispersal.trop+Investment.resi+Dispersal.resi+
+         subt_2_temp+factor(FG),data=trans_testdat[trans_testdat$region=='Australia',])
+
+summary(m_aus)
+
+m_jpn<-lm(delta_trop~fn_d+Investment.trop+Dispersal.trop+Investment.resi+Dispersal.resi+
+            subt_2_temp,data=trans_testdat[trans_testdat$region=='Japan',])
+
+summary(m_jpn)
+
 
 # plot with variable contribution
 #https://www.researchgate.net/post/how_can_i_produce_a_PCoA_biplot_using_R
