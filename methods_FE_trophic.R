@@ -203,16 +203,16 @@ specs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_
 specs_aus<-specs[which(specs$AUS_sp>0),] 
 
 #read in australia survey species
-dat_aus<-read.csv('C:/coral_fish/data/Australia/LongTransect_Subtropical_fish_Aug2017_18Aug2018.csv')
+dat_aus<-read.csv('C:/coral_fish/data/Australia/LongTransect_Subtropical_fish_Sep2018.csv')
 
 #get list of aus_species names
 
 dat_aus$Fish<-as.character(dat_aus$Fish)
 specs_aus$Species<-as.character(specs_aus$Species)
 
-nrow(specs_aus);length(unique(dat_aus$Fish)) # hmm extra 50 sp in Maria's list?
+nrow(specs_aus);length(unique(dat_aus$Fish)) # OK only 2 different
 specs_aus$Species[which(!specs_aus$Species %in% dat_aus$Fish)]
-## Hmm 72 species not shared, not ~ 50.. naming issues? Hopefully there is updated sheet somewhere
+## only 1 species not shared, probably naming issue
 
 # remove and fix
 dat_aus$Site<-as.character(dat_aus$Site)
@@ -223,7 +223,7 @@ dat_aus[dat_aus$Site=="Julian Rock Site2",]$Site<-"Julian Rocks Site2"
 dat_aus[dat_aus$Site=="Julian Rocks Nursery",]$Site<-"Julian_Nursery"
 dat_aus[dat_aus$Site=="Julian Rock Nursery",]$Site<-"Julian_Nursery"
 
-locs<-read.csv('C:/coral_fish/data/Australia/Australia_SitesMar2010toAug2017.csv', h=T)
+locs<-read.csv('C:/coral_fish/data/Australia/Australia_SitesMar2010toSep2019.csv', h=T)
 
 # edit locs Site.name so it lines up
 locs$Site.name<-as.character(locs$Site.name)
