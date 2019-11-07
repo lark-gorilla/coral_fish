@@ -229,6 +229,17 @@ brt_both<-gbm(group~BodySize+Diet+Position+Aggregation+DepthRange, distribution=
              data=dat_imp) # other parameters default
 summary(brt_both)
 
+## trial with party package
+library(partykit)
+
+party1<-ctree(group~BodySize+Diet+Position+Aggregation+DepthRange,
+    data=imp_aus)
+plot(party1)
+
+party1<-ctree(group~Position,data=imp_aus)
+plot(party1)
+
+
 # Darling approach
 for(i in 1:7)
 {
