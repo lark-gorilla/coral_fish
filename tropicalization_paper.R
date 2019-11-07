@@ -74,8 +74,6 @@ dat$FG<-both_FG
 dat$FG_22<-cutree(hclust(eff_both, method='average'), k=22)
 dat$FG_36<-cutree(hclust(eff_both, method='average'), k=36)
 
-
-
 # Add regional tropical/sub-tropical comm data and split to regions
 jpn_trop<-read.csv('C:/coral_fish/data/Japan/JPN_species_tropical_class.csv')
 aus_trop<-read.csv('C:/coral_fish/data/Australia/AUS_species_tropical_class.csv')
@@ -188,10 +186,10 @@ ggplot()+
 
 jpn_dat_therm<-rbind(dat_jpn %>% filter(JPN_trop==1) %>% 
                        group_by(ThermalAffinity2, FG) %>%
-                       summarise(num=n()) %>% mutate(dat='Trop'),
+                       summarise(num=n()) %>% mutate(dat='Tropical'),
                      dat_jpn %>% filter(JPN_temp==1) %>%
                        group_by(ThermalAffinity2, FG) %>%
-                       summarise(num=n())%>% mutate( dat='Temp'))
+                       summarise(num=n())%>% mutate( dat='Transition'))
 
 jpn_dat_therm$val<-left_join(jpn_dat_therm, filter(red_dat,dat=='Japan'), by='FG')$val
 
@@ -215,10 +213,10 @@ ggplot()+
 
 aus_dat_therm<-rbind(dat_aus %>% filter(AUS_trop==1) %>% 
                        group_by(ThermalAffinity2, FG) %>%
-                       summarise(num=n()) %>% mutate(dat='Trop'),
+                       summarise(num=n()) %>% mutate(dat='Tropical'),
                      dat_aus %>% filter(AUS_temp==1) %>%
                        group_by(ThermalAffinity2, FG) %>%
-                       summarise(num=n())%>% mutate( dat='Temp'))
+                       summarise(num=n())%>% mutate( dat='Transition'))
 
 aus_dat_therm$val<-left_join(aus_dat_therm, filter(red_dat,dat=='Australia'), by='FG')$val
 
@@ -627,6 +625,7 @@ ppp+geom_segment(data=varibs, aes(y=0, x=0, xend=A1, yend=A2),
                                           100* func_dudi$eig[2]/sum(func_dudi$eig))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[1]/sum(func_dudi$eig))))
+dat_aus$ThermalAffinity2<-factor(dat_aus$ThermalAffinity2, levels=c('tropical', 'subtropical'))
 
 ppp+geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2)),
                    aes(x=A1, y=A2, colour=ThermalAffinity2))+
@@ -644,6 +643,8 @@ ppp+geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2)),
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[1]/sum(func_dudi$eig))))+
   facet_wrap(~FG)+theme_minimal()
+
+dat_jpn$ThermalAffinity2<-factor(dat_jpn$ThermalAffinity2, levels=c('tropical', 'subtropical'))
 
 ppp+geom_point(data=dat_jpn%>% filter(JPN_temp==1 & FG %in% c(4,6,1,2)),
                aes(x=A1, y=A2, colour=ThermalAffinity2))+
@@ -705,15 +706,18 @@ colon_dudi<-dudi.pco(d = sqrt(d_colon), scannf = FALSE, nf = 4)
 efit <- envfit(colon_dudi, dat[c('BodySize', 'PLD', 'ParentalMode')], na.rm=T)
 varibs<-data.frame(rbind(efit$vectors$arrows, efit$factors$centroids))
 varibs$predictors=row.names(varibs)
+varibs$predictors<-gsub('ParentalMode', 'PM.',varibs$predictors)
 
 ppp+geom_segment(data=varibs, aes(y=0, x=0, xend=A1, yend=A2),
-                 arrow=arrow(length=unit(0.3,'lines')))+
+                 arrow=arrow(length=unit(0.3,'lines')), colour='red')+
   geom_text(data=varibs, aes(x=A1, y=A2, label=predictors))+
-  
+  theme_minimal()+
   scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
                                           100* colon_dudi$eig[2]/sum(colon_dudi$eig))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* colon_dudi$eig[1]/sum(colon_dudi$eig))))
+
+dat_aus$ThermalAffinity2<-factor(dat_aus$ThermalAffinity2, levels=c('tropical', 'subtropical'))
 
 ppp+geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2)),
                aes(x=A1.colon, y=A2.colon, colour=ThermalAffinity2))+
@@ -790,85 +794,68 @@ m1<-lm(delta_trop~fn_d+Investment.trop+Dispersal.trop+Investment.resi+Dispersal.
 
 # Modelling resident vs invader dfferences within group
 
+# reclass Parental mode to binary variable
+dat_aus$invest_bin<-1
+dat_aus[which(dat_aus$ParentalMode=='scatterers'),]$invest_bin<-0
+dat_jpn$invest_bin<-1
+dat_jpn[which(dat_jpn$ParentalMode=='scatterers'),]$invest_bin<-0
+
 # Functional space
 
 # Australia
-
-dat_aus$TA_bin<-0
-dat_aus[dat_aus$ThermalAffinity2=='tropical',]$TA_bin<-1
-
 aus_mod<-dat_aus[dat_aus$FG %in% c(4,6,2,1) & 
                    dat_aus$AUS_temp==1,]
 aus_mod$FG<-factor(aus_mod$FG, levels=c(4,6,1,2))
 
-m2<-glm(TA_bin~A1:FG + A2:FG + A3:FG +
-          A1.colon:FG + A2.colon:FG, data=aus_mod, family = 'binomial')
-summary(m2)
+aus_fgD<-lm(A1~ThermalAffinity2:FG, data=aus_mod)
+anova(aus_fgD)
 
-m2<-glm(TA_bin~A1:FG, data=aus_mod, family = 'binomial')
+library(emmeans)
+#https://cran.r-project.org/web/packages/emmeans/vignettes/interactions.html
+emmip(aus_fgD, FG~ThermalAffinity2)
+emmeans(aus_fgD, pairwise ~ ThermalAffinity2 | FG)
 
-library(car)
-Anova(m2)
-summary(m2)
-
-td<-expand.grid(A1=seq(min(aus_mod$A1),max(aus_mod$A1), length=100),
-                
-                FG=factor(c(4,6,1,2), levels=c(4,6,1,2)))
-
-td<-cbind(td, predict(m2, td, se.fit=T), type='link')
-
-ggplot()+geom_ribbon(data=td,aes(x=A1, ymin=plogis(fit-se.fit*1.96), 
-       ymax=plogis(fit+se.fit*1.96)), alpha=0.5)+
-  geom_line(data=td, aes(x=A1, y=plogis(fit)))+facet_wrap(~FG)
+man_aus<-manova(cbind(A1, A2)~ThermalAffinity2:FG, data=aus_mod)
+anova(man_aus)
+emmip(man_aus, FG~ThermalAffinity2)
+emmeans(man_aus, pairwise ~ ThermalAffinity2 | FG)
 
 # Japan
-
-dat_jpn$TA_bin<-0
-dat_jpn[dat_jpn$ThermalAffinity2=='tropical',]$TA_bin<-1
-
 jpn_mod<-dat_jpn[dat_jpn$FG %in% c(4,6,2,1) & 
                    dat_jpn$JPN_temp==1,]
 jpn_mod$FG<-factor(jpn_mod$FG, levels=c(4,6,1,2))
 
-m2a<-glm(TA_bin~A1:FG,
-         data=jpn_mod, family = 'binomial')
-Anova(m2a)
-m2b<-glm(TA_bin~
-           A1.colon:FG + A2.colon:FG, data=jpn_mod, family = 'binomial')
-Anova(m2b)
+jpn_fgD<-lm(A1~ThermalAffinity2:FG, data=jpn_mod)
+anova(jpn_fgD)
+
+emmip(jpn_fgD, FG~ThermalAffinity2)
+emmeans(jpn_fgD, pairwise ~ ThermalAffinity2 | FG)
+
+man_jpn<-manova(cbind(A1, A2)~ThermalAffinity2:FG, data=jpn_mod)
+anova(man_jpn)
+emmip(man_jpn, FG~ThermalAffinity2)
+emmeans(man_jpn, pairwise ~ ThermalAffinity2 | FG)
 
 
-summary(m2)
+# Life-history space
 
-m2<-glm(TA_bin~A1:FG, data=jpn_mod, family = 'binomial')
-summary(m2)
+aus_lhD<-glm(invest_bin~ThermalAffinity2:FG, data=aus_mod, family='binomial')
+library(car)
+Anova(aus_lhD)
+sum(resid(aus_lhD, type='pearson')^2)/df.residual(aus_lhD)
 
-td<-expand.grid(A1=seq(min(jpn_mod$A1),max(jpn_mod$A1), length=100),
-                
-                FG=factor(c(4,6,1,2), levels=c(4,6,1,2)))
+emmip(aus_lhD, FG~ThermalAffinity2)
+emmeans(aus_lhD, pairwise ~ ThermalAffinity2 | FG)
+table(aus_mod$FG, aus_mod$ThermalAffinity2, aus_mod$invest_bin )
 
-td<-cbind(td, predict(m2, td, se.fit=T), type='link')
+jpn_lhD<-glm(invest_bin~ThermalAffinity2:FG, data=jpn_mod, family='binomial')
+library(car)
+Anova(jpn_lhD)
+sum(resid(jpn_lhD, type='pearson')^2)/df.residual(jpn_lhD)
 
-ggplot()+geom_ribbon(data=td,aes(x=A1, ymin=plogis(fit-se.fit*1.96), 
-                                 ymax=plogis(fit+se.fit*1.96)), alpha=0.5)+
-  geom_line(data=td, aes(x=A1, y=plogis(fit)))+facet_wrap(~FG)
-
-m3<-glm(TA_bin~factor(FG):A1,
-        data=dat_jpn[dat_jpn$FG %in% c(4,6,1,2) & 
-                       dat_jpn$JPN_temp==1,], family = 'binomial')
-
-
-library(agricolae)
-tk2<-HSD.test(m2, 'A1.colon:FG ')
-tk2
-aus_full_temp # modelled correctly
-tk3<-HSD.test(m3, 'factor(FG')
-tk3
-jpn_full_temp # modelled correctly
-
-libarary(emmeans)
-em3<-emmeans(m3, 'FG')
-pairs(em3, type='lp')
+emmip(jpn_lhD, FG~ThermalAffinity2)
+emmeans(jpn_lhD, pairwise ~ ThermalAffinity2 | FG)
+table(jpn_mod$FG, jpn_mod$ThermalAffinity2, jpn_mod$invest_bin )
 
 # Modelling inter-group differences in PLD and Life-history
 
@@ -878,16 +865,29 @@ aus_diff_dat<-dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2) & ThermalAffini
 jpn_diff_dat$FG<-factor(jpn_diff_dat$FG, levels=c(4,6,1,2))
 aus_diff_dat$FG<-factor(aus_diff_dat$FG, levels=c(4,6,1,2))
 
-pld_aus<-lm(PLD~FG, data=aus_diff_dat)
+library(agricolae)
+pld_aus<-lm(log(PLD)~FG, data=aus_diff_dat[aus_diff_dat$PLD>0,])
+anova(pld_aus)
 HSD.test(pld_aus, 'FG', console=T)
-lh_aus<-lm(A1.colon~FG, data=aus_diff_dat)
-HSD.test(lh_aus, 'FG', console=T)
 
-pld_jpn<-lm(PLD~FG, data=jpn_diff_dat)
-summary(pld_jpn)
+aus_lh<-glm(invest_bin~FG, data=aus_diff_dat, family='binomial')
+Anova(aus_lh)
+sum(resid(aus_lh, type='pearson')^2)/df.residual(aus_lh)
+
+emmeans(aus_lh, pairwise ~ FG)
+plot(emmeans(aus_lh, pairwise ~ FG), comparisons=T)
+
+
+pld_jpn<-lm(log(PLD)~FG, data=jpn_diff_dat[jpn_diff_dat$PLD>0,])
+anova(pld_jpn)
 HSD.test(pld_jpn, 'FG', console=T)
-lh_jpn<-lm(A1.colon~FG, data=jpn_diff_dat)
-HSD.test(lh_jpn, 'FG', console=T)
+
+jpn_lh<-glm(invest_bin~FG, data=jpn_diff_dat, family='binomial')
+Anova(jpn_lh)
+sum(resid(jpn_lh, type='pearson')^2)/df.residual(jpn_lh)
+
+emmeans(jpn_lh, pairwise ~ FG)
+plot(emmeans(jpn_lh, pairwise ~ FG), comparisons=T)
 
 # check ratio of tropical to sub-tropical
 subt_rat<-rbind(
