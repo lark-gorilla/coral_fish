@@ -216,12 +216,7 @@ specs_aus$Species[which(!specs_aus$Species %in% dat_aus$Fish)]
 
 # remove and fix
 dat_aus$Site<-as.character(dat_aus$Site)
-dat_aus<-dat_aus[dat_aus$Site!='Siganus fuscescens',]
-dat_aus[dat_aus$Site=="Flinders Reef ",]$Site<-"Flinders Reef"
-dat_aus[dat_aus$Site=="Southwest Solitaries",]$Site<-"SW-Solitaries"
-dat_aus[dat_aus$Site=="Julian Rock Site2",]$Site<-"Julian Rocks Site2"
-dat_aus[dat_aus$Site=="Julian Rocks Nursery",]$Site<-"Julian_Nursery"
-dat_aus[dat_aus$Site=="Julian Rock Nursery",]$Site<-"Julian_Nursery"
+dat_aus<-dat_aus[dat_aus$Site!='',]
 
 locs<-read.csv('C:/coral_fish/data/Australia/Australia_SitesMar2010toSep2019.csv', h=T)
 
@@ -230,56 +225,59 @@ locs$Site.name<-as.character(locs$Site.name)
 locs[locs$Site.name=='Pialba',]$Site.name<-"Pialba Shallow"
 locs[locs$Site.name=='Big Woody',]$Site.name<-"Big Woody Shallow"
 locs[locs$Site.name=='Gatakers hig div site',]$Site.name<-"Gataker High Diversity Site"
-locs[locs$Site.name=='NW Solitary Island',]$Site.name<-"NW-Solitaries"
-locs[locs$Site.name=='SW Solitary Island',]$Site.name<-"SW-Solitaries"
 locs[locs$Site.name=='Woolgoolga Headland Reef',]$Site.name<-"Woolgoolga Headland"
 locs[locs$Site.name=='Inner Gneering Shoals',]$Site.name<-"Inner Gneerings"
 locs[locs$Site.name=='Hendersons Shoals',]$Site.name<-"Hendersons Rock"
 locs[locs$Site.name=='Latitude Rock, Forster',]$Site.name<-"Latitude Rock"
-locs[locs$Site.name=='Julian Rocks False Trench',]$Site.name<-"Julian_FalseTrench"
+locs[locs$Site.name=='Julian Rocks False Trench',]$Site.name<-"Julian Rock False Trench"
+locs[locs$Site.name=='Julian Rocks Nursery',]$Site.name<-"Julian Rock Nursery"
+locs[locs$Site.name=='Lady Elliot',]$Site.name<-"Lady Elliot Island"
+locs[locs$Site.name=='Lady Musgrave',]$Site.name<-"Lady Musgrave Island"
+locs[locs$Site.name=='Heron - Tenemants',]$Site.name<-"Tenemants Buoy"
+locs[locs$Site.name=='Heron - Turbistari',]$Site.name<-"Turbistari"
+locs[locs$Site.name=="Heron - Libby's Lair",]$Site.name<-"Libbys Lair"
 
-a1<-locs[locs$Site.name=='Inner Gneerings',][1,];a1$Site.name<-'Gneerings'
-locs<-rbind(locs,a1)
-a1<-locs[locs$Site.name=='Julian Rocks South',][1,];a1$Site.name<-'Julian Rocks Site2'
-locs<-rbind(locs,a1)
-a1<-locs[locs$Site.name=='Julian Rocks South',][1,];a1$Site.name<-'Julian_Nursery'
-locs<-rbind(locs,a1)
-
-
-
-dat_aus<-left_join(dat_aus, locs[,c(1, 4, 5)], by=c('Site'= 'Site.name'))
+dat_aus<-left_join(dat_aus, locs[,c(1, 6,7)], by=c('Site'= 'Site.name'))
 
 aggregate(Lat~Site, dat_aus, unique)
-# sort different lats for Mudjima
+# left_join puts both values if sites are not unique in locs - fix manually
 dat_aus[dat_aus$Site=='Mudjimba Island',]$Lat<--26.61623
+dat_aus[dat_aus$Site=='Mudjimba Island',]$Long<-153.1130
+dat_aus[dat_aus$Site=='Inner Gneerings',]$Lat<--26.64829
+dat_aus[dat_aus$Site=='Inner Gneerings',]$Long<-153.1835
 
 # site names that did not line up or had NA for lat - fixed
 unique(dat_aus[is.na(dat_aus$Lat),]$Site)
 paste(unique(locs$Site.name)[!unique(locs$Site.name)  %in%  unique(dat_aus$Site)])
 # abun to PA
 dat_aus$PA<-1
-
-table(dat_aus[dat_aus$Year==2015,]$Site)
+#rm unused cols
+dat_aus<-dat_aus[,- c(10:12)]
 
 # sp in trait dataset filter?
 
 library(labdsv)
 library(ade4)
 
-dat_aus%>%group_by(Site)%>%summarise(length(unique(Lat)))%>%View()
-# ok a bit screwed up but proceed anyway
+table(dat_aus$Year)
 
-dat_aus_yr<-dat_aus[dat_aus$Year==2010,]
-mat1<-matrify(data.frame(dat_aus_yr$Site, dat_aus_yr$Fish, dat_aus_yr$PA))
+dat_aus_yr<-dat_aus[dat_aus$Year>2015,]
+
+mat1<-matrify(data.frame(dat_aus$Site, dat_aus$Fish, dat_aus$PA))
 
 bdist<-dist.binary(mat1, method=1) # jaccard dist
 
 #shouldn't use ward centroid or median methods for jaccard dist
 plot(hclust(bdist, 'single'))  #splits sites into 3 clusts, make cut at Flat Rock 28 deg S
 
+#plot with lats
+bdist_lat<-bdist
+ordlats<-dat_aus%>%group_by(Site)%>% summarize_all(first)
+ 
 
-specs_aus$AUS_trop<-ifelse(specs_aus$Species%in% dat_aus[dat_aus$Lat<'-28',]$Fish, 1, 0)
-specs_aus$AUS_temp<-ifelse(specs_aus$Species%in% dat_aus[dat_aus$Lat>'-28',]$Fish, 1, 0)
+specs_aus$AUS_trop<-ifelse(specs_aus$Species%in% dat_aus[dat_aus$Lat<'-25.5',]$Fish, 1, 0)
+
+specs_aus$AUS_trans<-ifelse(specs_aus$Species%in% dat_aus[dat_aus$Lat>'-31',]$Fish, 1, 0)
 
 length(which(rowSums(specs_aus[,15:16])==0)) # here are the 72 missing sp
 # make them all tropical comm as GBR species - Maria
