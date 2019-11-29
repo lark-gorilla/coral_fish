@@ -4,16 +4,21 @@
 ## fish presence-absence and calculates maximum latitudes of each species
 ## results are added to the trait master file
 
+library(dplyr)
+library(labdsv)
+library(ade4)
+
 specs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
 
-specs<-specs[which(specs$JPN_sp>0),] 
+# JAPAN
 
+# survey data
 dat<-read.csv('C:/coral_fish/data/Japan/FishData_JP_2016_final.csv', h=T)
 
 dat$SpeciesFish<-as.character(dat$SpeciesFish)
 
-nrow(specs);length(unique(dat$SpeciesFish))
-specs$Species[which(!specs$Species %in% dat$SpeciesFish)]
+nrow(specs[which(specs$JPN_sp>0),] );length(unique(dat$SpeciesFish))
+specs[which(specs$JPN_sp>0),]$Species[which(!specs[which(specs$JPN_sp>0),]$Species %in% dat$SpeciesFish)]
 
 dat$SpeciesFish[dat$SpeciesFish=="Apogon aureus"]<- "Ostorhinchus aureus"
 dat$SpeciesFish[dat$SpeciesFish=='PLectroglyphidodon dickii']<-'Plectroglyphidodon dickii'
@@ -27,6 +32,7 @@ dat$SpeciesFish[dat$SpeciesFish=='Siganus stellatus']<-'Siganus punctatus'
 dat$SpeciesFish[dat$SpeciesFish=="Apogon limenus"]<-'Ostorhinchus limenus'
 dat$SpeciesFish[dat$SpeciesFish=="Chaetodon modestus"]<-'Roa modesta'
 
+# site data
 
 locs<-read.csv('C:/coral_fish/data/Japan/jp2015_16_waypoints.csv', h=T)
 
@@ -37,10 +43,7 @@ dat<-dat[-which(dat$SiteID==''),]
 # abun to PA
 dat$PA<-1
 
-# sp in trait dataset filter?
-
-library(labdsv)
-library(ade4)
+# create p/a matrix
 
 mat_jpn<-matrify(data.frame(dat$Name.x, dat$SpeciesFish, dat$PA))
 
@@ -52,37 +55,18 @@ bdist<-dist.binary(mat_jpn, method=1) # jaccard dist
 #shouldn't use ward centroid or median methods for jaccard dist
 plot(hclust(bdist, 'single'))  #splits sites into 2 clusts from lat <31deg N
 
-cor(cophenetic(hclust(bdist, 'average')), bdist) # best
-cor(cophenetic(hclust(bdist, 'single')), bdist)
-cor(cophenetic(hclust(bdist, 'complete')), bdist)
+#make split and fill in specs master dataframe
 
-#make split and species list for each community
-specs$JPN_trop<-ifelse(specs$Species%in% dat[dat$lat<31,]$SpeciesFish, 1, 0)
-specs$JPN_temp<-ifelse(specs$Species%in% dat[dat$lat>31,]$SpeciesFish, 1, 0)
+specs$JPN_trop<-ifelse(specs$JPN_sp==0, NA, ifelse(specs$Species%in% dat[dat$lat<31,]$SpeciesFish, 1, 0))
+specs$JPN_tran<-ifelse(specs$JPN_sp==0, NA, ifelse(specs$Species%in% dat[dat$lat>31,]$SpeciesFish, 1, 0))
 
-df4<-specs[,c(1,15, 16)]
+specs$JPN_maxlat<-NA
+ordlats_jpn<-dat%>%group_by(Name.x)%>% summarize_all(first)
+specs$JPN_maxlat[which(specs$JPN_sp==1)]<-apply(mat_jpn, 2, 
+                  function(x){max(ordlats_jpn[which(x==1),]$lat)})# max for Jpn
 
-write.csv(df4, 'C:/coral_fish/data/Japan/JPN_species_tropical_class.csv', quote=F, row.names=F)
 
-# alternate approach n tropical and n temperate sp per site
-
-dat<-left_join(dat, specs[,1:2], by=c('SpeciesFish'= 'Species'))
-dat[dat$ThermalAffinity!='tropical',]$ThermalAffinity<-'subtropical'
-
-d2<-dat%>%group_by(lat)%>%distinct(SpeciesFish, .keep_all=T)%>%
-  summarize(n_trop=length(which(ThermalAffinity=='tropical')),
-            n_subt=length(which(ThermalAffinity=='subtropical')))%>%
-  as.data.frame()
-
-row.names(d2)<-round(d2$lat, 4)
-d3<-dist(d2[,2:3])
-plot(hclust(d3, 'average'))
-
-cor(cophenetic(hclust(d3, 'average')), d3) # best
-cor(cophenetic(hclust(d3, 'single')), d3)
-cor(cophenetic(hclust(d3, 'complete')), d3)
-
-## calcing species occurence along latitudinal gradient - Australia data
+# AUSTRLIA
 
 specs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
 
@@ -145,11 +129,6 @@ dat_aus$PA<-1
 #rm unused cols
 dat_aus<-dat_aus[,- c(10:12)]
 
-# sp in trait dataset filter?
-
-library(labdsv)
-library(ade4)
-
 table(dat_aus$Year)
 
 #dat_aus_yr<-dat_aus[dat_aus$Year>2015,]
@@ -167,32 +146,38 @@ bdist<-dist.binary(mat_aus, method=1) # jaccard dist
 #shouldn't use ward centroid or median methods for jaccard dist
 plot(hclust(bdist, 'single'))  #splits sites into 3 clusts, make cut at Flat Rock 28 deg S
 
-#plot with lats
-bdist_lat<-bdist
-ordlats<-dat_aus%>%group_by(Site)%>% summarize_all(first)
- 
+specs$AUS_trop<-ifelse(specs$AUS_sp==0, NA, ifelse(specs$Species%in% dat_aus[dat_aus$Lat<'-25.5',]$Fish, 1, 0))
+specs$AUS_tran<-ifelse(specs$AUS_sp==0, NA, ifelse(specs$Species%in% dat_aus[dat_aus$Lat>'-25.5',]$Fish, 1, 0))
 
-specs_aus$AUS_trop<-ifelse(specs_aus$Species%in% dat_aus[dat_aus$Lat<'-25.5',]$Fish, 1, 0)
-
-specs_aus$AUS_temp<-ifelse(specs_aus$Species%in% dat_aus[dat_aus$Lat>'-25.5',]$Fish, 1, 0)
-
-length(which(rowSums(specs_aus[,15:16])==0)) # here are the 72 missing sp
-
-df4<-specs_aus[,c(1,15, 16)]
-
-write.csv(df4, 'C:/coral_fish/data/Australia/AUS_species_tropical_class.csv', quote=F, row.names=F)
-
-### Section to identify max latitude of each tropical species 
-
-# mat_jpn and mat_aus being used from code above.
+specs$AUS_maxlat<-NA
 ordlats_aus<-dat_aus%>%group_by(Site)%>% summarize_all(first)
-specs_aus$max_lat<-apply(mat_aus, 2, function(x){min(ordlats_aus[which(x==1),]$Lat)})# min for Aus
+specs$AUS_maxlat[which(specs$AUS_sp==1)]<-apply(mat_aus, 2, 
+                        function(x){min(ordlats_aus[which(x==1),]$Lat)})# # min for Aus
 
-# could sort based on 95th percentile but is more conservative,
+# write out
+write.csv(specs, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats.csv', quote=F, row.names=F) 
+
+
+# could sort max lats based on 95th percentile but is more conservative,
 # with only few sites just take max
 #sort(v1, decreasing=T)[0.95*length(v1)]
 
-ordlats_jpn<-dat%>%group_by(Name.x)%>% summarize_all(first)
-specs_jpn$max_lat<-apply(mat_jpn, 2, function(x){max(ordlats_jpn[which(x==1),]$lat)})# max for Jpn
 
+# alternate approach n tropical and n temperate sp per site
+
+dat<-left_join(dat, specs[,1:2], by=c('SpeciesFish'= 'Species'))
+dat[dat$ThermalAffinity!='tropical',]$ThermalAffinity<-'subtropical'
+
+d2<-dat%>%group_by(lat)%>%distinct(SpeciesFish, .keep_all=T)%>%
+  summarize(n_trop=length(which(ThermalAffinity=='tropical')),
+            n_subt=length(which(ThermalAffinity=='subtropical')))%>%
+  as.data.frame()
+
+row.names(d2)<-round(d2$lat, 4)
+d3<-dist(d2[,2:3])
+plot(hclust(d3, 'average'))
+
+cor(cophenetic(hclust(d3, 'average')), d3) # best
+cor(cophenetic(hclust(d3, 'single')), d3)
+cor(cophenetic(hclust(d3, 'complete')), d3)
 
