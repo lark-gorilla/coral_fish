@@ -156,7 +156,7 @@ dat$PA<-1
 library(labdsv)
 library(ade4)
 
-mat_jpn<-matrify(data.frame(round(dat$lat, 2), dat$SpeciesFish, dat$PA))
+mat_jpn<-matrify(data.frame(dat$Name.x, dat$SpeciesFish, dat$PA))
 
 table(dat[dat$Year==2015,]$SiteID)
 table(dat[dat$Year==2016,]$SiteID)
@@ -212,7 +212,12 @@ specs_aus$Species<-as.character(specs_aus$Species)
 
 nrow(specs_aus);length(unique(dat_aus$Fish)) # OK only 2 different
 specs_aus$Species[which(!specs_aus$Species %in% dat_aus$Fish)]
-## all good
+
+#remove species that occur in sampling data but not species/traits list
+badfish<-unique(dat_aus$Fish[which(!dat_aus$Fish %in% specs_aus$Species)])
+dat_aus<-dat_aus[-which(dat_aus$Fish%in%badfish),]
+dat_aus$Fish<-factor(dat_aus$Fish)
+
 
 # remove and fix
 dat_aus$Site<-as.character(dat_aus$Site)
@@ -264,12 +269,12 @@ table(dat_aus$Year)
 #dat_aus_yr<-dat_aus[dat_aus$Year>2015,]
 
 #Remove dodgy sites from upon Maria's advice
+# actually keep in as clustering doesn't change
+#dat_aus_sub<-dat_aus[-which(dat_aus$Site %in% c("Pialba Shallow",
+#    "Gataker High Diversity Site",'Big Woody Shallow', "Mudjimba Island Shallow" )),]
+#dat_aus_sub$Site<-factor(dat_aus_sub$Site)
 
-dat_aus_sub<-dat_aus[-which(dat_aus$Site %in% c("Pialba Shallow",
-    "Gataker High Diversity Site",'Big Woody Shallow', "Mudjimba Island Shallow" )),]
-dat_aus_sub$Site<-factor(dat_aus_sub$Site)
-
-mat_aus<-matrify(data.frame(dat_aus_sub$Site, dat_aus_sub$Fish, dat_aus_sub$PA))
+mat_aus<-matrify(data.frame(dat_aus$Site, dat_aus$Fish, dat_aus$PA))
 
 bdist<-dist.binary(mat_aus, method=1) # jaccard dist
 
@@ -292,3 +297,16 @@ df4<-specs_aus[,c(1,15, 16)]
 write.csv(df4, 'C:/coral_fish/data/Australia/AUS_species_tropical_class.csv', quote=F, row.names=F)
 
 ### Section to identify max latitude of each tropical species 
+
+# mat_jpn and mat_aus being used from code above.
+ordlats_aus<-dat_aus%>%group_by(Site)%>% summarize_all(first)
+specs_aus$max_lat<-apply(mat_aus, 2, function(x){min(ordlats_aus[which(x==1),]$Lat)})# min for Aus
+
+# could sort based on 95th percentile but is more conservative,
+# with only few sites just take max
+#sort(v1, decreasing=T)[0.95*length(v1)]
+
+ordlats_jpn<-dat%>%group_by(Name.x)%>% summarize_all(first)
+specs_jpn$max_lat<-apply(mat_jpn, 2, function(x){max(ordlats_jpn[which(x==1),]$lat)})# max for Jpn
+
+
