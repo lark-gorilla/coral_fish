@@ -156,12 +156,12 @@ dat$PA<-1
 library(labdsv)
 library(ade4)
 
-mat1<-matrify(data.frame(round(dat$lat, 2), dat$SpeciesFish, dat$PA))
+mat_jpn<-matrify(data.frame(round(dat$lat, 2), dat$SpeciesFish, dat$PA))
 
 table(dat[dat$Year==2015,]$SiteID)
 table(dat[dat$Year==2016,]$SiteID)
 
-bdist<-dist.binary(mat1, method=1) # jaccard dist
+bdist<-dist.binary(mat_jpn, method=1) # jaccard dist
 
 #shouldn't use ward centroid or median methods for jaccard dist
 plot(hclust(bdist, 'single'))  #splits sites into 2 clusts from lat <31deg N
@@ -212,7 +212,7 @@ specs_aus$Species<-as.character(specs_aus$Species)
 
 nrow(specs_aus);length(unique(dat_aus$Fish)) # OK only 2 different
 specs_aus$Species[which(!specs_aus$Species %in% dat_aus$Fish)]
-## only 1 species not shared, probably naming issue
+## all good
 
 # remove and fix
 dat_aus$Site<-as.character(dat_aus$Site)
@@ -261,11 +261,17 @@ library(ade4)
 
 table(dat_aus$Year)
 
-dat_aus_yr<-dat_aus[dat_aus$Year>2015,]
+#dat_aus_yr<-dat_aus[dat_aus$Year>2015,]
 
-mat1<-matrify(data.frame(dat_aus$Site, dat_aus$Fish, dat_aus$PA))
+#Remove dodgy sites from upon Maria's advice
 
-bdist<-dist.binary(mat1, method=1) # jaccard dist
+dat_aus_sub<-dat_aus[-which(dat_aus$Site %in% c("Pialba Shallow",
+    "Gataker High Diversity Site",'Big Woody Shallow', "Mudjimba Island Shallow" )),]
+dat_aus_sub$Site<-factor(dat_aus_sub$Site)
+
+mat_aus<-matrify(data.frame(dat_aus_sub$Site, dat_aus_sub$Fish, dat_aus_sub$PA))
+
+bdist<-dist.binary(mat_aus, method=1) # jaccard dist
 
 #shouldn't use ward centroid or median methods for jaccard dist
 plot(hclust(bdist, 'single'))  #splits sites into 3 clusts, make cut at Flat Rock 28 deg S
@@ -277,15 +283,12 @@ ordlats<-dat_aus%>%group_by(Site)%>% summarize_all(first)
 
 specs_aus$AUS_trop<-ifelse(specs_aus$Species%in% dat_aus[dat_aus$Lat<'-25.5',]$Fish, 1, 0)
 
-specs_aus$AUS_trans<-ifelse(specs_aus$Species%in% dat_aus[dat_aus$Lat>'-31',]$Fish, 1, 0)
+specs_aus$AUS_temp<-ifelse(specs_aus$Species%in% dat_aus[dat_aus$Lat>'-25.5',]$Fish, 1, 0)
 
 length(which(rowSums(specs_aus[,15:16])==0)) # here are the 72 missing sp
-# make them all tropical comm as GBR species - Maria
-specs_aus[which(rowSums(specs_aus[,15:16])==0),]$AUS_trop<-1
 
 df4<-specs_aus[,c(1,15, 16)]
 
 write.csv(df4, 'C:/coral_fish/data/Australia/AUS_species_tropical_class.csv', quote=F, row.names=F)
 
-
-write.csv(df4, 'C:/coral_fish/data/Japan/JPN_species_tropical_class.csv', quote=F, row.names=F)
+### Section to identify max latitude of each tropical species 
