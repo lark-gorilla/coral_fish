@@ -68,10 +68,6 @@ specs$JPN_maxlat[which(specs$JPN_sp==1)]<-apply(mat_jpn, 2,
 
 # AUSTRLIA
 
-specs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
-
-specs_aus<-specs[which(specs$AUS_sp>0),] 
-
 #read in australia survey species
 dat_aus<-read.csv('C:/coral_fish/data/Australia/LongTransect_Subtropical_fish_Sep2018.csv')
 
@@ -80,8 +76,8 @@ dat_aus<-read.csv('C:/coral_fish/data/Australia/LongTransect_Subtropical_fish_Se
 dat_aus$Fish<-as.character(dat_aus$Fish)
 specs_aus$Species<-as.character(specs_aus$Species)
 
-nrow(specs_aus);length(unique(dat_aus$Fish)) # OK only 2 different
-specs_aus$Species[which(!specs_aus$Species %in% dat_aus$Fish)]
+nrow(specs[which(specs$AUS_sp>0),] );length(unique(dat_aus$Fish)) # OK only 2 different
+specs[which(specs$AUS_sp>0),] [which(!specs[which(specs$AUS_sp>0),]  %in% dat_aus$Fish)]
 
 #remove species that occur in sampling data but not species/traits list
 badfish<-unique(dat_aus$Fish[which(!dat_aus$Fish %in% specs_aus$Species)])

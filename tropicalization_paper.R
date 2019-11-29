@@ -21,7 +21,7 @@ library(readxl)
 #################### data clean ##########################
 ##########################################################
 
-dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
+dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats.csv', h=T)
 # Running on simplist classification of Position trait
 
 # Do we want to include sp. in the analyses? - yes.
@@ -74,16 +74,26 @@ dat$FG<-both_FG
 dat$FG_22<-cutree(hclust(eff_both, method='average'), k=22)
 dat$FG_36<-cutree(hclust(eff_both, method='average'), k=36)
 
-# Add regional tropical/sub-tropical comm data and split to regions
-jpn_trop<-read.csv('C:/coral_fish/data/Japan/JPN_species_tropical_class.csv')
-aus_trop<-read.csv('C:/coral_fish/data/Australia/AUS_species_tropical_class.csv')
-
+# Split to regions
 
 dat_aus<-dat[which(dat$AUS_sp>0),]
 dat_jpn<-dat[which(dat$JPN_sp>0),]
 
-dat_aus<-left_join(dat_aus, aus_trop, by='Species')
-dat_jpn<-left_join(dat_jpn, jpn_trop, by='Species')
+# plot max lat of tropical species in FGs
+
+ggplot(data=filter(dat, AUS_sp>0 & ThermalAffinity2=='tropical'), 
+      aes(x=factor(FG), y= AUS_maxlat))+geom_violin()+
+  geom_point(
+    data=filter(dat, AUS_sp>0 & ThermalAffinity2=='tropical')%>%
+      group_by(FG)%>%summarize(medlat=median(AUS_maxlat)), 
+    aes(x=factor(FG), y= medlat), colour='red')
+
+ggplot(data=filter(dat, JPN_sp>0 & ThermalAffinity2=='tropical'), 
+       aes(x=factor(FG), y= JPN_maxlat))+geom_violin()+
+  geom_point(
+    data=filter(dat, JPN_sp>0 & ThermalAffinity2=='tropical')%>%
+      group_by(FG)%>%summarize(medlat=median(JPN_maxlat)), 
+    aes(x=factor(FG), y= medlat), colour='red')
 
 ### Functional Entity creation
 
