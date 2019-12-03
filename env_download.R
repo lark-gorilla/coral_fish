@@ -272,8 +272,8 @@ https://coastwatch.pfeg.noaa.gov/erddap/griddap/pmlEsaOCCCI31KD490Weekly.nc?chlo
 
 
 # Get doldrums data
-v1<-expand.grid(2014:2016, 01:12, 01:31)
-
+#v1<-expand.grid(2014:2016, 01:12, 01:31) 
+v1<-expand.grid(2012, 01:12, 01:31)
 for (i in 1:nrow(v1))
 {
   tstamp<-paste0(v1[i,]$Var1, sprintf("%02d", v1[i,]$Var2), sprintf("%02d", v1[i,]$Var3))
