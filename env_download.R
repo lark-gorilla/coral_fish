@@ -269,3 +269,27 @@ as.Date(as.POSIXlt(getZ(r2), origin="1970-01-01", "GMT"))
 
 https://coastwatch.pfeg.noaa.gov/erddap/griddap/pmlEsaOCCCI31KD490Weekly.nc?chlor_a[(2000-01-01):1:(2017-12-31)][(24.84577202):1:(23.84577202)][(123.189956):1:(124.189956)],kd_490[(2000-01-01):1:(2017-12-31)][(24.84577202):1:(23.84577202)][(123.189956):1:(124.189956)]
 https://coastwatch.pfeg.noaa.gov/erddap/griddap/pmlEsaOCCCI31KD490Weekly.nc?chlor_a[(2000-01-01):1:(2017-12-31)][(24.84577202):1:(23.84577202)][(123.189956):1:(124.189956)],kd_490[(2000-01-01):1:(2017-12-31)][(24.84577202):1:(23.84577202)][(123.189956):1:(124.189956)]
+
+
+# Get doldrums data
+v1<-expand.grid(2014:2016, 01:12, 01:31)
+
+for (i in 1:nrow(v1))
+{
+  tstamp<-paste0(v1[i,]$Var1, sprintf("%02d", v1[i,]$Var2), sprintf("%02d", v1[i,]$Var3))
+  
+  urly=paste0('https://coralreefwatch.noaa.gov/satellite/doldrums_v2/data/hdf/archive/wind.doldrum.v3.field.25km.seawind.',
+              tstamp, '.hdf')
+  
+  err<-try(download.file(url=urly,
+                         destfile=paste0('C:/ocean_data/doldrums/',tstamp,'.hdf'), mode='wb'))
+  print(i)
+  
+  if(class(err) == "try-error"){print(tstamp);next}
+  
+}
+
+#reading in
+#library(gdalUtils); library(raster)
+#gdalinfo('C:/ocean_data/doldrums/20160303.hdf')
+#https://stackoverflow.com/questions/48599875/converting-hdf-to-georeferenced-file-geotiff-shapefile
