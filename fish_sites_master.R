@@ -102,6 +102,7 @@ mat_biom_jpn_df<-melt(mat_biom_jpn_df, id.vars = c('Name.x'))
 names(mat_jpn_df)[3]<-'Species'
 names(mat_jpn_df)[4]<-'pa'
 mat_jpn_df$biom<-mat_biom_jpn_df$value
+mat_jpn_df$Name.x<-gsub(',', '@', mat_jpn_df$Name.x)
 
 write.csv(mat_jpn_df, 'C:/coral_fish/data/Japan/Jpn_sites_pa_biomass.csv', quote=F, row.names=F) 
 
