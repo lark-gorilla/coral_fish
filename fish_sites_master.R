@@ -65,7 +65,6 @@ ordlats_jpn<-dat%>%group_by(Name.x)%>% summarize_all(first)
 specs$JPN_maxlat[which(specs$JPN_sp==1)]<-apply(mat_jpn, 2, 
                   function(x){max(ordlats_jpn[which(x==1),]$lat)})# max for Jpn
 
-
 # AUSTRALIA
 
 #read in australia survey species
@@ -147,6 +146,24 @@ specs$AUS_maxlat<-NA
 ordlats_aus<-dat_aus_sub%>%group_by(Site)%>% summarize_all(first)
 specs$AUS_maxlat[which(specs$AUS_sp==1)]<-apply(mat_aus, 2, 
                         function(x){min(ordlats_aus[which(x==1),]$Lat)})# # min for Aus
+
+# biomass weighting
+
+# summarise total biomass (abundance * length) per species per transect
+# then for transects that are surveyed multiple times take the mean biomass per species
+# then take the mean of averaged transects within each site per species
+# might want to take min or max instead of mean?
+
+biom1<-dat_aus_sub%>%group_by(Fish, Site, id)%>%summarise(tot_biom=sum(Number*Size))
+biom1$id_nodate<-unlist(lapply(strsplit(as.character(biom1$id), '_'), function(x){paste(x[1], x[2], sep='_')}))
+biom2<-biom1%>%group_by(Fish, Site, id_nodate)%>%summarise(mean_tot_biom=mean(tot_biom),
+              min_tot_biom=min(tot_biom),max_tot_biom=max(tot_biom))
+biom3<-biom2%>%group_by(Fish, Site)%>%summarise(mean_trans_biom=mean(mean_tot_biom))
+
+mat_biom_aus<-matrify(data.frame(biom3$Site, biom3$Fish, biom3$mean_trans_biom))
+
+# curiosity site cluster plot based on biomass
+plot(hclust(vegdist(mat_biom_aus, 'bray', na.rm=T), 'average')) 
 
 # write out
 write.csv(specs, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats.csv', quote=F, row.names=F) 
