@@ -7,6 +7,8 @@
 library(dplyr)
 library(labdsv)
 library(ade4)
+library(vegan)
+library(reshape2)
 
 specs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
 
@@ -64,6 +66,45 @@ specs$JPN_maxlat<-NA
 ordlats_jpn<-dat%>%group_by(Name.x)%>% summarize_all(first)
 specs$JPN_maxlat[which(specs$JPN_sp==1)]<-apply(mat_jpn, 2, 
                   function(x){max(ordlats_jpn[which(x==1),]$lat)})# max for Jpn
+
+# biomass weighting
+
+# summarise total biomass (abundance * length) per species per transect
+# NOT needed in Japan: then for transects that are surveyed multiple times take the mean biomass per species 
+# then take the mean of averaged transects within each site per species
+# might want to take min or max instead of mean?
+
+biom1<-dat%>%group_by(SpeciesFish, Name.x, Transect)%>%summarise(tot_biom=sum(Number*SizeCm))
+
+biom3<-biom1%>%group_by(SpeciesFish, Name.x)%>%summarise(mean_trans_biom=mean(tot_biom))
+
+mat_biom_jpn<-matrify(data.frame(biom3$Name.x, biom3$SpeciesFish, biom3$mean_trans_biom))
+
+# curiosity site cluster plot based on biomass
+plot(hclust(vegdist(mat_biom_jpn, 'bray', na.rm=T), 'average')) 
+
+
+# setup data.frame to make geom_violin of p/a and biomass of each FG at each site
+#pa data
+mat_jpn_df<-as.data.frame(mat_jpn)
+mat_jpn_df$Name.x<-row.names(mat_jpn_df)
+mat_jpn_df<-left_join(mat_jpn_df, dat%>%group_by(Name.x)%>%summarise(Lat=first(lat)),
+                      by='Name.x')
+mat_jpn_df<-melt(mat_jpn_df, id.vars = c('Name.x', 'Lat'))
+
+#biomass data
+mat_biom_jpn_df<-as.data.frame(mat_biom_jpn)
+mat_biom_jpn_df$Name.x<-row.names(mat_biom_jpn_df)
+mat_biom_jpn_df<-melt(mat_biom_jpn_df, id.vars = c('Name.x'))
+
+#combine
+
+names(mat_jpn_df)[3]<-'Species'
+names(mat_jpn_df)[4]<-'pa'
+mat_jpn_df$biom<-mat_biom_jpn_df$value
+
+write.csv(mat_jpn_df, 'C:/coral_fish/data/Japan/Jpn_sites_pa_biomass.csv', quote=F, row.names=F) 
+
 
 # AUSTRALIA
 
@@ -146,6 +187,9 @@ specs$AUS_maxlat<-NA
 ordlats_aus<-dat_aus_sub%>%group_by(Site)%>% summarize_all(first)
 specs$AUS_maxlat[which(specs$AUS_sp==1)]<-apply(mat_aus, 2, 
                         function(x){min(ordlats_aus[which(x==1),]$Lat)})# # min for Aus
+# write out
+write.csv(specs, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats.csv', quote=F, row.names=F) 
+
 
 # biomass weighting
 
@@ -165,8 +209,27 @@ mat_biom_aus<-matrify(data.frame(biom3$Site, biom3$Fish, biom3$mean_trans_biom))
 # curiosity site cluster plot based on biomass
 plot(hclust(vegdist(mat_biom_aus, 'bray', na.rm=T), 'average')) 
 
-# write out
-write.csv(specs, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats.csv', quote=F, row.names=F) 
+
+# setup data.frame to make geom_violin of p/a and biomass of each FG at each site
+#pa data
+mat_aus_df<-as.data.frame(mat_aus)
+mat_aus_df$Site<-row.names(mat_aus_df)
+mat_aus_df<-left_join(mat_aus_df, dat_aus_sub%>%group_by(Site)%>%summarise(Lat=first(Lat)),
+                      by='Site')
+mat_aus_df<-melt(mat_aus_df, id.vars = c('Site', 'Lat'))
+
+#biomass data
+mat_biom_aus_df<-as.data.frame(mat_biom_aus)
+mat_biom_aus_df$Site<-row.names(mat_biom_aus_df)
+mat_biom_aus_df<-melt(mat_biom_aus_df, id.vars = c('Site'))
+
+#combine
+
+names(mat_aus_df)[3]<-'Species'
+names(mat_aus_df)[4]<-'pa'
+mat_aus_df$biom<-mat_biom_aus_df$value
+
+write.csv(mat_aus_df, 'C:/coral_fish/data/Australia/Aus_sites_pa_biomass.csv', quote=F, row.names=F) 
 
 
 # could sort max lats based on 95th percentile but is more conservative,
