@@ -66,7 +66,7 @@ specs$JPN_maxlat[which(specs$JPN_sp==1)]<-apply(mat_jpn, 2,
                   function(x){max(ordlats_jpn[which(x==1),]$lat)})# max for Jpn
 
 
-# AUSTRLIA
+# AUSTRALIA
 
 #read in australia survey species
 dat_aus<-read.csv('C:/coral_fish/data/Australia/LongTransect_Subtropical_fish_Sep2018.csv')
@@ -129,13 +129,12 @@ table(dat_aus$Year)
 
 #dat_aus_yr<-dat_aus[dat_aus$Year>2015,]
 
-#Remove dodgy sites from upon Maria's advice
-# actually keep in as clustering doesn't change
-#dat_aus_sub<-dat_aus[-which(dat_aus$Site %in% c("Pialba Shallow",
-#    "Gataker High Diversity Site",'Big Woody Shallow', "Mudjimba Island Shallow" )),]
-#dat_aus_sub$Site<-factor(dat_aus_sub$Site)
+#Remove dodgy sites from upon Maria's advice 02/12/19
 
-mat_aus<-matrify(data.frame(dat_aus$Site, dat_aus$Fish, dat_aus$PA))
+dat_aus_sub<-dat_aus[-which(dat_aus$Site %in% "Mudjimba Island Shallow"),]
+dat_aus_sub$Site<-factor(dat_aus_sub$Site)
+
+mat_aus<-matrify(data.frame(dat_aus_sub$Site, dat_aus_sub$Fish, dat_aus_sub$PA))
 
 bdist<-dist.binary(mat_aus, method=1) # jaccard dist
 
