@@ -74,13 +74,12 @@ dat_aus<-read.csv('C:/coral_fish/data/Australia/LongTransect_Subtropical_fish_Se
 #get list of aus_species names
 
 dat_aus$Fish<-as.character(dat_aus$Fish)
-specs_aus$Species<-as.character(specs_aus$Species)
 
 nrow(specs[which(specs$AUS_sp>0),] );length(unique(dat_aus$Fish)) # OK only 2 different
 specs[which(specs$AUS_sp>0),] [which(!specs[which(specs$AUS_sp>0),]  %in% dat_aus$Fish)]
 
 #remove species that occur in sampling data but not species/traits list
-badfish<-unique(dat_aus$Fish[which(!dat_aus$Fish %in% specs_aus$Species)])
+badfish<-unique(dat_aus$Fish[which(!dat_aus$Fish %in% specs[specs$AUS_sp>0,]$Species)])
 dat_aus<-dat_aus[-which(dat_aus$Fish%in%badfish),]
 dat_aus$Fish<-factor(dat_aus$Fish)
 
@@ -145,7 +144,7 @@ specs$AUS_trop<-ifelse(specs$AUS_sp==0, NA, ifelse(specs$Species%in% dat_aus[dat
 specs$AUS_tran<-ifelse(specs$AUS_sp==0, NA, ifelse(specs$Species%in% dat_aus[dat_aus$Lat>'-25.5',]$Fish, 1, 0))
 
 specs$AUS_maxlat<-NA
-ordlats_aus<-dat_aus%>%group_by(Site)%>% summarize_all(first)
+ordlats_aus<-dat_aus_sub%>%group_by(Site)%>% summarize_all(first)
 specs$AUS_maxlat[which(specs$AUS_sp==1)]<-apply(mat_aus, 2, 
                         function(x){min(ordlats_aus[which(x==1),]$Lat)})# # min for Aus
 
