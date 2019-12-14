@@ -79,7 +79,7 @@ dat$FG_36<-cutree(hclust(eff_both, method='average'), k=36)
 dat_aus<-dat[which(dat$AUS_sp>0),]
 dat_jpn<-dat[which(dat$JPN_sp>0),]
 
-# plot max lat of tropical species in FGs
+#### plot max lat of tropical species in FGs
 
 ggplot(data=filter(dat, AUS_sp>0 & ThermalAffinity2=='tropical'), 
       aes(x=factor(FG), y= AUS_maxlat))+geom_violin()+
@@ -94,6 +94,109 @@ ggplot(data=filter(dat, JPN_sp>0 & ThermalAffinity2=='tropical'),
     data=filter(dat, JPN_sp>0 & ThermalAffinity2=='tropical')%>%
       group_by(FG)%>%summarize(medlat=median(JPN_maxlat)), 
     aes(x=factor(FG), y= medlat), colour='red')
+
+### More detailed analyses of latitudinal distribution of FG species and biomass
+
+jpn_pa_biom<-read.csv('C:/coral_fish/data/Japan/Jpn_sites_pa_biomass.csv')
+aus_pa_biom<-read.csv('C:/coral_fish/data/Australia/Aus_sites_pa_biomass.csv')
+
+jpn_pa_biom<-left_join(jpn_pa_biom, dat[,c(1,21,22)], by='Species')
+aus_pa_biom<-left_join(aus_pa_biom, dat[,c(1,21,22)], by='Species')
+
+jpn_pa_biom_sum<-jpn_pa_biom%>%group_by(Name.x, Lat, FG, ThermalAffinity2)%>%
+  summarise(sum_pa=sum(pa), sum_biom=sum(biom))
+
+aus_pa_biom_sum<-aus_pa_biom%>%group_by(Site, Lat, FG, ThermalAffinity2)%>%
+  summarise(sum_pa=sum(pa), sum_biom=sum(biom))
+
+ggplot(filter(jpn_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = factor(FG), y = Lat, fill=ThermalAffinity2)) + 
+  geom_violin(stat = "identity", aes(violinwidth = sum_pa*0.03),
+              position=position_identity(), alpha=0.3)+theme_bw()
+
+ggplot(filter(aus_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = factor(FG), y = Lat, fill=ThermalAffinity2)) + 
+  geom_violin(stat = "identity", aes(violinwidth = sum_pa*0.01),
+              position=position_identity(), alpha=0.3)+theme_bw()
+
+
+ggplot(filter(jpn_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = factor(FG), y = Lat, fill=ThermalAffinity2)) + 
+  geom_violin(stat = "identity", aes(violinwidth = sum_biom*0.0005),
+              position=position_identity(), alpha=0.3)+theme_bw()
+
+ggplot(filter(aus_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = factor(FG), y = Lat, fill=ThermalAffinity2)) + 
+  geom_violin(stat = "identity", aes(violinwidth = sum_biom*0.00002),
+              position=position_identity(), alpha=0.3)+theme_bw() #  looks wierd
+
+ggplot(jpn_pa_biom, aes(x = factor(FG), y = Lat, group=Species)) + 
+  geom_violin(stat = "identity", aes(violinwidth = pa)) # something clever-er overlapping sp per FG and alpha=0.5
+
+# These violin plots are just less accessible versions of scatter plots
+
+# 2 types of plots: 
+# 1) FGs1-4 tropical vs subtropical standardised via scale free
+# 2) FGs1-4 tropical only standardised via proportion (obs/max) of sp/biom per FG
+
+# setup tropical only standardisation
+jpn_trop_prop<-filter(jpn_pa_biom_sum, FG %in% c(1,2,4,6) & ThermalAffinity2=='tropical')%>%
+  group_by(FG)%>%mutate(max_sp=max(sum_pa), max_biom=max(sum_biom))
+
+aus_trop_prop<-filter(aus_pa_biom_sum, FG %in% c(1,2,4,6) & ThermalAffinity2=='tropical')%>%
+  group_by(FG)%>%mutate(max_sp=max(sum_pa), max_biom=max(sum_biom, na.rm=T))
+
+# plot typ1
+# p/a
+ggplot(filter(jpn_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = Lat, y = sum_pa, colour=ThermalAffinity2)) + 
+  geom_point()+geom_smooth(se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=5, linetype='dotted')+
+  geom_vline(xintercept=31, linetype='dotted')+facet_wrap(~FG, scales='free')+theme_bw()
+
+ggplot(filter(aus_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = Lat, y = sum_pa, colour=ThermalAffinity2)) + 
+  geom_point()+geom_smooth(se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=5, linetype='dotted')+
+  geom_vline(xintercept=-25.5, linetype='dotted')+scale_x_reverse()+
+  facet_wrap(~FG, scales='free')+theme_bw()
+
+# plot typ1
+# biomass
+
+ggplot(filter(jpn_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = Lat, y = sum_biom, colour=ThermalAffinity2)) + 
+  geom_point()+geom_smooth(se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=5, linetype='dotted')+
+  geom_vline(xintercept=31, linetype='dotted')+facet_wrap(~FG, scales='free')+theme_bw()
+
+ggplot(filter(aus_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = Lat, y = sum_biom, colour=ThermalAffinity2)) + 
+  geom_point()+geom_smooth(se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=5, linetype='dotted')+
+  geom_vline(xintercept=-25.5, linetype='dotted')+scale_x_reverse()+
+  facet_wrap(~FG, scales='free')+theme_bw()
+
+# plot typ2
+# pa
+
+ggplot(jpn_trop_prop, aes(x = Lat, y = sum_pa/max_sp)) + 
+  geom_point(aes(colour=factor(FG)))+geom_smooth(aes(colour=factor(FG)),se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=0.1, linetype='dotted')+
+  geom_vline(xintercept=31, linetype='dotted')+
+  geom_smooth(data=filter(jpn_pa_biom_sum, ThermalAffinity2=='tropical')%>%group_by(Lat)%>%
+                summarise(sum_pa=sum(sum_pa))%>%mutate(max_sp=max(sum_pa)),
+              se=F, colour='black', linetype='dashed')+scale_x_continuous(breaks=24:35)+theme_bw()
+
+ggplot(aus_trop_prop, aes(x = Lat, y = sum_pa/max_sp)) + 
+  geom_point(aes(colour=factor(FG)))+geom_smooth(aes(colour=factor(FG)),se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=0.1, linetype='dotted')+
+  geom_vline(xintercept=-25.5, linetype='dotted')+
+  geom_smooth(data=filter(aus_pa_biom_sum, ThermalAffinity2=='tropical')%>%group_by(Lat)%>%
+                summarise(sum_pa=sum(sum_pa))%>%mutate(max_sp=max(sum_pa)),
+              se=F, colour='black', linetype='dashed')+scale_x_reverse(breaks=-23:-33)+theme_bw()
+
+# biomass
+ggplot(jpn_trop_prop, aes(x = Lat, y = sum_biom/max_biom)) + 
+  geom_point(aes(colour=factor(FG)))+geom_smooth(aes(colour=factor(FG)),se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=0.1, linetype='dotted')+
+  geom_vline(xintercept=31, linetype='dotted')+
+  geom_smooth(data=filter(jpn_pa_biom_sum, ThermalAffinity2=='tropical')%>%group_by(Lat)%>%
+                summarise(sum_biom=sum(sum_biom))%>%mutate(max_biom=max(sum_biom)),
+              se=F, colour='black', linetype='dashed')+scale_x_continuous(breaks=24:35)+theme_bw()
+
+ggplot(aus_trop_prop, aes(x = Lat, y = sum_biom/max_biom)) + 
+  geom_point(aes(colour=factor(FG)))+geom_smooth(aes(colour=factor(FG)),se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=0.1, linetype='dotted')+
+  geom_vline(xintercept=-25.5, linetype='dotted')+
+  geom_smooth(data=filter(aus_pa_biom_sum, ThermalAffinity2=='tropical')%>%group_by(Lat)%>%
+                summarise(sum_biom=sum(sum_biom))%>%mutate(max_biom=max(sum_biom, na.rm=T)),
+              se=F, colour='black', linetype='dashed')+scale_x_reverse(breaks=-23:-33)+theme_bw()
+
 
 ### Functional Entity creation
 
