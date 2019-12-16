@@ -74,9 +74,9 @@ specs$JPN_maxlat[which(specs$JPN_sp==1)]<-apply(mat_jpn, 2,
 # then take the mean of averaged transects within each site per species
 # might want to take min or max instead of mean?
 
-biom1<-dat%>%group_by(SpeciesFish, Name.x, Transect)%>%summarise(tot_biom=sum(Number*SizeCm))
+biom1<-dat%>%group_by(SpeciesFish, Name.x, Transect)%>%summarise(tot_biom=sum(Number*SizeCm, na.rm=T))
 
-biom3<-biom1%>%group_by(SpeciesFish, Name.x)%>%summarise(mean_trans_biom=mean(tot_biom))
+biom3<-biom1%>%group_by(SpeciesFish, Name.x)%>%summarise(mean_trans_biom=median(tot_biom))
 
 mat_biom_jpn<-matrify(data.frame(biom3$Name.x, biom3$SpeciesFish, biom3$mean_trans_biom))
 
@@ -104,7 +104,7 @@ names(mat_jpn_df)[4]<-'pa'
 mat_jpn_df$biom<-mat_biom_jpn_df$value
 mat_jpn_df$Name.x<-gsub(',', '@', mat_jpn_df$Name.x)
 
-write.csv(mat_jpn_df, 'C:/coral_fish/data/Japan/Jpn_sites_pa_biomass.csv', quote=F, row.names=F) 
+write.csv(mat_jpn_df, 'C:/coral_fish/data/Japan/Jpn_sites_pa_biomass_median.csv', quote=F, row.names=F) 
 
 
 # AUSTRALIA
@@ -199,11 +199,11 @@ write.csv(specs, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master
 # then take the mean of averaged transects within each site per species
 # might want to take min or max instead of mean?
 
-biom1<-dat_aus_sub%>%group_by(Fish, Site, id)%>%summarise(tot_biom=sum(Number*Size))
+biom1<-dat_aus_sub%>%group_by(Fish, Site, id)%>%summarise(tot_biom=sum(Number*Size, na.rm=T))
 biom1$id_nodate<-unlist(lapply(strsplit(as.character(biom1$id), '_'), function(x){paste(x[1], x[2], sep='_')}))
-biom2<-biom1%>%group_by(Fish, Site, id_nodate)%>%summarise(mean_tot_biom=mean(tot_biom),
+biom2<-biom1%>%group_by(Fish, Site, id_nodate)%>%summarise(mean_tot_biom=median(tot_biom),
               min_tot_biom=min(tot_biom),max_tot_biom=max(tot_biom))
-biom3<-biom2%>%group_by(Fish, Site)%>%summarise(mean_trans_biom=mean(mean_tot_biom))
+biom3<-biom2%>%group_by(Fish, Site)%>%summarise(mean_trans_biom=median(mean_tot_biom))
 
 mat_biom_aus<-matrify(data.frame(biom3$Site, biom3$Fish, biom3$mean_trans_biom))
 
@@ -230,7 +230,7 @@ names(mat_aus_df)[3]<-'Species'
 names(mat_aus_df)[4]<-'pa'
 mat_aus_df$biom<-mat_biom_aus_df$value
 
-write.csv(mat_aus_df, 'C:/coral_fish/data/Australia/Aus_sites_pa_biomass.csv', quote=F, row.names=F) 
+write.csv(mat_aus_df, 'C:/coral_fish/data/Australia/Aus_sites_pa_biomass_median.csv', quote=F, row.names=F) 
 
 
 # could sort max lats based on 95th percentile but is more conservative,
