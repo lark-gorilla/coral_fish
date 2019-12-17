@@ -97,8 +97,8 @@ ggplot(data=filter(dat, JPN_sp>0 & ThermalAffinity2=='tropical'),
 
 ### More detailed analyses of latitudinal distribution of FG species and biomass
 
-jpn_pa_biom<-read.csv('C:/coral_fish/data/Japan/Jpn_sites_pa_biomass.csv')
-aus_pa_biom<-read.csv('C:/coral_fish/data/Australia/Aus_sites_pa_biomass.csv')
+jpn_pa_biom<-read.csv('C:/coral_fish/data/Japan/Jpn_sites_pa_biomass_median.csv')
+aus_pa_biom<-read.csv('C:/coral_fish/data/Australia/Aus_sites_pa_biomass_median.csv')
 
 jpn_pa_biom<-left_join(jpn_pa_biom, dat[,c(1,21,22)], by='Species')
 aus_pa_biom<-left_join(aus_pa_biom, dat[,c(1,21,22)], by='Species')
@@ -123,8 +123,8 @@ ggplot(filter(jpn_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = factor(FG), y = Lat,
               position=position_identity(), alpha=0.3)+theme_bw()
 
 ggplot(filter(aus_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = factor(FG), y = Lat, fill=ThermalAffinity2)) + 
-  geom_violin(stat = "identity", aes(violinwidth = sum_biom*0.00002),
-              position=position_identity(), alpha=0.3)+theme_bw() #  looks wierd
+  geom_violin(stat = "identity", aes(violinwidth = sum_biom*0.00003),
+              position=position_identity(), alpha=0.3)+theme_bw() #  looks better with median 
 
 ggplot(jpn_pa_biom, aes(x = factor(FG), y = Lat, group=Species)) + 
   geom_violin(stat = "identity", aes(violinwidth = pa)) # something clever-er overlapping sp per FG and alpha=0.5
