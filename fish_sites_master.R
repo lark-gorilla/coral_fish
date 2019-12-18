@@ -22,7 +22,6 @@ wtlen<-read_xlsx('C:/coral_fish/data/fish/fish_weight_length_calc_a_and_b_edited
 specs[-which(specs$Species %in% wtlen$SpeciesName),] %>% filter(JPN_sp==1 | AUS_sp==1)
 # fixed naming issues
 
-
 # JAPAN
 
 # survey data
@@ -80,12 +79,16 @@ specs$JPN_maxlat[which(specs$JPN_sp==1)]<-apply(mat_jpn, 2,
 
 # biomass weighting
 
+# add mass calc columns to data
+
+dat<-left_join(dat, wtlen[,c(1:3)], by=c('SpeciesFish'='SpeciesName'))
+
 # summarise total biomass (abundance * length) per species per transect
 # NOT needed in Japan: then for transects that are surveyed multiple times take the mean biomass per species 
 # then take the mean of averaged transects within each site per species
 # might want to take min or max instead of mean?
 
-biom1<-dat%>%group_by(SpeciesFish, Name.x, Transect)%>%summarise(tot_biom=sum(Number*SizeCm, na.rm=T))
+biom1<-dat%>%group_by(SpeciesFish, Name.x, Transect)%>%summarise(tot_biom=sum(Number*(a*SizeCm^b), na.rm=T))
 
 biom3<-biom1%>%group_by(SpeciesFish, Name.x)%>%summarise(mean_trans_biom=median(tot_biom))
 
@@ -202,6 +205,9 @@ specs$AUS_maxlat[which(specs$AUS_sp==1)]<-apply(mat_aus, 2,
 # write out
 write.csv(specs, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats.csv', quote=F, row.names=F) 
 
+# add mass calc columns to data
+
+dat_aus_sub<-left_join(dat_aus_sub, wtlen[,c(1:3)], by=c('Fish'='SpeciesName'))
 
 # biomass weighting
 
@@ -210,7 +216,7 @@ write.csv(specs, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master
 # then take the mean of averaged transects within each site per species
 # might want to take min or max instead of mean?
 
-biom1<-dat_aus_sub%>%group_by(Fish, Site, id)%>%summarise(tot_biom=sum(Number*Size, na.rm=T))
+biom1<-dat_aus_sub%>%group_by(Fish, Site, id)%>%summarise(tot_biom=sum(Number*(a*Size^b), na.rm=T))
 biom1$id_nodate<-unlist(lapply(strsplit(as.character(biom1$id), '_'), function(x){paste(x[1], x[2], sep='_')}))
 biom2<-biom1%>%group_by(Fish, Site, id_nodate)%>%summarise(mean_tot_biom=median(tot_biom),
               min_tot_biom=min(tot_biom),max_tot_biom=max(tot_biom))
