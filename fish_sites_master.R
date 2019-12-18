@@ -9,8 +9,19 @@ library(labdsv)
 library(ade4)
 library(vegan)
 library(reshape2)
+library(readxl)
+
+# Species trait data
 
 specs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
+
+# species weight equation data
+wtlen<-read_xlsx('C:/coral_fish/data/fish/fish_weight_length_calc_a_and_b_edited.xlsx', sheet=1)
+#warning fine
+
+specs[-which(specs$Species %in% wtlen$SpeciesName),] %>% filter(JPN_sp==1 | AUS_sp==1)
+# fixed naming issues
+
 
 # JAPAN
 
