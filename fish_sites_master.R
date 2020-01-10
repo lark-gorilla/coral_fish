@@ -18,6 +18,11 @@ specs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_
 # species weight equation data
 wtlen<-read_xlsx('C:/coral_fish/data/fish/fish_weight_length_calc_a_and_b_edited.xlsx', sheet=1)
 #warning fine
+# for some reason there are multiple/duplicate entries for some species
+#wtlen[wtlen$SpeciesName%in%wtlen[which(duplicated(wtlen$SpeciesName)==TRUE),]$SpeciesName,]%>%View()
+# remove
+wtlen<-wtlen[-which(duplicated(wtlen$SpeciesName)),]
+
 
 specs[-which(specs$Species %in% wtlen$SpeciesName),] %>% filter(JPN_sp==1 | AUS_sp==1)
 # fixed naming issues
@@ -161,6 +166,11 @@ locs[locs$Site.name=='Lady Musgrave',]$Site.name<-"Lady Musgrave Island"
 locs[locs$Site.name=='Heron - Tenemants',]$Site.name<-"Tenemants Buoy"
 locs[locs$Site.name=='Heron - Turbistari',]$Site.name<-"Turbistari"
 locs[locs$Site.name=="Heron - Libby's Lair",]$Site.name<-"Libbys Lair"
+
+# Need to remove duplicate location names otherwise left_join inflates
+# survey data with duplicate sites!
+
+locs<-locs[-which(duplicated(locs$Site.name)),]
 
 dat_aus<-left_join(dat_aus, locs[,c(1, 6,7)], by=c('Site'= 'Site.name'))
 
