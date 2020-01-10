@@ -57,7 +57,7 @@ crl_out<-clVal(data=dat[,c('Coloniality', 'Corallite.width.maximum',
                            'Depth.lower','Growth.form.typical',
                             'larval_development',
                            'Sexual_system','Wave.exposure.preference',
-                           'Water.clarity.preference')], runs=100,
+                           'Water.clarity.preference')], runs=1000,
                min_cl=2, max_cl=20, subs_perc=0.95,
                fast.k.h = 0.1, calc_wigl = F)
 
@@ -93,16 +93,17 @@ grid.arrange(alg_pca[[4]], alg_pca[[5]], alg_pca[[6]])
 
 # write clusters out
 
-plot(hclust(daisy(dat[,2:10],
-                  metric='gower', stand = FALSE), method='average'))
+hc<-hclust(daisy(dat[,c('Coloniality', 'Corallite.width.maximum',
+                         'Depth.lower','Growth.form.typical',
+                         'growth_rate', 'larval_development',
+                         'Sexual_system','Wave.exposure.preference',
+                         'Water.clarity.preference')],
+                  metric='gower', stand = FALSE), method='average')
+
+plot(hc); rect.hclust(hc, k=9)
 
 
-full_crl_clust<-cutree(hclust(daisy(dat[,c('Coloniality', 'Corallite.width.maximum',
-                                           'Depth.lower','Growth.form.typical',
-                                           'growth_rate', 'larval_development',
-                                           'Sexual_system','Wave.exposure.preference',
-                                           'Water.clarity.preference')],
-                      metric='gower', stand = FALSE), method='average'), k=3)
+full_crl_clust<-cutree(hc, k=9)
 
 dat$group<-full_crl_clust
 
