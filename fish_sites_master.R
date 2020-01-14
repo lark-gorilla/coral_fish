@@ -197,6 +197,7 @@ table(dat_aus$Year)
 
 dat_aus_sub<-dat_aus[-which(dat_aus$Site %in% "Mudjimba Island Shallow"),]
 dat_aus_sub$Site<-factor(dat_aus_sub$Site)
+dat_aus_sub[which(is.na(dat_aus_sub$Number)),]$Number<-1 #fix for sp with na number
 
 mat_aus<-matrify(data.frame(dat_aus_sub$Site, dat_aus_sub$Fish, dat_aus_sub$PA))
 
@@ -260,26 +261,46 @@ mat_aus_df$biom<-mat_biom_aus_df$value
 write.csv(mat_aus_df, 'C:/coral_fish/data/Australia/Aus_sites_pa_biomass_median.csv', quote=F, row.names=F) 
 
 
+### Correcting for uneven sampling
+
+dat_aus_sub_tlen<-left_join(dat_aus_sub, locs[,c(1, 15)], by=c('Site'='Site.name'))
+dat_aus_sub_tlen[which(is.na(dat_aus_sub_tlen$Fish.length)),]$Fish.length<-50 # set unknowns to 50
+
+to_mat<-dat_aus_sub %>% group_by(id, Fish) %>% summarise(sum_abun=sum(Number))
+
+mat_aus<-matrify(data.frame(to_mat$id, to_mat$Fish, to_mat$sum_abun))
+
+tr25<-mat_aus[which(row.names(mat_aus) %in% unique(dat_aus_sub_tlen[dat_aus_sub_tlen$
+           Fish.length==25,]$id)),]
+
+tr50<-mat_aus[which(row.names(mat_aus) %in% unique(dat_aus_sub_tlen[dat_aus_sub_tlen$
+          Fish.length>25,]$id)),]
+
+spac25<-specaccum(comm =tr25, method = "rarefaction", permutations = 100,
+                 conditioned =TRUE, gamma = "jack1",  w = NULL)
+
+spac50<-specaccum(comm =tr50, method = "rarefaction", permutations = 100,
+                  conditioned =TRUE, gamma = "jack1",  w = NULL)
+
+plot(spac50, xvar='individuals')
+plot(spac25, xvar='individuals', add=T, col=2)
+
+library(ggplot2)
+p<-ggplot(all_spac, aes(x=sites, y=richness, group=key))
+#to identify different sites as different colours:
+pALT<-p+geom_ribbon(aes(ymin=(richness+sd), ymax=(richness+sd)), alpha=0.5)+
+  geom_line(aes (colour=key))+geom_smooth(stat="identity", aes(colour=key))+
+  geom_point(data=dat2, aes(x=all_spac$sites, y=all_spac$richness, group=key, colour=key))+
+  theme_classic()+theme(axis.line.x = element_line(colour = 'black', size=0.5, linetype='solid'),axis.line.y = element_line(colour = 'black', size=0.5, linetype='solid'))+
+  scale_y_continuous(limits = c(0, 10), breaks=c(0, 2, 4, 6, 8, 10))+
+  scale_x_continuous(limits = c(0, 30), breaks=c(0, 10, 20, 30))+
+  ylab("Species richness")+xlab("Samples")
+pALT
+
+
 # could sort max lats based on 95th percentile but is more conservative,
 # with only few sites just take max
 #sort(v1, decreasing=T)[0.95*length(v1)]
 
 
-# alternate approach n tropical and n temperate sp per site
-
-dat<-left_join(dat, specs[,1:2], by=c('SpeciesFish'= 'Species'))
-dat[dat$ThermalAffinity!='tropical',]$ThermalAffinity<-'subtropical'
-
-d2<-dat%>%group_by(lat)%>%distinct(SpeciesFish, .keep_all=T)%>%
-  summarize(n_trop=length(which(ThermalAffinity=='tropical')),
-            n_subt=length(which(ThermalAffinity=='subtropical')))%>%
-  as.data.frame()
-
-row.names(d2)<-round(d2$lat, 4)
-d3<-dist(d2[,2:3])
-plot(hclust(d3, 'average'))
-
-cor(cophenetic(hclust(d3, 'average')), d3) # best
-cor(cophenetic(hclust(d3, 'single')), d3)
-cor(cophenetic(hclust(d3, 'complete')), d3)
 
