@@ -22,10 +22,10 @@ wtlen<-read_xlsx('C:/coral_fish/data/fish/fish_weight_length_calc_a_and_b_edited
 #wtlen[wtlen$SpeciesName%in%wtlen[which(duplicated(wtlen$SpeciesName)==TRUE),]$SpeciesName,]%>%View()
 # remove
 wtlen<-wtlen[-which(duplicated(wtlen$SpeciesName)),]
-
-
 specs[-which(specs$Species %in% wtlen$SpeciesName),] %>% filter(JPN_sp==1 | AUS_sp==1)
 # fixed naming issues
+# read in FGs
+fgs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats_FG.csv')
 
 # JAPAN
 
@@ -195,11 +195,18 @@ table(dat_aus$Year)
 
 #Remove dodgy sites from upon Maria's advice 02/12/19
 
-dat_aus_sub<-dat_aus[-which(dat_aus$Site %in% "Mudjimba Island Shallow"),]
-dat_aus_sub$Site<-factor(dat_aus_sub$Site)
+dat_aus_sub<-filter(dat_aus, !Site %in% "Mudjimba Island Shallow")
+
 dat_aus_sub[which(is.na(dat_aus_sub$Number)),]$Number<-1 #fix for sp with na number
 
-mat_aus<-matrify(data.frame(dat_aus_sub$Site, dat_aus_sub$Fish, dat_aus_sub$PA))
+### Remove Summer sampling records, so all Aussie sites represent winter
+dat_aus_sub<-filter(dat_aus_sub, grepl('Win', dat_aus_sub$Trip))
+
+# Fix to fill 3 NA fish size measures 
+dat_aus_sub[which(is.na(dat_aus_sub$Size)),]$Size<-c(7, 16, 7)
+
+# make hclust visualisation
+mat_aus<-matrify(data.frame(paste(dat_aus_sub$Site,dat_aus_sub$Trip), dat_aus_sub$Fish, dat_aus_sub$PA))
 
 bdist<-dist.binary(mat_aus, method=1) # jaccard dist
 
