@@ -74,6 +74,10 @@ dat$FG<-both_FG
 dat$FG_22<-cutree(hclust(eff_both, method='average'), k=22)
 dat$FG_36<-cutree(hclust(eff_both, method='average'), k=36)
 
+# Write out FGs
+#write.csv(dat, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats_FG.csv',
+#          quote=F, row.names=F)
+
 # Split to regions
 
 dat_aus<-dat[which(dat$AUS_sp>0),]
