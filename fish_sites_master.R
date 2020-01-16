@@ -10,9 +10,58 @@ library(ade4)
 library(vegan)
 library(reshape2)
 library(readxl)
+library(iNEXT) # installed from tar.gz from CRAN archive
+#http://johnsonhsieh.github.io/iNEXT/
+
+# function to calc species acc curves for set threshold broken down by FG or thermalaffinity2
+spacBreakdown<-function(data=dat, FGZ=c(1,2), TM2=c('tropical', 'subtropical'), thresh=200)
+{
+  # FG or Tm2 can be 'all'
+  runs=expand.grid(FGZ, TM2)  
+  runs$Var2<-as.character(runs$Var2)
+  return_df<-NULL
+  
+  for(i in 1:nrow(runs))
+  {
+    FGi=runs[i,]$Var1
+    TMi=runs[i,]$Var2
+    temp<-NULL 
+    
+    if(FGi=='all' & TMi!='all'){   
+      temp<-t(data[,which(names(data) %in% 
+      fgs[fgs$ThermalAffinity2==TMi,]$Species)])}
+    if(TMi=='all'& FGi!='all'){   
+      temp<-t(data[,which(names(data) %in% 
+      fgs[fgs$FG==FGi,]$Species)])}
+    if(TMi=='all'& FGi=='all'){   
+      temp<-t(data)}
+    if(TMi!='all'& FGi!='all'){
+      temp<-t(data[,which(names(data) %in% 
+      fgs[fgs$FG==FGi & fgs$ThermalAffinity2==TMi,]$Species)])}
+    #remove sites with 0 individuals from rarefaction
+    if(length(which(colSums(temp)==0))==0){
+      temp2<-temp}else{
+        temp2<-temp[,-which(colSums(temp)==0)]}
+    
+    out<-iNEXT(temp2, q=0, size=seq(10, 500, 10), datatype="abundance")
+    plot(out, se=F)
+    
+    out<-do.call(rbind, lapply(out$iNextEst, function(x){data.frame(x[which(x$m==thresh), c(1,2,4:6)])}))
+    out$Site=row.names(out)
+    if(length(which(colSums(temp)==0))>0){
+      out<-rbind(out, data.frame(m=thresh, method='zero.abun',
+                                 qD=0, qD.LCL=0, qD.UCL=0, Site=names(which(colSums(temp)==0))))}
+    out$FG=FGi
+    out$ThermalAffinity2=TMi
+    return_df<-rbind(return_df, out)
+    print(runs[i,])
+  }
+  return(return_df)
+}
+
+## Read in data
 
 # Species trait data
-
 specs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
 
 # species weight equation data
@@ -57,6 +106,15 @@ dat<-left_join(dat, locs, by=c('SiteID'= 'Site'))
 
 # rm blanks
 dat<-dat[-which(dat$SiteID==''),]
+
+# Species accumulation curve
+#sumarise abundance per species per site, doing bvy transect sets the min abundance too low (6)
+jpn_abun_mat<-dat %>% group_by(SiteID, SpeciesFish) %>% summarise(sum_abun=sum(Number))
+
+jpn_abun_mat<-matrify(data.frame(jpn_abun_mat$SiteID, jpn_abun_mat$SpeciesFish, jpn_abun_mat$sum_abun))
+
+
+
 # abun to PA
 dat$PA<-1
 
@@ -270,39 +328,13 @@ write.csv(mat_aus_df, 'C:/coral_fish/data/Australia/Aus_sites_pa_biomass_median.
 
 ### Correcting for uneven sampling
 
-dat_aus_sub_tlen<-left_join(dat_aus_sub, locs[,c(1, 15)], by=c('Site'='Site.name'))
-dat_aus_sub_tlen[which(is.na(dat_aus_sub_tlen$Fish.length)),]$Fish.length<-50 # set unknowns to 50
-
-to_mat<-dat_aus_sub %>% group_by(id, Fish) %>% summarise(sum_abun=sum(Number))
-
-mat_aus<-matrify(data.frame(to_mat$id, to_mat$Fish, to_mat$sum_abun))
-
-tr25<-mat_aus[which(row.names(mat_aus) %in% unique(dat_aus_sub_tlen[dat_aus_sub_tlen$
-           Fish.length==25,]$id)),]
-
-tr50<-mat_aus[which(row.names(mat_aus) %in% unique(dat_aus_sub_tlen[dat_aus_sub_tlen$
-          Fish.length>25,]$id)),]
-
-spac25<-specaccum(comm =tr25, method = "rarefaction", permutations = 100,
-                 conditioned =TRUE, gamma = "jack1",  w = NULL)
-
-spac50<-specaccum(comm =tr50, method = "rarefaction", permutations = 100,
-                  conditioned =TRUE, gamma = "jack1",  w = NULL)
-
-plot(spac50, xvar='individuals')
-plot(spac25, xvar='individuals', add=T, col=2)
-
-library(ggplot2)
-p<-ggplot(all_spac, aes(x=sites, y=richness, group=key))
-#to identify different sites as different colours:
-pALT<-p+geom_ribbon(aes(ymin=(richness+sd), ymax=(richness+sd)), alpha=0.5)+
-  geom_line(aes (colour=key))+geom_smooth(stat="identity", aes(colour=key))+
-  geom_point(data=dat2, aes(x=all_spac$sites, y=all_spac$richness, group=key, colour=key))+
-  theme_classic()+theme(axis.line.x = element_line(colour = 'black', size=0.5, linetype='solid'),axis.line.y = element_line(colour = 'black', size=0.5, linetype='solid'))+
-  scale_y_continuous(limits = c(0, 10), breaks=c(0, 2, 4, 6, 8, 10))+
-  scale_x_continuous(limits = c(0, 30), breaks=c(0, 10, 20, 30))+
-  ylab("Species richness")+xlab("Samples")
-pALT
+# have a look at each transects min abun 
+S <- specnumber(jpn_abun_mat) # observed number of species
+(raremax <- min(rowSums(jpn_abun_mat)))
+Srare <- rarefy(jpn_abun_mat, raremax)
+plot(S, Srare, xlab = "Observed No. of Species", ylab = "Rarefied No. of Species")
+abline(0, 1)
+rarecurve(jpn_abun_mat, step = 20, sample = raremax, col = "blue", cex = 0.6)
 
 
 # could sort max lats based on 95th percentile but is more conservative,
