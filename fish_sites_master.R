@@ -108,11 +108,18 @@ dat<-left_join(dat, locs, by=c('SiteID'= 'Site'))
 dat<-dat[-which(dat$SiteID==''),]
 
 # Species accumulation curve
-#sumarise abundance per species per site, doing bvy transect sets the min abundance too low (6)
+#sumarise abundance per species per site, doing by transect sets the min abundance too low (6)
 jpn_abun_mat<-dat %>% group_by(SiteID, SpeciesFish) %>% summarise(sum_abun=sum(Number))
 
 jpn_abun_mat<-matrify(data.frame(jpn_abun_mat$SiteID, jpn_abun_mat$SpeciesFish, jpn_abun_mat$sum_abun))
 
+jpn_spac<-spacBreakdown(data=jpn_abun_mat, FGZ=c(1,2,4,6), TM2=c('tropical', 'subtropical'), thresh=100)
+
+jpn_spac2<-left_join(jpn_spac, locs[,2:4], by='Site')
+
+ggplot(jpn_spac2, aes(x = lat, y = qD, colour=ThermalAffinity2)) + 
+  geom_point()+geom_smooth(se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=5, linetype='dotted')+
+  geom_vline(xintercept=31, linetype='dotted')+facet_wrap(~FG, scales='free')+theme_bw()
 
 
 # abun to PA
@@ -130,15 +137,6 @@ bdist<-dist.binary(mat_jpn, method=1) # jaccard dist
 #shouldn't use ward centroid or median methods for jaccard dist
 plot(hclust(bdist, 'single'))  #splits sites into 2 clusts from lat <31deg N
 
-#make split and fill in specs master dataframe
-
-specs$JPN_trop<-ifelse(specs$JPN_sp==0, NA, ifelse(specs$Species%in% dat[dat$lat<31,]$SpeciesFish, 1, 0))
-specs$JPN_tran<-ifelse(specs$JPN_sp==0, NA, ifelse(specs$Species%in% dat[dat$lat>31,]$SpeciesFish, 1, 0))
-
-specs$JPN_maxlat<-NA
-ordlats_jpn<-dat%>%group_by(Name.x)%>% summarize_all(first)
-specs$JPN_maxlat[which(specs$JPN_sp==1)]<-apply(mat_jpn, 2, 
-                  function(x){max(ordlats_jpn[which(x==1),]$lat)})# max for Jpn
 
 # biomass weighting
 
@@ -262,6 +260,23 @@ dat_aus_sub<-filter(dat_aus_sub, grepl('Win', dat_aus_sub$Trip))
 
 # Fix to fill 3 NA fish size measures 
 dat_aus_sub[which(is.na(dat_aus_sub$Size)),]$Size<-c(7, 16, 7)
+
+
+
+# Species accumulation curve
+#sumarise abundance per species per site, doing by transect sets the min abundance too low (6)
+aus_abun_mat<-dat_aus_sub %>% group_by(Site, Fish) %>% summarise(sum_abun=sum(Number))
+
+aus_abun_mat<-matrify(data.frame(aus_abun_mat$Site, aus_abun_mat$Fish, aus_abun_mat$sum_abun))
+
+aus_spac<-spacBreakdown(data=aus_abun_mat, FGZ=c(1,2,4,6), TM2=c('tropical', 'subtropical'), thresh=100)
+
+aus_spac2<-left_join(aus_spac, locs[,1:6], by=c('Site'='Site.name'))
+
+ggplot(aus_spac2, aes(x = Lat, y = qD, colour=ThermalAffinity2)) + 
+  geom_point()+geom_smooth(se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=5, linetype='dotted')+
+  geom_vline(xintercept=-25.5, linetype='dotted')+scale_x_reverse()+
+  facet_wrap(~FG, scales='free')+theme_bw()
 
 # make hclust visualisation
 mat_aus<-matrify(data.frame(paste(dat_aus_sub$Site,dat_aus_sub$Trip), dat_aus_sub$Fish, dat_aus_sub$PA))
