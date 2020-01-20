@@ -120,6 +120,15 @@ jpn_spac<-spacBreakdown(data=jpn_abun_mat, fgs=fgs, FGZ=c(1,2,4,6), TM2=c('tropi
 
 jpn_spac2<-left_join(jpn_spac, locs[,2:4], by='Site')
 
+write.csv(jpn_spac2, 'C:/coral_fish/data/Japan/Jpn_sites_sprich_combos.csv', quote=F, row.names=F) 
+
+jpn_spac<-spacBreakdown(data=jpn_abun_mat, fgs=fgs, FGZ='all', TM2='tropical', thresh=100)
+
+jpn_spac2<-left_join(jpn_spac, locs[,2:4], by='Site')
+
+write.csv(jpn_spac2, 'C:/coral_fish/data/Japan/Jpn_sites_sprich_all_trop.csv', quote=F, row.names=F) 
+
+
 ggplot(jpn_spac2, aes(x = lat, y = qD, colour=ThermalAffinity2)) + 
   geom_point()+geom_smooth(se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=5, linetype='dotted')+
   geom_vline(xintercept=31, linetype='dotted')+facet_wrap(~FG, scales='free')+theme_bw()
@@ -128,22 +137,6 @@ ggplot(jpn_spac2, aes(x = lat, y = qD, colour=ThermalAffinity2)) +
 
 ggplot(jpn_spac2, aes(x = SPRICraw, y = qD)) + 
   geom_point()+geom_smooth(se=F)+facet_wrap(~FG+ThermalAffinity2, scales='free')+theme_bw()
-
-
-# abun to PA
-dat$PA<-1
-
-# create p/a matrix
-
-mat_jpn<-matrify(data.frame(dat$Name.x, dat$SpeciesFish, dat$PA))
-
-table(dat[dat$Year==2015,]$SiteID)
-table(dat[dat$Year==2016,]$SiteID)
-
-bdist<-dist.binary(mat_jpn, method=1) # jaccard dist
-
-#shouldn't use ward centroid or median methods for jaccard dist
-plot(hclust(bdist, 'single'))  #splits sites into 2 clusts from lat <31deg N
 
 
 # biomass calculations and conversion to biomass per transect effort
@@ -160,42 +153,34 @@ biom1<-left_join(biom1, dat%>%group_by(SiteID)%>%
                    summarise(totMsurv=length(unique(Transect))*25), 
                  by='SiteID')
 
-# summarise total biomass (abundance * length) per species per transect
-# NOT needed in Japan: then for transects that are surveyed multiple times take the mean biomass per species 
-# then take the mean of averaged transects within each site per species
-# might want to take min or max instead of mean?
+biom1<-left_join(biom1, locs[,2:4], by=c('SiteID'='Site'))
 
-biom1<-dat%>%group_by(SpeciesFish, Name.x, Transect)%>%summarise(tot_biom=sum(Number*(a*SizeCm^b), na.rm=T))
+write.csv(biom1, 'C:/coral_fish/data/Japan/Jpn_sites_biomass.csv', quote=F, row.names=F) 
 
-biom3<-biom1%>%group_by(SpeciesFish, Name.x)%>%summarise(mean_trans_biom=median(tot_biom))
 
-mat_biom_jpn<-matrify(data.frame(biom3$Name.x, biom3$SpeciesFish, biom3$mean_trans_biom))
+# PLOTTING clusters
+
+# abun to PA
+dat$PA<-1
+# create p/a matrix
+mat_jpn<-matrify(data.frame(dat$Name.x, dat$SpeciesFish, dat$PA))
+
+table(dat[dat$Year==2015,]$SiteID)
+table(dat[dat$Year==2016,]$SiteID)
+
+bdist<-dist.binary(mat_jpn, method=1) # jaccard dist
+
+#shouldn't use ward centroid or median methods for jaccard dist
+plot(hclust(bdist, 'single'))  #splits sites into 2 clusts from lat <31deg N
+
+# biomass plot
+
+biom3<-dat%>%group_by(SpeciesFish, Name.x)%>%summarise(tot_biom=sum(Number*(a*SizeCm^b), na.rm=T))
+
+mat_biom_jpn<-matrify(data.frame(biom3$Name.x, biom3$SpeciesFish, biom3$tot_biom))
 
 # curiosity site cluster plot based on biomass
 plot(hclust(vegdist(mat_biom_jpn, 'bray', na.rm=T), 'average')) 
-
-
-# setup data.frame to make geom_violin of p/a and biomass of each FG at each site
-#pa data
-mat_jpn_df<-as.data.frame(mat_jpn)
-mat_jpn_df$Name.x<-row.names(mat_jpn_df)
-mat_jpn_df<-left_join(mat_jpn_df, dat%>%group_by(Name.x)%>%summarise(Lat=first(lat)),
-                      by='Name.x')
-mat_jpn_df<-melt(mat_jpn_df, id.vars = c('Name.x', 'Lat'))
-
-#biomass data
-mat_biom_jpn_df<-as.data.frame(mat_biom_jpn)
-mat_biom_jpn_df$Name.x<-row.names(mat_biom_jpn_df)
-mat_biom_jpn_df<-melt(mat_biom_jpn_df, id.vars = c('Name.x'))
-
-#combine
-
-names(mat_jpn_df)[3]<-'Species'
-names(mat_jpn_df)[4]<-'pa'
-mat_jpn_df$biom<-mat_biom_jpn_df$value
-mat_jpn_df$Name.x<-gsub(',', '@', mat_jpn_df$Name.x)
-
-write.csv(mat_jpn_df, 'C:/coral_fish/data/Japan/Jpn_sites_pa_biomass_median.csv', quote=F, row.names=F) 
 
 
 # AUSTRALIA
