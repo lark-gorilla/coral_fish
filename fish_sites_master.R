@@ -224,6 +224,10 @@ locs[locs$Site.name=='Heron - Tenemants',]$Site.name<-"Tenemants Buoy"
 locs[locs$Site.name=='Heron - Turbistari',]$Site.name<-"Turbistari"
 locs[locs$Site.name=="Heron - Libby's Lair",]$Site.name<-"Libbys Lair"
 
+# Fill NA transect lengths
+
+locs[which(is.na(locs$Fish.length)),]$Fish.length<-c(25, rep(50, 7))
+
 # Need to remove duplicate location names otherwise left_join inflates
 # survey data with duplicate sites!
 
@@ -251,18 +255,13 @@ table(dat_aus$Year)
 #dat_aus_yr<-dat_aus[dat_aus$Year>2015,]
 
 #Remove dodgy sites from upon Maria's advice 02/12/19
-
 dat_aus_sub<-filter(dat_aus, !Site %in% "Mudjimba Island Shallow")
-
-dat_aus_sub[which(is.na(dat_aus_sub$Number)),]$Number<-1 #fix for sp with na number
 
 ### Remove Summer sampling records, so all Aussie sites represent winter
 dat_aus_sub<-filter(dat_aus_sub, grepl('Win', dat_aus_sub$Trip))
 
-# Fix to fill 3 NA fish size measures 
-dat_aus_sub[which(is.na(dat_aus_sub$Size)),]$Size<-c(7, 16, 7)
-
-
+dat_aus_sub[which(is.na(dat_aus_sub$Size)),]$Size<-c(7, 16, 7) #Fix to fill 3 NA fish size measures 
+dat_aus_sub[which(is.na(dat_aus_sub$Number)),]$Number<-c(7, 16, 7) #Fix to fill 3 NA fish size measures 
 
 # Species accumulation curve
 #sumarise abundance per species per site, doing by transect sets the min abundance too low (6)
@@ -270,76 +269,58 @@ aus_abun_mat<-dat_aus_sub %>% group_by(Site, Fish) %>% summarise(sum_abun=sum(Nu
 
 aus_abun_mat<-matrify(data.frame(aus_abun_mat$Site, aus_abun_mat$Fish, aus_abun_mat$sum_abun))
 
-aus_spac<-spacBreakdown(data=aus_abun_mat, FGZ=c(1,2,4,6), TM2=c('tropical', 'subtropical'), thresh=100)
+aus_spac<-spacBreakdown(data=aus_abun_mat, fgs=fgs, FGZ=c(1,2,4,6), TM2=c('tropical', 'subtropical'), thresh=100)
 
-aus_spac2<-left_join(aus_spac, locs[,1:6], by=c('Site'='Site.name'))
+aus_spac2<-left_join(aus_spac, locs[,c(1, 6,7)], by=c('Site'= 'Site.name'))
+
+write.csv(aus_spac2, 'C:/coral_fish/data/Australia/aus_sites_sprich_combos.csv', quote=F, row.names=F) 
+
+aus_spac<-spacBreakdown(data=aus_abun_mat, fgs=fgs, FGZ='all', TM2='tropical', thresh=100)
+
+aus_spac2<-left_join(aus_spac, locs[,c(1, 6,7)], by=c('Site'= 'Site.name'))
+
+write.csv(aus_spac2, 'C:/coral_fish/data/Australia/aus_sites_sprich_all_trop.csv', quote=F, row.names=F) 
 
 ggplot(aus_spac2, aes(x = Lat, y = qD, colour=ThermalAffinity2)) + 
   geom_point()+geom_smooth(se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=5, linetype='dotted')+
   geom_vline(xintercept=-25.5, linetype='dotted')+scale_x_reverse()+
   facet_wrap(~FG, scales='free')+theme_bw()
+# check correlation between spacc output and sprich from data in Japan
+
+ggplot(aus_spac2, aes(x = SPRICraw, y = qD)) + 
+  geom_point()+geom_smooth(se=F)+facet_wrap(~FG+ThermalAffinity2, scales='free')+theme_bw()
+
+# biomass calculations and conversion to biomass per transect effort
+# add FG to data
+dat_aus_sub<-left_join(dat_aus_sub, fgs[,c(1,21,22)], by=c('Fish'='Species'))
+# add mass calc columns to data
+dat_aus_sub<-left_join(dat_aus_sub, wtlen[,c(1:3)], by=c('Fish'='SpeciesName'))
+
+biom1<-dat_aus_sub%>%group_by(Site, FG, ThermalAffinity2)%>%
+  summarise(tot_biom=sum(Number*(a*Size^b), na.rm=T))%>%ungroup()%>%
+  complete(Site, FG, ThermalAffinity2, fill=list(tot_biom=0))
+
+biom1<-left_join(biom1, dat_aus_sub%>%group_by(Site)%>%
+                   summarise(totMsurv=length(unique(id))), 
+                 by='Site')
+
+biom1<-left_join(biom1, locs[,c(1,6,7,15)], by=c('Site'='Site.name'))
+
+write.csv(biom1, 'C:/coral_fish/data/Australia/aus_sites_biomass.csv', quote=F, row.names=F) 
+
 
 # make hclust visualisation
-mat_aus<-matrify(data.frame(paste(dat_aus_sub$Site,dat_aus_sub$Trip), dat_aus_sub$Fish, dat_aus_sub$PA))
+mat_aus<-matrify(dat_aus_sub$Site, dat_aus_sub$Fish, dat_aus_sub$PA)
 
 bdist<-dist.binary(mat_aus, method=1) # jaccard dist
 
 #shouldn't use ward centroid or median methods for jaccard dist
 plot(hclust(bdist, 'single'))  #splits sites into 3 clusts, make cut at Flat Rock 28 deg S
 
-specs$AUS_trop<-ifelse(specs$AUS_sp==0, NA, ifelse(specs$Species%in% dat_aus[dat_aus$Lat<'-25.5',]$Fish, 1, 0))
-specs$AUS_tran<-ifelse(specs$AUS_sp==0, NA, ifelse(specs$Species%in% dat_aus[dat_aus$Lat>'-25.5',]$Fish, 1, 0))
-
-specs$AUS_maxlat<-NA
-ordlats_aus<-dat_aus_sub%>%group_by(Site)%>% summarize_all(first)
-specs$AUS_maxlat[which(specs$AUS_sp==1)]<-apply(mat_aus, 2, 
-                        function(x){min(ordlats_aus[which(x==1),]$Lat)})# # min for Aus
-# write out
-write.csv(specs, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats.csv', quote=F, row.names=F) 
-
-# add mass calc columns to data
-
-dat_aus_sub<-left_join(dat_aus_sub, wtlen[,c(1:3)], by=c('Fish'='SpeciesName'))
-
-# biomass weighting
-
-# summarise total biomass (abundance * length) per species per transect
-# then for transects that are surveyed multiple times take the mean biomass per species
-# then take the mean of averaged transects within each site per species
-# might want to take min or max instead of mean?
-
-biom1<-dat_aus_sub%>%group_by(Fish, Site, id)%>%summarise(tot_biom=sum(Number*(a*Size^b), na.rm=T))
-biom1$id_nodate<-unlist(lapply(strsplit(as.character(biom1$id), '_'), function(x){paste(x[1], x[2], sep='_')}))
-biom2<-biom1%>%group_by(Fish, Site, id_nodate)%>%summarise(mean_tot_biom=median(tot_biom),
-              min_tot_biom=min(tot_biom),max_tot_biom=max(tot_biom))
-biom3<-biom2%>%group_by(Fish, Site)%>%summarise(mean_trans_biom=median(mean_tot_biom))
-
-mat_biom_aus<-matrify(data.frame(biom3$Site, biom3$Fish, biom3$mean_trans_biom))
+mat_biom_aus<-matrify(data.frame(biom1$Site, biom1$Fish, biom3$mean_trans_biom))
 
 # curiosity site cluster plot based on biomass
 plot(hclust(vegdist(mat_biom_aus, 'bray', na.rm=T), 'average')) 
-
-
-# setup data.frame to make geom_violin of p/a and biomass of each FG at each site
-#pa data
-mat_aus_df<-as.data.frame(mat_aus)
-mat_aus_df$Site<-row.names(mat_aus_df)
-mat_aus_df<-left_join(mat_aus_df, dat_aus_sub%>%group_by(Site)%>%summarise(Lat=first(Lat)),
-                      by='Site')
-mat_aus_df<-melt(mat_aus_df, id.vars = c('Site', 'Lat'))
-
-#biomass data
-mat_biom_aus_df<-as.data.frame(mat_biom_aus)
-mat_biom_aus_df$Site<-row.names(mat_biom_aus_df)
-mat_biom_aus_df<-melt(mat_biom_aus_df, id.vars = c('Site'))
-
-#combine
-
-names(mat_aus_df)[3]<-'Species'
-names(mat_aus_df)[4]<-'pa'
-mat_aus_df$biom<-mat_biom_aus_df$value
-
-write.csv(mat_aus_df, 'C:/coral_fish/data/Australia/Aus_sites_pa_biomass_median.csv', quote=F, row.names=F) 
 
 
 ### Correcting for uneven sampling
