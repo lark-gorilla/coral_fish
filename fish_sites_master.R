@@ -12,9 +12,11 @@ library(reshape2)
 library(readxl)
 library(iNEXT) # installed from tar.gz from CRAN archive
 #http://johnsonhsieh.github.io/iNEXT/
+library(tidyverse)
 
 # function to calc species acc curves for set threshold broken down by FG or thermalaffinity2
-spacBreakdown<-function(data=dat, FGZ=c(1,2), TM2=c('tropical', 'subtropical'), thresh=200)
+# requires site, species, abun matrix (dat), trait database with FGs assigned (fgs), species in dat and fg must match
+spacBreakdown<-function(data=dat, fgs=fgs, FGZ=c(1,2), TM2=c('tropical', 'subtropical'), thresh=200)
 {
   # FG or Tm2 can be 'all'
   runs=expand.grid(FGZ, TM2)  
@@ -53,6 +55,7 @@ spacBreakdown<-function(data=dat, FGZ=c(1,2), TM2=c('tropical', 'subtropical'), 
                                  qD=0, qD.LCL=0, qD.UCL=0, Site=names(which(colSums(temp)==0))))}
     out$FG=FGi
     out$ThermalAffinity2=TMi
+    out$SPRICraw<-apply(t(temp), 1, function(x){length(x[which(x>0)])})[out$Site]
     return_df<-rbind(return_df, out)
     print(runs[i,])
   }
@@ -113,13 +116,18 @@ jpn_abun_mat<-dat %>% group_by(SiteID, SpeciesFish) %>% summarise(sum_abun=sum(N
 
 jpn_abun_mat<-matrify(data.frame(jpn_abun_mat$SiteID, jpn_abun_mat$SpeciesFish, jpn_abun_mat$sum_abun))
 
-jpn_spac<-spacBreakdown(data=jpn_abun_mat, FGZ=c(1,2,4,6), TM2=c('tropical', 'subtropical'), thresh=100)
+jpn_spac<-spacBreakdown(data=jpn_abun_mat, fgs=fgs, FGZ=c(1,2,4,6), TM2=c('tropical', 'subtropical'), thresh=100)
 
 jpn_spac2<-left_join(jpn_spac, locs[,2:4], by='Site')
 
 ggplot(jpn_spac2, aes(x = lat, y = qD, colour=ThermalAffinity2)) + 
   geom_point()+geom_smooth(se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=5, linetype='dotted')+
   geom_vline(xintercept=31, linetype='dotted')+facet_wrap(~FG, scales='free')+theme_bw()
+
+# check correlation between spacc output and sprich from data in Japan
+
+ggplot(jpn_spac2, aes(x = SPRICraw, y = qD)) + 
+  geom_point()+geom_smooth(se=F)+facet_wrap(~FG+ThermalAffinity2, scales='free')+theme_bw()
 
 
 # abun to PA
@@ -138,11 +146,19 @@ bdist<-dist.binary(mat_jpn, method=1) # jaccard dist
 plot(hclust(bdist, 'single'))  #splits sites into 2 clusts from lat <31deg N
 
 
-# biomass weighting
-
+# biomass calculations and conversion to biomass per transect effort
+# add FG to data
+dat<-left_join(dat, fgs[,c(1,21,22)], by=c('SpeciesFish'='Species'))
 # add mass calc columns to data
-
 dat<-left_join(dat, wtlen[,c(1:3)], by=c('SpeciesFish'='SpeciesName'))
+
+biom1<-dat%>%group_by(SiteID, FG, ThermalAffinity2)%>%
+  summarise(tot_biom=sum(Number*(a*SizeCm^b), na.rm=T))%>%ungroup()%>%
+  complete(SiteID, FG, ThermalAffinity2, fill=list(tot_biom=0))
+
+biom1<-left_join(biom1, dat%>%group_by(SiteID)%>%
+                   summarise(totMsurv=length(unique(Transect))*25), 
+                 by='SiteID')
 
 # summarise total biomass (abundance * length) per species per transect
 # NOT needed in Japan: then for transects that are surveyed multiple times take the mean biomass per species 
