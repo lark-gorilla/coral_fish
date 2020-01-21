@@ -82,6 +82,8 @@ fish_survey$SpeciesFish[fish_survey$SpeciesFish=="Chaetodon modestus"]<-'Roa mod
 #now clean aus species
 aus_species<-as.character(aus_species)
 
+# fix some
+aus_species[aus_species=='Centropyge flavicauda']<-'Centropyge fisheri'
 
 #****** Chuuk data ******#
 
@@ -117,9 +119,11 @@ maldives_species<-maldives_species_list$Species
 # base read.csv fails so use readr's read_csv
 #bigtrait<-read_csv('~/leeds_postdoc/data/Traits/fish_traits.csv')
 
-# Updated database from Maria 20 Feb
+# Updated database from Maria Jan 2020
+bigtrait<-read_excel('data/Traits/Ffish_database_index13_29Nov19.xlsx', sheet=1, skip=1)
 
-bigtrait<-read_excel('data/Traits/_database_index11_19Feb2019.xlsx', sheet=1, skip=1)
+# edit some incorrect names
+bigtrait[bigtrait=='Parajulis poecilopterus']<-'Parajulis poecilepterus'
 
 #remove extra rows from fish_trait
 #bigtrait<-bigtrait[1:1122,]
@@ -183,6 +187,7 @@ table(bigtrait2$Diet)
 
 table(bigtrait2$Aggregation)
 bigtrait2[which(bigtrait2$Aggregation=='harems'),]$Aggregation<-'groups'
+bigtrait2[which(bigtrait2$Aggregation=='Harems'),]$Aggregation<-'groups'
 
 table(bigtrait2$Position)
 bigtrait2[which(bigtrait2$Position=='AlgaeAssociated'),]$Position<-'Benthic'
@@ -197,13 +202,11 @@ table(bigtrait2$ParentalMode)
 bigtrait2[which(bigtrait2$ParentalMode=='Brooders'),]$ParentalMode<-'brooders'
 bigtrait2[which(bigtrait2$ParentalMode=='nesters'),]$ParentalMode<-'Nesters'
 bigtrait2[which(bigtrait2$ParentalMode=='Viviparous'),]$ParentalMode<-'Live bearers'
-
+bigtrait2[which(bigtrait2$ParentalMode=='guarders'),]$ParentalMode<-'Nesters'
 
 # save file
 
 write.csv(bigtrait2, 'data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', quote=F, row.names=F) 
-
-#current master has all edits to parental mode but none to position or aggregation
 
 
 ##########################################
