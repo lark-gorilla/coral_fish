@@ -847,6 +847,25 @@ ppp+geom_point(data=aus_pco, aes(x=A1, y=A2, colour=factor(aus_FG)))+
 ################## PCA of optimal clustering solution  ########################
 ###############################################################################
 
+library(cluster)
+library(clue)
+library(fpc)
+library(ggplot2)
+library(dendextend)
+library(circlize)
+library(vegan)
+library(caret)
+library(GGally)
+library(dplyr)
+library(reshape2)
+library(ade4)
+library(ggrepel)
+library(adehabitatHR)
+library(sf)
+library(gridExtra)
+library(gbm)
+library(mice)
+
 # edit NA values in JPN DepthRange & PLD
 #apply(jpn_out$clust_cent, 2, function(x){TRUE %in% is.na(x)})
 
