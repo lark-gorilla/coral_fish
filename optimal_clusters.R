@@ -1,4 +1,4 @@
-## 11/04/19 
+## 22/01/2020 
 ## fish trait cluster paper analyses
 
 #rm(list=ls())
@@ -6,24 +6,13 @@ library(cluster)
 library(clue)
 library(fpc)
 library(ggplot2)
-library(dendextend)
-library(circlize)
-library(vegan)
-library(caret)
-library(GGally)
 library(dplyr)
 library(reshape2)
-library(ade4)
-library(ggrepel)
-library(adehabitatHR)
-library(sf)
-library(gridExtra)
 library(gbm)
 library(mice)
 
 # source clVal function
 source('C:/coral_fish/scripts/coral_fish/clVal.R')
-source('C:/coral_fish/scripts/coral_fish/functions.R')
 
 #################### data clean ##########################
 ##########################################################
@@ -34,21 +23,19 @@ dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_op
 # Do we want to include sp. in the analyses? - yes.
 # dat[grep('\\.', dat$Species),]
 
-dat<-dat[which(dat$AUS_sp>0 | dat$JPN_sp>0),] # we will focus on Australia and Japan for this prelim
+dat<-dat[which(dat$AUS_sp>0 | dat$JPN_sp>0),] # we will focus on Australia and Japan 
 
 # remove functional duplicates
-dup_trait<-paste(dat$BodySize, dat$DepthRange, dat$PLD, dat$Diet, dat$Aggregation, dat$Position, 
-                 dat$ParentalMode)
-dat<-dat[-which(duplicated(dup_trait)),]
-dat$Species<-as.character(dat$Species)
-dat[which(dat$Species=='Scarus psittacus'),]$Species<-'Scarus psittacus/spinus' # edit for one
-
+#dup_trait<-paste(dat$BodySize, dat$DepthRange, dat$PLD, dat$Diet, dat$Aggregation, dat$Position, 
+#                 dat$ParentalMode)
+#dat<-dat[-which(duplicated(dup_trait)),]
+#dat$Species<-as.character(dat$Species)
+#dat[which(dat$Species=='Scarus psittacus'),]$Species<-'Scarus psittacus/spinus' # edit for one
 # Including those that default to duplicates via NA after gower dist
-dat<-dat[-which(dat$Species=='Caesio sp.'),]
-dat<-dat[-which(dat$Species=='Ostracion immaculatus'),]
+#dat<-dat[-which(dat$Species=='Caesio sp.'),]
+#dat<-dat[-which(dat$Species=='Ostracion immaculatus'),]
 
 row.names(dat)<-dat$Species
-
 
 ## Edit to some trait values from MB 25/10/18
 #dat[dat$Species=='Brotula multibarbata',]$DepthRange<-219
@@ -66,51 +53,77 @@ dat$Aggregation<-factor(dat$Aggregation, levels=c("solitary", "pairs","groups","
 #dat$Position<-factor(dat$Position, levels=c("SubBenthic", "Benthic","UpperBenthic",
 #                                            "Demersal", "ReefPelagic","Pelagic"), ordered = T)
 
+### check cor between distance and hclust copophenetic and best algorithum ####
+###############################################################################
+
+# regular gower dist
+distreg<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
+             metric='gower', stand = FALSE)
+# gower dist with logs applied to continuous variables
+distlog<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
+              metric = "gower",stand = FALSE, type = list(logratio = c(1,5)))
+
+hclust_methods <-c("ward.D", "ward.D2", "single",
+                   "complete", "average", "mcquitty") # median and centroid dont work
+
+hclustreg <- lapply(hclust_methods, function(m) hclust(distreg, m))
+names(hclustreg) <- hclust_methods
+hclustlog <- lapply(hclust_methods, function(m) hclust(distlog, m))
+names(hclustlog) <- hclust_methods 
+
+## see how well the trees represent the original distance matrix.
+## method=spectral is the 2-norm method proposed by Merigot et al. (2010)
+alg_comp_reg<-cl_dissimilarity(hclustreg, distreg, method = "spectral")
+alg_comp_reg
+
+alg_comp_log<-cl_dissimilarity(hclustlog, distlog, method = "spectral")
+alg_comp_log
+
+## get threshold 2-norm value for dendrgram to accurately represent dist. 
+## code from within Mouchet et al. 2008 function: ("http://villeger.sebastien.free.fr/R%20scripts/GFD_matcomm.R")
+
+thresh<-lapply(hclustreg, function(x){2*sqrt((var(distreg)+
+                              var(cl_ultrametric(x))))*
+                              sqrt(dim(dat)[1])})
+thresh_log<-lapply(hclustlog, function(x){2*sqrt((var(distlog)+
+                              var(cl_ultrametric(x))))*
+                              sqrt(dim(dat)[1])})
+
+# put together
+data.frame(method=hclust_methods, two.norm=alg_comp_reg[,1],
+           thresh=unlist(thresh), diff=alg_comp_reg[,1]-unlist(thresh))
+
+data.frame(method=hclust_methods, two.norm=alg_comp_log[,1],
+           thresh=unlist(thresh_log), diff=alg_comp_log[,1]-unlist(thresh_log))
+
+# Nothing really in it but log marginally better
+
 #################### run cluster validation function ##########################
 ###############################################################################
 
 # analyses on Aus + Jpn combined
 
-#trial to see difference between jaccad and distance measure
-dat_aus<-dat[which(dat$AUS_sp>0),]
 
-dat_jpn<-dat[which(dat$JPN_sp>0),]
+clus_out<-clVal(data=dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
+               runs=100, min_cl=3, max_cl=20, subs_perc=0.95,
+               fast.k.h = 0.2, calc_wigl = F, logvars = F)
 
-jpn_out<-clVal(data=dat_jpn[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
-               runs=100, min_cl=3,max_cl=20, subs_perc=0.95, fast.k.h = 0.2)
-
-aus_out<-clVal(data=dat_aus[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
-               runs=100, min_cl=3, max_cl=20, subs_perc=0.95, fast.k.h = 0.2)
-
-
-jac_trial<-clVal(data=dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
-                 runs=100, max_cl=20, subs_perc=0.95)
-
+clus_out_log<-clVal(data=dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
+                runs=100, min_cl=3, max_cl=20, subs_perc=0.95,
+                fast.k.h = 0.2, calc_wigl = F, logvars = c(1,5))
 
 # outputs saved to memory
 
-################## find optimal n clusters per dataset ########################
+################## find optimal n clusters ########################
 ###############################################################################
 
-# objects jac_trial (aus+jpn), aus_out and jpn_out loaded from memory
-
-ggpairs(aus_out$stats, columns = 3:7)
-
-#ggpairs(aus_out$stats, columns = 3:7, ggplot2::aes(colour=as.character(k)))
-
-# remember silhouette won't necessarily correlate because it
-# has a polynomial relationship with the others?
-
-qplot(data=filter(aus_out$stats, k==6), x=sil, y=jac)
-
-# Australia
-
-a_melt<-melt(aus_out$stats, id.vars=c( 'k', 'runs'))
+# regular daisy
+a_melt<-melt(clus_out$stats[c(1:4,6)], id.vars=c( 'k', 'runs'))
 a_sum<-a_melt%>%group_by(k, variable)%>%
   summarise(mean=mean(value), median=median(value))
 
 ggplot(data=a_melt, aes(x=k, y=value, group=k))+
-  geom_boxplot()+facet_wrap(~variable, scales='free_y') # 7 apart from sil:9
+  geom_boxplot()+facet_wrap(~variable, scales='free_y') # 9
 
 ggplot()+
   geom_violin(data=a_melt, aes(x=k, y=value, group=k))+
@@ -120,125 +133,94 @@ ggplot()+
   geom_line(data=a_sum, aes(x=k, y=median), color='green')+
   scale_x_continuous(breaks=3:20)+
   facet_wrap(~variable, scales='free_y')+
-  geom_vline(xintercept = 7, color='cyan')
-# 7 for most, 8 or 9 for silhouette
-p
+  geom_vline(xintercept = 9, color='cyan')
 
-#ggsave('C:/coral_fish/outputs/aus_nclust2.png', width=8, height=8)
-
-# Japan
-
-j_melt<-melt(jpn_out$stats, id.vars=c( 'k', 'runs'))
-j_sum<-j_melt%>%group_by(k, variable)%>%
+# logged daisy
+l_melt<-melt(clus_out_log$stats[c(1:4,6)], id.vars=c( 'k', 'runs'))
+l_sum<-l_melt%>%group_by(k, variable)%>%
   summarise(mean=mean(value), median=median(value))
 
-p<-ggplot()+
-  geom_violin(data=j_melt, aes(x=k, y=value, group=k))+
-  geom_point(data=j_sum, aes(x=k, y=mean), color='red', shape=1)+
-  geom_line(data=j_sum, aes(x=k, y=mean), color='red')+
-  geom_point(data=j_sum, aes(x=k, y=median), color='green', shape=1)+
-  geom_line(data=j_sum, aes(x=k, y=median), color='green')+
+ggplot(data=l_melt, aes(x=k, y=value, group=k))+
+  geom_boxplot()+facet_wrap(~variable, scales='free_y') # 9
+
+ggplot()+
+  geom_violin(data=l_melt, aes(x=k, y=value, group=k))+
+  geom_point(data=l_sum, aes(x=k, y=mean), color='red', shape=1)+
+  geom_line(data=l_sum, aes(x=k, y=mean), color='red')+
+  geom_point(data=l_sum, aes(x=k, y=median), color='green', shape=1)+
+  geom_line(data=l_sum, aes(x=k, y=median), color='green')+
   scale_x_continuous(breaks=3:20)+
   facet_wrap(~variable, scales='free_y')+
-  geom_vline(xintercept = 10, color='cyan')
-# 10 for all
-
-p
-#ggsave('C:/coral_fish/outputs/jpn_nclust2.png', width=8, height=8)
-
-# Combined Australia & Japan
-
-c_melt<-melt(jac_trial$stats, id.vars=c( 'k', 'runs'))
-c_sum<-c_melt%>%group_by(k, variable)%>%
-  summarise(mean=mean(value), median=median(value))
-
-p<-ggplot()+
-  geom_violin(data=c_melt, aes(x=k, y=value, group=k))+
-  geom_point(data=c_sum, aes(x=k, y=mean), color='red', shape=1)+
-  geom_line(data=c_sum, aes(x=k, y=mean), color='red')+
-  geom_point(data=c_sum, aes(x=k, y=median), color='green', shape=1)+
-  geom_line(data=c_sum, aes(x=k, y=median), color='green')+
-  scale_x_continuous(breaks=3:20)+
-  facet_wrap(~variable, scales='free_y')+
-  geom_vline(xintercept = 6, color='cyan')
-# 6 for most, possibly 9
-
-p
-#ggsave('C:/coral_fish/outputs/combined_nclust.png', width=8, height=8)
+  geom_vline(xintercept = 9, color='cyan')
 
 
 # can now check individual cluster stability to see which is best
+# see Details in ?clusterboot and Henning (2008) Journal of Multivariate Analysis
+# Jaccard guidelines
+# <0.5 = 'dissolved cluster'
+# 0.6-0.75 = 'patterns, but clusters highly doubtful'
+# 0.75-0.85 = 'valid, stable cluster'
+# >0.85 = 'highly stable'
 
-summary(aus_out)
+# regular daisy
 
-rowMeans(aus_out$jaccard[[7]])
-rowMeans(aus_out$jaccard[[8]])
-rowMeans(aus_out$jaccard[[9]])
+lapply(clus_out$jaccard, function(x){min(rowMeans(data.frame(x)))})
 
-lapply(aus_out$jaccard, function(x){min(rowMeans(data.frame(x)))})
+#mean jaccard similarity per cluster
+rowMeans(clus_out$jaccard[[9]])
+rowMeans(clus_out$jaccard[[11]])
+rowMeans(clus_out$jaccard[[20]])
 
-rowMeans(jpn_out$jaccard[[10]])
-rowMeans(jpn_out$jaccard[[13]])
-rowMeans(jpn_out$jaccard[[16]])
+# variance in jaccard similarity per cluster
+apply(clus_out$jaccard[[9]], 1, var)
+table(clus_out$clust_centres[clus_out$clust_centres$kval==9,]$jc_match)
 
-lapply(jpn_out$jaccard, function(x){min(rowMeans(data.frame(x)))})
+# logged daisy
 
-rowMeans(jac_trial$jaccard[[6]])
-rowMeans(jac_trial$jaccard[[9]])
+lapply(clus_out_log$jaccard, function(x){min(rowMeans(data.frame(x)))})
 
-lapply(jac_trial$jaccard, function(x){min(rowMeans(data.frame(x)))})
+#mean jaccard similarity per cluster
+rowMeans(clus_out_log$jaccard[[9]])
+rowMeans(clus_out_log$jaccard[[12]])
 
-
-apply(jac_trial$jaccard[[9]], 1, var)
-table(aus_out$clust_centres[aus_out$clust_centres$kval==7,]$jc_match)
+# variance in jaccard similarity per cluster
+apply(clus_out_log$jaccard[[9]], 1, var)
+table(clus_out_log$clust_centres[clus_out$clust_centres$kval==9,]$jc_match)
 
 ################## Variable importance using BRT sensu Darling 2012 ###########
 ###############################################################################
 
-eff_aus<-daisy(dat_aus[,3:9], metric='gower', stand = FALSE)
-
-eff_jpn<-daisy(dat_jpn[,3:9], metric='gower', stand = FALSE)
-
-eff_both<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')], metric='gower', stand = FALSE)
-
-aus_FG<-cutree(hclust(eff_aus, method='average'), k=8)
-jpn_FG<-cutree(hclust(eff_jpn, method='average'), k=10)
-both_FG<-cutree(hclust(eff_both, method='average'), k=12)
+clust9_reg<-cutree(hclust(distreg, method='average'), k=9)
+clust9_log<-cutree(hclust(distlog, method='average'), k=9)
 
 ## impute missing values using MICE (ladds et al. 2018)
 dat_mice<-mice(dat[,c(3:9)], m=5, method=c(rep('norm.predict', 3), rep('polyreg', 4)))
 dat_imp<-complete(dat_mice)
 dat_imp<-cbind(dat[,1:2], dat_imp, dat[,10:14])
 
-imp_aus<-dat_imp[which(dat_imp$AUS_sp>0),]
-imp_jpn<-dat_imp[which(dat_imp$JPN_sp>0),]
+dat_imp$groupreg<-factor(clust9_reg)
+dat_imp$grouplog<-factor(clust9_log)
 
-imp_jpn$group<-factor(jpn_FG)
-imp_aus$group<-factor(aus_FG)
-dat_imp$group<-factor(both_FG)
+table(dat_imp$groupreg, dat_imp$grouplog)
 
-brt_jpn<-gbm(group~., distribution='multinomial', n.trees=1000,
-             data=imp_jpn[,c(3:9,15)]) # other parameters default
-summary(brt_jpn)
+brt_reg<-gbm(groupreg~BodySize+Diet+Position+Aggregation+DepthRange,
+             distribution='multinomial', n.trees=1000, data=dat_imp) # other parameters default
+summary(brt_reg)
 
-brt_aus<-gbm(group~., distribution='multinomial', n.trees=1000,
-             data=imp_aus[,c(3:9,15)]) # other parameters default
-summary(brt_aus)
-
-brt_both<-gbm(group~BodySize+Diet+Position+Aggregation+DepthRange, distribution='multinomial', n.trees=1000,
-             data=dat_imp) # other parameters default
-summary(brt_both)
+brt_log<-gbm(grouplog~BodySize+Diet+Position+Aggregation+DepthRange,
+             distribution='multinomial', n.trees=1000, data=dat_imp) # other parameters default
+summary(brt_log)
 
 ## trial with party package
 library(partykit)
 
-party1<-ctree(group~BodySize+Diet+Position+Aggregation+DepthRange,
-    data=imp_aus)
+party1<-ctree(groupreg~BodySize+Diet+Position+Aggregation+DepthRange,
+    data=dat_imp)
 plot(party1)
 
-party1<-ctree(group~Position,data=imp_aus)
+party1<-ctree(grouplog~BodySize+Diet+Position+Aggregation+DepthRange,
+              data=dat_imp)
 plot(party1)
-
 
 # Darling approach
 for(i in 1:7)
