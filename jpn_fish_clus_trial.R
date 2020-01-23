@@ -66,6 +66,9 @@ distlog<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange
                       'PLD', 'ParentalMode')],
                metric='gower', stand = FALSE, type = list(logratio = c(1,5, 6)))
 
+plot(hclust(distreg, 'average'), labels=F);rect.hclust(hclust(distreg, 'average'),k=14)
+plot(hclust(distlog, 'average'), labels=F);rect.hclust(hclust(distlog, 'average'),k=14)
+
 hclust_methods <-c("ward.D", "ward.D2", "single",
                    "complete", "average", "mcquitty") # median and centroid dont work
 
