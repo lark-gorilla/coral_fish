@@ -53,6 +53,15 @@ dat$Aggregation<-factor(dat$Aggregation, levels=c("solitary", "pairs","groups","
 #dat$Position<-factor(dat$Position, levels=c("SubBenthic", "Benthic","UpperBenthic",
 #                                            "Demersal", "ReefPelagic","Pelagic"), ordered = T)
 
+# create tropical/non-tropical thermal affinity2 variable
+# Set non-arctic to tropical ThermalAffinuty
+dat[which(is.na(dat$ThermalAffinity)),]$ThermalAffinity<-'tropical' # set Kyphosus sp. to tropical, seen once in Japan at 31N
+dat[dat$ThermalAffinity=='nonarctic',]$ThermalAffinity<-'tropical'
+dat$ThermalAffinity<-factor(dat$ThermalAffinity)
+# create thermal affinity variable with just tropical/non-tropical
+dat$ThermalAffinity2<-as.character(dat$ThermalAffinity)
+dat[dat$ThermalAffinity2!='tropical',]$ThermalAffinity2<-'subtropical'
+
 ### check cor between distance and hclust copophenetic and best algorithum ####
 ###############################################################################
 
