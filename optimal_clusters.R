@@ -63,6 +63,9 @@ distreg<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange
 distlog<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
               metric = "gower",stand = FALSE, type = list(logratio = c(1,5)))
 
+plot(hclust(distreg, 'average'), labels=F);rect.hclust(hclust(distreg, 'average'),k=9)
+plot(hclust(distlog, 'average'), labels=F);rect.hclust(hclust(distlog, 'average'),k=9)
+
 hclust_methods <-c("ward.D", "ward.D2", "single",
                    "complete", "average", "mcquitty") # median and centroid dont work
 
@@ -181,7 +184,8 @@ lapply(clus_out_log$jaccard, function(x){min(rowMeans(data.frame(x)))})
 
 #mean jaccard similarity per cluster
 rowMeans(clus_out_log$jaccard[[9]])
-rowMeans(clus_out_log$jaccard[[12]])
+rowMeans(clus_out_log$jaccard[[11]])
+rowMeans(clus_out_log$jaccard[[20]])
 
 # variance in jaccard similarity per cluster
 apply(clus_out_log$jaccard[[9]], 1, var)
@@ -216,11 +220,11 @@ library(partykit)
 
 party1<-ctree(groupreg~BodySize+Diet+Position+Aggregation+DepthRange,
     data=dat_imp)
-plot(party1)
+plot(party1, type='simple')
 
 party1<-ctree(grouplog~BodySize+Diet+Position+Aggregation+DepthRange,
               data=dat_imp)
-plot(party1)
+plot(party1, type='simple')
 
 # Darling approach
 for(i in 1:7)
