@@ -161,7 +161,7 @@ ggplot()+
   geom_line(data=l_sum, aes(x=k, y=mean), color='red')+
   geom_point(data=l_sum, aes(x=k, y=median), color='green', shape=1)+
   geom_line(data=l_sum, aes(x=k, y=median), color='green')+
-  scale_x_continuous(breaks=3:20)+
+  scale_x_continuous(breaks=3:30)+
   facet_wrap(~variable, scales='free_y')+
   geom_vline(xintercept = 9, color='cyan')
 
@@ -264,5 +264,5 @@ dat$groupk11<-factor(clust11_log)
 dat$groupk20<-factor(clust20_log)
 
 #write out
-write.csv(dat, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_clusters.csv')
+write.csv(dat, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_clusters.csv', quote=F, row.names=F)
 
