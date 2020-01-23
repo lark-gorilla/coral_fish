@@ -64,9 +64,6 @@ spacBreakdown<-function(data=dat, fgs=fgs, FGZ=c(1,2), TM2=c('tropical', 'subtro
 
 ## Read in data
 
-# Species trait data
-specs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2.csv', h=T)
-
 # species weight equation data
 wtlen<-read_xlsx('C:/coral_fish/data/fish/fish_weight_length_calc_a_and_b_edited.xlsx', sheet=1)
 #warning fine
@@ -74,9 +71,9 @@ wtlen<-read_xlsx('C:/coral_fish/data/fish/fish_weight_length_calc_a_and_b_edited
 #wtlen[wtlen$SpeciesName%in%wtlen[which(duplicated(wtlen$SpeciesName)==TRUE),]$SpeciesName,]%>%View()
 # remove
 wtlen<-wtlen[-which(duplicated(wtlen$SpeciesName)),]
-specs[-which(specs$Species %in% wtlen$SpeciesName),] %>% filter(JPN_sp==1 | AUS_sp==1)
+fgs[-which(fgs$Species %in% wtlen$SpeciesName),] %>% filter(JPN_sp==1 | AUS_sp==1)
 # fixed naming issues
-# read in FGs
+# read traits and FGs
 fgs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats_FG.csv')
 
 # JAPAN
@@ -86,8 +83,8 @@ dat<-read.csv('C:/coral_fish/data/Japan/FishData_JP_2016_final.csv', h=T)
 
 dat$SpeciesFish<-as.character(dat$SpeciesFish)
 
-nrow(specs[which(specs$JPN_sp>0),] );length(unique(dat$SpeciesFish))
-specs[which(specs$JPN_sp>0),]$Species[which(!specs[which(specs$JPN_sp>0),]$Species %in% dat$SpeciesFish)]
+nrow(fgs[which(fgs$JPN_sp>0),] );length(unique(dat$SpeciesFish))
+fgs[which(fgs$JPN_sp>0),]$Species[which(!fgs[which(fgs$JPN_sp>0),]$Species %in% dat$SpeciesFish)]
 
 dat$SpeciesFish[dat$SpeciesFish=="Apogon aureus"]<- "Ostorhinchus aureus"
 dat$SpeciesFish[dat$SpeciesFish=='PLectroglyphidodon dickii']<-'Plectroglyphidodon dickii'
@@ -194,11 +191,11 @@ dat_aus$Fish<-as.character(dat_aus$Fish)
 aus_species[aus_species=='Centropyge flavicauda']<-'Centropyge fisheri'
 
 
-nrow(specs[which(specs$AUS_sp>0),] );length(unique(dat_aus$Fish)) # OK only 2 different
-specs[which(specs$AUS_sp>0),] [which(!specs[which(specs$AUS_sp>0),]  %in% dat_aus$Fish)]
+nrow(fgs[which(fgs$AUS_sp>0),] );length(unique(dat_aus$Fish)) # OK only 2 different
+fgs[which(fgs$AUS_sp>0),] [which(!fgs[which(fgs$AUS_sp>0),]  %in% dat_aus$Fish)]
 
 #remove species that occur in sampling data but not species/traits list
-badfish<-unique(dat_aus$Fish[which(!dat_aus$Fish %in% specs[specs$AUS_sp>0,]$Species)])
+badfish<-unique(dat_aus$Fish[which(!dat_aus$Fish %in% fgs[fgs$AUS_sp>0,]$Species)])
 dat_aus<-dat_aus[-which(dat_aus$Fish%in%badfish),]
 dat_aus$Fish<-factor(dat_aus$Fish)
 
