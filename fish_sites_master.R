@@ -188,9 +188,11 @@ plot(hclust(vegdist(mat_biom_jpn, 'bray', na.rm=T), 'average'))
 #read in australia survey species
 dat_aus<-read.csv('C:/coral_fish/data/Australia/LongTransect_Subtropical_fish_Sep2018.csv')
 
-#get list of aus_species names
+#get list of aus_species names and one edit
 
 dat_aus$Fish<-as.character(dat_aus$Fish)
+aus_species[aus_species=='Centropyge flavicauda']<-'Centropyge fisheri'
+
 
 nrow(specs[which(specs$AUS_sp>0),] );length(unique(dat_aus$Fish)) # OK only 2 different
 specs[which(specs$AUS_sp>0),] [which(!specs[which(specs$AUS_sp>0),]  %in% dat_aus$Fish)]
