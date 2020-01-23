@@ -1,13 +1,12 @@
-# paper code 27/06/19
+# paper code 23/01/2020
 
 # picks up from stage where optimum number of clusters are known
 #Steps
-#1 calculate redundancy for each community and group
-#2 split functional groups by thermal affinity to calculate 
-# redundancy/vulnerability for each FG/TG group due to thermal disturbance
-#3 calculate recovery diversity for each FG/TH
+#1 calculate redundancy for each community and group and thermal preference
+#2 plot and analyse changes in sprich and biomass of tropical/non-tropical FGs over latitude
+#3 plot functional niche overlap of tropical/non-tropical components of each FG
 
-library(cluster)
+#rm(list=ls())
 library(dplyr)
 library(ggplot2)
 library(gridExtra)
@@ -18,122 +17,12 @@ library(vegan)
 library(ade4)
 library(readxl)
 
-#################### data clean ##########################
+#################### read data ##########################
 ##########################################################
 
-dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats.csv', h=T)
+dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_clusters.csv', h=T)
 # Running on simplist classification of Position trait
 
-# Do we want to include sp. in the analyses? - yes.
-# dat[grep('\\.', dat$Species),]
-
-dat<-dat[which(dat$AUS_sp>0 | dat$JPN_sp>0),] # we will focus on Australia and Japan for this prelim
-
-# remove functional duplicates
-#dup_trait<-paste(dat$BodySize, dat$DepthRange, dat$PLD, dat$Diet, dat$Aggregation, dat$Position, 
-#                 dat$ParentalMode)
-#dat<-dat[-which(duplicated(dup_trait)),]
-#dat$Species<-as.character(dat$Species)
-#dat[which(dat$Species=='Scarus psittacus'),]$Species<-'Scarus psittacus/spinus' # edit for one
-
-# Including those that default to duplicates via NA after gower dist
-#dat<-dat[-which(dat$Species=='Caesio sp.'),]
-#dat<-dat[-which(dat$Species=='Ostracion immaculatus'),]
-
-row.names(dat)<-dat$Species
-
-## Edit to some trait values from MB 25/10/18
-#dat[dat$Species=='Brotula multibarbata',]$DepthRange<-219
-dat[dat$Species=='Mobula birostris',]$BodySize<-450
-dat[dat$Species=='Amphiprion sandaracinos',]$BodySize<-14
-
-## set ceiling for numeric variables for scaling purposes 04/03/19
-dat[dat$PLD>=100 & !is.na(dat$PLD),]$PLD<-100
-dat[dat$DepthRange>=200 & !is.na(dat$DepthRange),]$DepthRange<-200
-
-# ORDER necessary categorical variables
-
-dat$Aggregation<-factor(dat$Aggregation, levels=c("solitary", "pairs","groups","schools"), ordered = T)
-# Position doensn't follow a logical SINGLE order
-#dat$Position<-factor(dat$Position, levels=c("SubBenthic", "Benthic","UpperBenthic",
-#                                            "Demersal", "ReefPelagic","Pelagic"), ordered = T)
-
-# Set non-arctic to tropical ThermalAffinuty
-dat[dat$ThermalAffinity=='nonarctic',]$ThermalAffinity<-'tropical'
-dat$ThermalAffinity<-factor(dat$ThermalAffinity)
-# create thermal affinity variable with just tropical/non-tropical
-dat$ThermalAffinity2<-as.character(dat$ThermalAffinity)
-dat[dat$ThermalAffinity2!='tropical',]$ThermalAffinity2<-'subtropical'
-
-eff_both<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')], metric='gower', stand = FALSE)
-
-both_FG<-cutree(hclust(eff_both, method='average'), k=12)
-
-dat$FG<-both_FG
-# some finer cuts to increase statistical power
-dat$FG_22<-cutree(hclust(eff_both, method='average'), k=22)
-dat$FG_36<-cutree(hclust(eff_both, method='average'), k=36)
-
-# Write out FGs
-#write.csv(dat, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats_FG.csv',
-#          quote=F, row.names=F)
-
-# Split to regions
-
-dat_aus<-dat[which(dat$AUS_sp>0),]
-dat_jpn<-dat[which(dat$JPN_sp>0),]
-
-#### plot max lat of tropical species in FGs
-
-ggplot(data=filter(dat, AUS_sp>0 & ThermalAffinity2=='tropical'), 
-      aes(x=factor(FG), y= AUS_maxlat))+geom_violin()+
-  geom_point(
-    data=filter(dat, AUS_sp>0 & ThermalAffinity2=='tropical')%>%
-      group_by(FG)%>%summarize(medlat=median(AUS_maxlat)), 
-    aes(x=factor(FG), y= medlat), colour='red')
-
-ggplot(data=filter(dat, JPN_sp>0 & ThermalAffinity2=='tropical'), 
-       aes(x=factor(FG), y= JPN_maxlat))+geom_violin()+
-  geom_point(
-    data=filter(dat, JPN_sp>0 & ThermalAffinity2=='tropical')%>%
-      group_by(FG)%>%summarize(medlat=median(JPN_maxlat)), 
-    aes(x=factor(FG), y= medlat), colour='red')
-
-### More detailed analyses of latitudinal distribution of FG species and biomass
-
-jpn_pa_biom<-read.csv('C:/coral_fish/data/Japan/Jpn_sites_pa_biomass_median.csv')
-aus_pa_biom<-read.csv('C:/coral_fish/data/Australia/Aus_sites_pa_biomass_median.csv')
-
-jpn_pa_biom<-left_join(jpn_pa_biom, dat[,c(1,21,22)], by='Species')
-aus_pa_biom<-left_join(aus_pa_biom, dat[,c(1,21,22)], by='Species')
-
-jpn_pa_biom_sum<-jpn_pa_biom%>%group_by(Name.x, Lat, FG, ThermalAffinity2)%>%
-  summarise(sum_pa=sum(pa), sum_biom=sum(biom))
-
-aus_pa_biom_sum<-aus_pa_biom%>%group_by(Site, Lat, FG, ThermalAffinity2)%>%
-  summarise(sum_pa=sum(pa), sum_biom=sum(biom))
-
-ggplot(filter(jpn_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = factor(FG), y = Lat, fill=ThermalAffinity2)) + 
-  geom_violin(stat = "identity", aes(violinwidth = sum_pa*0.03),
-              position=position_identity(), alpha=0.3)+theme_bw()
-
-ggplot(filter(aus_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = factor(FG), y = Lat, fill=ThermalAffinity2)) + 
-  geom_violin(stat = "identity", aes(violinwidth = sum_pa*0.01),
-              position=position_identity(), alpha=0.3)+theme_bw()
-
-
-ggplot(filter(jpn_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = factor(FG), y = Lat, fill=ThermalAffinity2)) + 
-  geom_violin(stat = "identity", aes(violinwidth = sum_biom*0.0005),
-              position=position_identity(), alpha=0.3)+theme_bw()
-
-ggplot(filter(aus_pa_biom_sum, FG %in% c(1,2,4,6)), aes(x = factor(FG), y = Lat, fill=ThermalAffinity2)) + 
-  geom_violin(stat = "identity", aes(violinwidth = sum_biom*0.00003),
-              position=position_identity(), alpha=0.3)+theme_bw() #  looks better with median 
-
-ggplot(jpn_pa_biom, aes(x = factor(FG), y = Lat, group=Species)) + 
-  geom_violin(stat = "identity", aes(violinwidth = pa)) # something clever-er overlapping sp per FG and alpha=0.5
-
-# These violin plots are just less accessible versions of scatter plots
 
 # 2 types of plots: 
 # 1) FGs1-4 tropical vs subtropical standardised via scale free
@@ -204,9 +93,9 @@ ggplot(aus_trop_prop, aes(x = Lat, y = sum_biom/max_biom)) +
 
 ### Functional Entity creation
 
-dat_mice<-mice(dat[,c(2:9)], m=5, method=c('polyreg',rep('norm.predict', 3), rep('polyreg', 4)))
-dat_imp<-complete(dat_mice)
-dat_imp<-cbind(Species=dat[,1], dat_imp, dat[,10:length(dat)])
+dat_mice<-mice(dat[,c(3:9)], m=5, method=c(rep('norm.predict', 3), rep('polyreg', 4)))
+dat_imp<-mice::complete(dat_mice)
+dat_imp<-cbind(Species=dat[,1], ThermalAffinity=dat[,2], dat_imp, dat[,10:length(dat)])
 
 # Bodysize
 
@@ -229,7 +118,7 @@ dat_imp$FE<-paste(dat_imp$BodySize, dat_imp$DepthRange,
 # reformat data
 # split dataframe into list based on rows
 
-FEdat<-dat_imp %>% group_by(FE) %>% summarise(FG=unique(FG),num=n())
+FEdat<-dat_imp %>% group_by(FE) %>% summarise(FG=unique(groupk11),num=n())
 
 FEdatlist<-split(FEdat, 1:nrow(FEdat))
 
@@ -274,6 +163,14 @@ filter(wordperc<59) ->FGnames
 
 FGnames<-as.data.frame(aggregate(FEcomp~FG, FGnames, 
                                  function(x){paste(x, collapse='-')}))
+
+
+
+aggregate(ThermalAffinity2~groupk11, dat[dat$JPN_sp>0,], table)
+aggregate(ThermalAffinity2~groupk11, dat[dat$AUS_sp>0,], table)
+
+
+
 
 ## first Redundancy plot with thermal affinity split
 
