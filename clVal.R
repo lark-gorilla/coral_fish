@@ -1,14 +1,16 @@
-clVal<-function(data=data, runs=10, min_cl=3,  max_cl=20, subs_perc=0.95, fast.k.h=0.3, calc_wigl=T)
+clVal<-function(data=data, runs=10, min_cl=3,  max_cl=20, subs_perc=0.95, fast.k.h=0.3, calc_wigl=T, 
+                logvars=F)
  
 {
   require(cluster)
   require(fpc)
   require(dendextend)
   
-  dist1<-daisy(data, metric='gower', stand = FALSE)
+  if(logvars==F){
+  dist1<-daisy(data, metric='gower', stand = FALSE)}else{
+  dist1<-daisy(data, metric='gower', stand = FALSE,type = list(logratio = logvars))}
   btree<-hclust(dist1, method='average')
   if(is.null(btree$labels)){btree$labels<-1:nrow(data)} # edit to make sure tree has labels
-  
   
   #create output objects
   wigl_list<-as.list(rep(list(matrix(data=NA, nrow=nrow(data), ncol=runs,
