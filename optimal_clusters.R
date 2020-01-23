@@ -194,62 +194,66 @@ table(clus_out_log$clust_centres[clus_out$clust_centres$kval==9,]$jc_match)
 ################## Variable importance using BRT sensu Darling 2012 ###########
 ###############################################################################
 
-clust9_reg<-cutree(hclust(distreg, method='average'), k=9)
-clust9_log<-cutree(hclust(distlog, method='average'), k=9)
+clust20_reg<-cutree(hclust(distreg, method='average'), k=20)
+clust11_log<-cutree(hclust(distlog, method='average'), k=11)
+clust20_log<-cutree(hclust(distlog, method='average'), k=20)
 
 ## impute missing values using MICE (ladds et al. 2018)
 dat_mice<-mice(dat[,c(3:9)], m=5, method=c(rep('norm.predict', 3), rep('polyreg', 4)))
 dat_imp<-complete(dat_mice)
 dat_imp<-cbind(dat[,1:2], dat_imp, dat[,10:14])
 
-dat_imp$groupreg<-factor(clust9_reg)
-dat_imp$grouplog<-factor(clust9_log)
+dat_imp$group20reg<-factor(clust20_reg)
+dat_imp$group11log<-factor(clust11_log)
+dat_imp$group20log<-factor(clust20_log)
 
-table(dat_imp$groupreg, dat_imp$grouplog)
+table(dat_imp$group20reg, dat_imp$group20log)
 
-brt_reg<-gbm(groupreg~BodySize+Diet+Position+Aggregation+DepthRange,
+brt_reg<-gbm(group20reg~BodySize+Diet+Position+Aggregation+DepthRange,
              distribution='multinomial', n.trees=1000, data=dat_imp) # other parameters default
 summary(brt_reg)
 
-brt_log<-gbm(grouplog~BodySize+Diet+Position+Aggregation+DepthRange,
+brt_log<-gbm(group20log~BodySize+Diet+Position+Aggregation+DepthRange,
              distribution='multinomial', n.trees=1000, data=dat_imp) # other parameters default
 summary(brt_log)
+
+brt_log<-gbm(group11log~BodySize+Diet+Position+Aggregation+DepthRange,
+             distribution='multinomial', n.trees=1000, data=dat_imp) # other parameters default
+summary(brt_log)
+
 
 ## trial with party package
 library(partykit)
 
-party1<-ctree(groupreg~BodySize+Diet+Position+Aggregation+DepthRange,
+party1<-ctree(group11log~BodySize+Diet+Position+Aggregation+DepthRange,
     data=dat_imp)
 plot(party1, type='simple')
+party1
 
-party1<-ctree(grouplog~BodySize+Diet+Position+Aggregation+DepthRange,
+party1<-ctree(group20log~BodySize+Diet+Position+Aggregation+DepthRange,
               data=dat_imp)
 plot(party1, type='simple')
+party1
 
-# Darling approach
-for(i in 1:7)
+# Darling approach # if errors re-run
+for(i in 2:6)
 {
-  mydat<-imp_jpn[,c(3:9,15)]
+  mydat<-dat_imp[,c('group11log',"BodySize","Diet",  "Position", "Aggregation", 'DepthRange')]
   mydat<-mydat[,-i]
-  brt_jpn<-gbm(group~., distribution='multinomial', n.trees=100,
+  brty<-gbm(group11log~., distribution='multinomial', n.trees=100,
                data=mydat)
-  predBST = predict(brt_jpn,n.trees=100, newdata=imp_jpn,type='response')
+  predBST = predict(brty,n.trees=100, newdata=dat_imp,type='response')
   
-  print(names(imp_jpn[,c(3:9,15)][i]))
- print(confusionMatrix(table(jpn_FG, apply(predBST, 1, which.max)))$overall[1])
+  print(names(dat_imp[,c('group11log',"BodySize","Diet",  "Position", "Aggregation", 'DepthRange')][i]))
+ print(confusionMatrix(table(dat_imp$group11log, apply(predBST, 1, which.max)))$overall[1])
 }
 
-adonis(eff_jpn~BodySize+Diet+Position+Aggregation+DepthRange+PLD+ParentalMode, data=imp_jpn)
+# Right, decisions.
+# Going with k=11 and k=20 on the logged data
 
+dat$groupk11<-factor(clust11_log)
+dat$groupk20<-factor(clust20_log)
 
-for(i in 2:20)
-{
-both_FG<-cutree(hclust(eff_both, method='average'), k=i)
-dat_imp$group<-factor(both_FG)
- brt_both<-gbm(group~BodySize+Diet+Position+Aggregation+DepthRange, distribution='multinomial', n.trees=1000,
- data=dat_imp)
-print(i)
-print(summary(brt_both))
-}
-
+#write out
+write.csv(dat, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_clusters.csv')
 
