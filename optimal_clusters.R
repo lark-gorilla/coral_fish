@@ -243,6 +243,20 @@ party1<-ctree(group20log~BodySize+Diet+Position+Aggregation+DepthRange,
               data=dat_imp)
 plot(party1, type='simple')
 party1
+varimp(party1)
+
+#best plot
+st<-as.simpleparty(party1)
+myfun <- function(i) c(
+  as.character(i$prediction),
+  paste("n =", i$n), fill='red'
+)
+
+#png('C:/coral_fish/outputs/ctree_grouplogk11.png',width = 12, height =12 , units ="in", res =600)
+
+plot(st,inner_panel = node_inner(party1, pval = FALSE),
+      tp_args = list(FUN = myfun), ep_args = list(justmin = 20))
+#dev.off()
 
 # Darling approach # if errors re-run
 for(i in 2:6)
