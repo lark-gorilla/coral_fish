@@ -118,11 +118,18 @@ data.frame(method=hclust_methods, two.norm=alg_comp_log[,1],
 
 clus_out<-clVal(data=dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
                runs=100, min_cl=3, max_cl=20, subs_perc=0.95,
-               fast.k.h = 0.2, calc_wigl = F, logvars = F)
+               fast.k.h = 0.2, calc_wigl = F, logvars = F, daisyweights=c(1,1,1,1,1))
 
 clus_out_log<-clVal(data=dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
                 runs=100, min_cl=3, max_cl=20, subs_perc=0.95,
-                fast.k.h = 0.2, calc_wigl = F, logvars = c(1,5))
+                fast.k.h = 0.2, calc_wigl = F, logvars = c(1,5), daisyweights=c(1,1,1,1,1))
+
+for(i in c(1:5)){
+clus_out_log<-clVal(data=dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
+                    runs=200, min_cl=3, max_cl=30, subs_perc=0.95,
+                    fast.k.h = 0.2, calc_wigl = F, logvars = c(1,5), daisyweights=c(1,0.5,0.5,1,1))
+assign(paste('clus_out_log', '_2size', i, sep=''), clus_out_log)
+}
 
 # outputs saved to memory
 
@@ -280,3 +287,86 @@ dat$groupk20<-factor(clust20_log)
 #write out
 write.csv(dat, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_clusters.csv', quote=F, row.names=F)
 
+
+## mega-loop to find optimal weights for gower distance based on expert interpretation
+
+testz<-expand.grid(i=seq(1, 4, 1), j=seq(0.5, 1, 0.25))
+
+sel.clust<-NULL
+var.cont<-NULL
+for(k in 1:nrow(testz))
+{
+  sizy<-testz[k,]$i
+  diety<-testz[k,]$j
+  
+  distlog<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
+                 metric = "gower",stand = FALSE, weights=c(sizy, diety, 0.5, 1,1))
+                 
+  
+  clus_out_log<-clVal(data=dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
+                      runs=5, min_cl=3, max_cl=20, subs_perc=0.95,
+                      fast.k.h = 0.2, calc_wigl = F, logvars = F,
+                      daisyweights=c(sizy, diety, 0.5, 1,1))
+  
+  l_melt<-melt(clus_out_log$stats[c(1:4,6)], id.vars=c( 'k', 'runs'))
+  l_sum<-l_melt%>%group_by(k, variable)%>%
+    summarise(mean=mean(value), median=median(value))
+  l_sum$sizeW=sizy
+  l_sum$dietW=diety
+  
+  sel.clust<-rbind(sel.clust, l_sum)
+  
+  my.varcont<-NULL
+  for(l in 5:20)
+  {
+    dat_imp$group<-factor(cutree(hclust(distlog, method='average'), k=l))
+    brt_log<-gbm(group~BodySize+Diet+Position+Aggregation+DepthRange,
+                 distribution='multinomial', n.trees=1000, data=dat_imp) # other parameters default
+  
+     out<-data.frame(sizeW=sizy,dietW=diety, nclust=l, summary(brt_log, plotit=F))  
+    my.varcont<-rbind(my.varcont, out)
+  }
+  
+  var.cont<-rbind(var.cont, my.varcont)
+  print(k)
+}
+  
+
+qplot(data=sel.clust[sel.clust$variable=='sil',],
+      x=k, y=median, colour=paste(sizeW, dietW), geom='line')
+
+qplot(data=sel.clust[sel.clust$variable=='sil',],
+      x=k, y=median, geom='line')+facet_wrap(~paste(sizeW, dietW))
+
+
+qplot(data=var.cont, x=nclust, y=rel.inf,
+      colour=var, geom='line')+facet_wrap(~paste(sizeW, dietW))
+
+# Trial with Kamila package
+library(kamila)
+
+rangeStandardize <- function(x) {
+  (x - min(x, na.rm=T)) / diff(range(x, na.rm=T))}
+  
+conVars <- as.data.frame(lapply(dat_imp[c('BodySize', 'DepthRange')], rangeStandardize))
+
+L1Dist <- function(v1, v2) {
+  sum(abs(v1 - v2))}
+
+matchingDist <- function(v1, v2) {
+  sum(as.integer(v1) != as.integer(v2))}
+
+pammix <- function(conData, catData, conWeight, nclust, ...) {
+  conData <- as.data.frame(conData)
+  catData <- as.data.frame(catData)
+  distMat <- daisy(x = cbind(conData, catData), metric = "gower",
+                      weights = rep(c(conWeight, 1 - conWeight),
+                                      times = c(ncol(conData), ncol(catData))))
+   clustRes <- pam(x = distMat, k = nclust, diss = TRUE, ...)
+   return(list(cluster = clustRes$clustering,
+                 conCenters = conData[clustRes$id.med, , drop = FALSE],
+               catCenters = catData[clustRes$id.med, , drop = FALSE]))
+  }
+
+msRes <- gmsClust(conData = conVars, catData = dat_imp[c('Diet', 'Position')], nclust = 3,
+                  clustFun = pammix, conDist = L1Dist, catDist = matchingDist)
