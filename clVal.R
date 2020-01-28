@@ -1,5 +1,5 @@
 clVal<-function(data=data, runs=10, min_cl=3,  max_cl=20, subs_perc=0.95, fast.k.h=0.3, calc_wigl=T, 
-                logvars=F)
+                logvars=F, daisyweights=c(1,1,1,1,1))
  
 {
   require(cluster)
@@ -7,8 +7,8 @@ clVal<-function(data=data, runs=10, min_cl=3,  max_cl=20, subs_perc=0.95, fast.k
   require(dendextend)
   
   if(logvars==F){
-  dist1<-daisy(data, metric='gower', stand = FALSE)}else{
-  dist1<-daisy(data, metric='gower', stand = FALSE,type = list(logratio = logvars))}
+  dist1<-daisy(data, metric='gower', stand = FALSE, weights=daisyweights)}else{
+  dist1<-daisy(data, metric='gower', stand = FALSE, weights=daisyweights, type = list(logratio = logvars))}
   btree<-hclust(dist1, method='average')
   if(is.null(btree$labels)){btree$labels<-1:nrow(data)} # edit to make sure tree has labels
   
