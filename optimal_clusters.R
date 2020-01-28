@@ -290,7 +290,7 @@ write.csv(dat, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_o
 
 ## mega-loop to find optimal weights for gower distance based on expert interpretation
 
-testz<-expand.grid(i=seq(1, 4, 1), j=seq(0.5, 1, 0.25))
+testz<-expand.grid(i=seq(3, 4, 0.5), j=0.7)
 
 sel.clust<-NULL
 var.cont<-NULL
@@ -335,8 +335,8 @@ for(k in 1:nrow(testz))
 qplot(data=sel.clust[sel.clust$variable=='sil',],
       x=k, y=median, colour=paste(sizeW, dietW), geom='line')
 
-qplot(data=sel.clust[sel.clust$variable=='sil',],
-      x=k, y=median, geom='line')+facet_wrap(~paste(sizeW, dietW))
+qplot(data=sel.clust,
+      x=k, y=median, colour=variable, geom='line')+facet_wrap(~paste(sizeW, dietW))
 
 
 qplot(data=var.cont, x=nclust, y=rel.inf,
