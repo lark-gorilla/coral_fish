@@ -206,6 +206,7 @@ table(clus_out_log$clust_centres[clus_out$clust_centres$kval==9,]$jc_match)
 clust20_reg<-cutree(hclust(distreg, method='average'), k=20)
 clust11_log<-cutree(hclust(distlog, method='average'), k=11)
 clust20_log<-cutree(hclust(distlog, method='average'), k=20)
+clust19_log<-cutree(hclust(distlog, method='average'), k=19)
 
 ## impute missing values using MICE (ladds et al. 2018)
 dat_mice<-mice(dat[,c(3:9)], m=5, method=c(rep('norm.predict', 3), rep('polyreg', 4)))
@@ -249,7 +250,7 @@ varimp(party1)
 st<-as.simpleparty(party1)
 myfun <- function(i) c(
   as.character(i$prediction),
-  paste("n =", i$n), fill='red'
+  paste("n =", i$n)
 )
 
 #png('C:/coral_fish/outputs/ctree_grouplogk11.png',width = 12, height =12 , units ="in", res =600)
@@ -276,8 +277,17 @@ for(i in 2:6)
 
 dat$groupk11<-factor(clust11_log)
 dat$groupk20<-factor(clust20_log)
+dat$groupk19<-factor(clust19_log)
 
 #write out
 write.csv(dat, 'C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_clusters.csv', quote=F, row.names=F)
 
+# validation of diet and position encoding size information
 
+summary(lm(log(BodySize)~Diet+Position, data=dat)) # r2=0.33
+summary(lm(log(BodySize)~Diet, data=dat))# r2=0.21
+summary(lm(log(BodySize)~Position, data=dat))# r2=0.14
+
+summary(lm(log(BodySize)~factor(groupk20), data=dat))# r2=0.39
+summary(lm(log(BodySize)~factor(groupk19), data=dat))# r2=0.39
+summary(lm(log(BodySize)~factor(groupk11), data=dat))# r2=0.31
