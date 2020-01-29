@@ -291,3 +291,22 @@ summary(lm(log(BodySize)~Position, data=dat))# r2=0.14
 summary(lm(log(BodySize)~factor(groupk20), data=dat))# r2=0.39
 summary(lm(log(BodySize)~factor(groupk19), data=dat))# r2=0.39
 summary(lm(log(BodySize)~factor(groupk11), data=dat))# r2=0.31
+
+# check which cluster are going to be big enough to do tropicalization analysis
+
+sort(table(dat[dat$JPN_sp>0,]$groupk19))
+sort(table(dat[dat$AUS_sp>0,]$groupk19))
+
+sort(table(dat[dat$JPN_sp>0 &dat$ThermalAffinity2=='tropical',]$groupk20))
+sort(table(dat[dat$AUS_sp>0 &dat$ThermalAffinity2=='tropical',]$groupk20))
+
+aggregate(groupk20~ThermalAffinity2, dat[dat$JPN_sp>0,], table)
+aggregate(groupk20~ThermalAffinity2, dat[dat$AUS_sp>0,], table)
+
+ggplot(data=dat[dat$JPN_sp>0,]%>%
+      group_by(ThermalAffinity2, groupk20)%>%summarise(nsp=n()), 
+      aes(x=groupk20, y=nsp, fill=ThermalAffinity2))+geom_bar(stat='identity')
+      
+      
+      
+      
