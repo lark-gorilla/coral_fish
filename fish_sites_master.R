@@ -128,13 +128,6 @@ jpn_spac2<-left_join(jpn_spac, locs[,2:4], by='Site')
 
 write.csv(jpn_spac2, 'C:/coral_fish/data/Japan/Jpn_sites_sprich_combos.csv', quote=F, row.names=F) 
 
-jpn_spac<-spacBreakdown(data=jpn_abun_mat, fgs=fgs, FGZ='all', TM2='tropical', thresh=100)
-
-jpn_spac2<-left_join(jpn_spac, locs[,2:4], by='Site')
-
-write.csv(jpn_spac2, 'C:/coral_fish/data/Japan/Jpn_sites_sprich_all_trop.csv', quote=F, row.names=F) 
-
-
 ggplot(jpn_spac2, aes(x = lat, y = qD, colour=ThermalAffinity2)) + 
   geom_point()+geom_smooth(se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=5, linetype='dotted')+
   geom_vline(xintercept=31, linetype='dotted')+facet_wrap(~FG, scales='free')+theme_bw()
@@ -144,10 +137,9 @@ ggplot(jpn_spac2, aes(x = lat, y = qD, colour=ThermalAffinity2)) +
 ggplot(jpn_spac2, aes(x = SPRICraw, y = qD)) + 
   geom_point()+geom_smooth(se=F)+facet_wrap(~FG+ThermalAffinity2, scales='free')+theme_bw()
 
-
 # biomass calculations and conversion to biomass per transect effort
 # add FG to data
-dat<-left_join(dat, fgs[,c(1,21,22)], by=c('SpeciesFish'='Species'))
+dat<-left_join(dat, fgs[,c(1,15,19)], by=c('SpeciesFish'='Species'))
 # add mass calc columns to data
 dat<-left_join(dat, wtlen[,c(1:3)], by=c('SpeciesFish'='SpeciesName'))
 
@@ -277,17 +269,11 @@ aus_abun_mat<-dat_aus_sub %>% group_by(Site, Fish) %>% summarise(sum_abun=sum(Nu
 
 aus_abun_mat<-matrify(data.frame(aus_abun_mat$Site, aus_abun_mat$Fish, aus_abun_mat$sum_abun))
 
-aus_spac<-spacBreakdown(data=aus_abun_mat, fgs=fgs, FGZ=c(1,2,4,6), TM2=c('tropical', 'subtropical'), thresh=100)
+aus_spac<-spacBreakdown(data=aus_abun_mat, fgs=fgs, FGZ=1:19, TM2=c('tropical', 'subtropical'), thresh=100)
 
 aus_spac2<-left_join(aus_spac, locs[,c(1, 6,7)], by=c('Site'= 'Site.name'))
 
 write.csv(aus_spac2, 'C:/coral_fish/data/Australia/aus_sites_sprich_combos.csv', quote=F, row.names=F) 
-
-aus_spac<-spacBreakdown(data=aus_abun_mat, fgs=fgs, FGZ='all', TM2='tropical', thresh=100)
-
-aus_spac2<-left_join(aus_spac, locs[,c(1, 6,7)], by=c('Site'= 'Site.name'))
-
-write.csv(aus_spac2, 'C:/coral_fish/data/Australia/aus_sites_sprich_all_trop.csv', quote=F, row.names=F) 
 
 ggplot(aus_spac2, aes(x = Lat, y = qD, colour=ThermalAffinity2)) + 
   geom_point()+geom_smooth(se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=5, linetype='dotted')+
