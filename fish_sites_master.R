@@ -39,16 +39,24 @@ spacBreakdown<-function(data=dat, fgs=fgs, FGZ=c(1,2), TM2=c('tropical', 'subtro
       temp<-t(data)}
     if(TMi!='all'& FGi!='all'){
       temp<-t(data[,which(names(data) %in% 
-      fgs[fgs$FG==FGi & fgs$ThermalAffinity2==TMi,]$Species)])}
+      fgs[fgs$FG==FGi & fgs$ThermalAffinity2==TMi,]$Species), drop=F])}
+    
+    if(nrow(temp)==0){print(paste(runs[i,],'doesnt exist, skipping'));next}  
     #remove sites with 0 individuals from rarefaction
     if(length(which(colSums(temp)==0))==0){
       temp2<-temp}else{
-        temp2<-temp[,-which(colSums(temp)==0)]}
+        temp2<-temp[,-which(colSums(temp)==0), drop=F]}
     
-    out<-iNEXT(temp2, q=0, size=seq(10, 500, 10), datatype="abundance")
-    plot(out, se=F)
+    outacc<-iNEXT(temp2, q=0, size=seq(10, 500, 10), datatype="abundance")
+    plot(outacc, se=F)
     
-    out<-do.call(rbind, lapply(out$iNextEst, function(x){data.frame(x[which(x$m==thresh), c(1,2,4:6)])}))
+    if(length(outacc$iNextEst[[1]])==9){
+    out<-do.call(rbind, lapply(outacc$iNextEst, function(x){data.frame(x[which(x$m==thresh)[1], c(1,2,4:6)])}))}else{
+    out<-do.call(rbind, lapply(outacc$iNextEst, function(x){data.frame(x[which(x$m==thresh)[1], c(1,2,4)])}))  
+    out$qD.LCL<-0 
+    out$qD.UCL<-0 
+    }
+    
     out$Site=row.names(out)
     if(length(which(colSums(temp)==0))>0){
       out<-rbind(out, data.frame(m=thresh, method='zero.abun',
@@ -63,7 +71,9 @@ spacBreakdown<-function(data=dat, fgs=fgs, FGZ=c(1,2), TM2=c('tropical', 'subtro
 }
 
 ## Read in data
-
+# read traits and FGs
+fgs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_clusters.csv')
+fgs$FG<-fgs$groupk19
 # species weight equation data
 wtlen<-read_xlsx('C:/coral_fish/data/fish/fish_weight_length_calc_a_and_b_edited.xlsx', sheet=1)
 #warning fine
@@ -73,8 +83,7 @@ wtlen<-read_xlsx('C:/coral_fish/data/fish/fish_weight_length_calc_a_and_b_edited
 wtlen<-wtlen[-which(duplicated(wtlen$SpeciesName)),]
 fgs[-which(fgs$Species %in% wtlen$SpeciesName),] %>% filter(JPN_sp==1 | AUS_sp==1)
 # fixed naming issues
-# read traits and FGs
-fgs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_lats_FG.csv')
+
 
 # JAPAN
 
@@ -113,7 +122,7 @@ jpn_abun_mat<-dat %>% group_by(SiteID, SpeciesFish) %>% summarise(sum_abun=sum(N
 
 jpn_abun_mat<-matrify(data.frame(jpn_abun_mat$SiteID, jpn_abun_mat$SpeciesFish, jpn_abun_mat$sum_abun))
 
-jpn_spac<-spacBreakdown(data=jpn_abun_mat, fgs=fgs, FGZ=c(1,2,4,6), TM2=c('tropical', 'subtropical'), thresh=100)
+jpn_spac<-spacBreakdown(data=jpn_abun_mat, fgs=fgs, FGZ=1:18, TM2=c('tropical', 'subtropical'), thresh=100)
 
 jpn_spac2<-left_join(jpn_spac, locs[,2:4], by='Site')
 
