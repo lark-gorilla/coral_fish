@@ -224,14 +224,15 @@ locs[locs$Site.name=='Heron - Tenemants',]$Site.name<-"Tenemants Buoy"
 locs[locs$Site.name=='Heron - Turbistari',]$Site.name<-"Turbistari"
 locs[locs$Site.name=="Heron - Libby's Lair",]$Site.name<-"Libbys Lair"
 
-# Fill NA transect lengths
-
-locs[which(is.na(locs$Fish.length)),]$Fish.length<-c(25, rep(50, 7))
-
 # Need to remove duplicate location names otherwise left_join inflates
 # survey data with duplicate sites!
 
 locs<-locs[-which(duplicated(locs$Site.name)),]
+
+# Fill NA transect lengths
+
+locs[which(is.na(locs$Fish.length)),]$Fish.length<-c(25, rep(50, 7))
+
 
 dat_aus<-left_join(dat_aus, locs[,c(1, 6,7)], by=c('Site'= 'Site.name'))
 
@@ -260,6 +261,14 @@ dat_aus_sub<-filter(dat_aus, !Site %in% "Mudjimba Island Shallow")
 ### Remove Summer sampling records, so all Aussie sites represent winter
 dat_aus_sub<-filter(dat_aus_sub, grepl('Win', dat_aus_sub$Trip))
 
+# How many species do we lose by removing summer obervations?
+# 64! 10 of these are seen in Japan but others still influence dendrogram
+# including Manta
+sp1<-unique(dat_aus$Fish)[-which(unique(dat_aus$Fish) %in% unique(dat_aus_sub$Fish))]
+dat_aus[dat_aus$Fish%in%sp1,]
+# write out list to edit other scripts
+#write.csv(dat_aus[dat_aus$Fish%in%sp1,], 'C:/coral_fish/data/Australia/sp_list_summer_only.csv', quote=F, row.names=F)
+
 dat_aus_sub[which(is.na(dat_aus_sub$Size)),]$Size<-c(7, 16, 7) #Fix to fill 3 NA fish size measures 
 dat_aus_sub[which(is.na(dat_aus_sub$Number)),]$Number<-c(7, 16, 7) #Fix to fill 3 NA fish size measures 
 
@@ -286,7 +295,7 @@ ggplot(aus_spac2, aes(x = SPRICraw, y = qD)) +
 
 # biomass calculations and conversion to biomass per transect effort
 # add FG to data
-dat_aus_sub<-left_join(dat_aus_sub, fgs[,c(1,21,22)], by=c('Fish'='Species'))
+dat_aus_sub<-left_join(dat_aus_sub, fgs[,c(1,15,19)], by=c('Fish'='Species'))
 # add mass calc columns to data
 dat_aus_sub<-left_join(dat_aus_sub, wtlen[,c(1:3)], by=c('Fish'='SpeciesName'))
 
@@ -295,10 +304,12 @@ biom1<-dat_aus_sub%>%group_by(Site, FG, ThermalAffinity2)%>%
   complete(Site, FG, ThermalAffinity2, fill=list(tot_biom=0))
 
 biom1<-left_join(biom1, dat_aus_sub%>%group_by(Site)%>%
-                   summarise(totMsurv=length(unique(id))), 
+                   summarise(totNsurv=length(unique(id))), 
                  by='Site')
 
 biom1<-left_join(biom1, locs[,c(1,6,7,15)], by=c('Site'='Site.name'))
+names(biom1)[8]<-'surv_length'
+biom1$totMsurv<-biom1$totNsurv*biom1$surv_length
 
 write.csv(biom1, 'C:/coral_fish/data/Australia/aus_sites_biomass.csv', quote=F, row.names=F) 
 
