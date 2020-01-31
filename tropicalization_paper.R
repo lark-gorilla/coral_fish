@@ -23,6 +23,11 @@ library(readxl)
 dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_clusters.csv', h=T)
 # Running on simplist classification of Position trait
 
+#Remove Aus summer only species
+aus_summer<-read.csv('C:/coral_fish/data/Australia/sp_list_summer_only.csv')
+dat[dat$Species %in% aus_summer$Fish,]$AUS_sp<-0
+
+
 
 # 2 types of plots: 
 # 1) FGs1-4 tropical vs subtropical standardised via scale free
@@ -171,7 +176,7 @@ FGnames<-as.data.frame(aggregate(FEcomp~FG, FGnames,
 ## first Redundancy plot with thermal affinity split
 
 red_dat<-rbind(dat[dat$AUS_sp>0,] %>% group_by(groupk19) %>% summarise(num=n()) %>%
-  arrange(num) %>% mutate(val=19:1, dat='Australia'),
+  arrange(num) %>% mutate(val=18:1, dat='Australia'),
   dat[dat$JPN_sp>0,] %>% group_by(groupk19) %>% summarise(num=n()) %>%
     arrange(num) %>% mutate(val=18:1, dat='Japan'))
 
@@ -184,7 +189,7 @@ red_dat_therm$val<-left_join(red_dat_therm, red_dat, by=c('dat', 'groupk19'))$va
 
 ggplot()+
   geom_bar(data=filter(red_dat_therm, dat=='Japan'), aes(x=val, y=num, fill=ThermalAffinity2),
-           stat='identity',position=position_dodge(preserve = 'single'))+
+           stat='identity',position=position_stack())+
   geom_hline(data=filter(red_dat_therm, dat=='Japan')%>%group_by(ThermalAffinity2)%>%summarise_all(mean),
              aes(yintercept=num, colour=ThermalAffinity2), linetype='dashed', colour=c('#2c7bb6', '#fdae61'))+
   scale_x_continuous(breaks=1:18, labels=FGnames[rev(filter(red_dat, dat=='Japan')$groupk19),]$FEcomp)+
@@ -197,10 +202,10 @@ ggplot()+
 
 ggplot()+
   geom_bar(data=filter(red_dat_therm, dat=='Australia'), aes(x=val, y=num, fill=ThermalAffinity2),
-           stat='identity',position=position_dodge(preserve = 'single'))+
+           stat='identity',position=position_stack())+
   geom_hline(data=filter(red_dat_therm, dat=='Australia')%>%group_by(ThermalAffinity2)%>%summarise_all(mean),
              aes(yintercept=num, colour=ThermalAffinity2), linetype='dashed', colour=c('#2c7bb6', '#fdae61'))+
-  scale_x_continuous(breaks=1:19, labels=FGnames[rev(filter(red_dat, dat=='Australia')$groupk19),]$FEcomp)+
+  scale_x_continuous(breaks=1:18, labels=FGnames[rev(filter(red_dat, dat=='Australia')$groupk19),]$FEcomp)+
   theme_bw()+theme(legend.justification = c(1, 1), legend.position = c(1, 1), 
                    legend.background = element_rect(colour = "black"), 
                    axis.text.x = element_text(angle = 60, hjust = 1))+
