@@ -337,14 +337,14 @@ biom3<-left_join(biom3, biom1[, c(1,9)]%>%group_by(Site)%>%summarise_all(first),
 biom3$corr_biom<-biom3$tot_biom/biom3$totMsurv
 
 
-mat_biom_jpn<-matrify(data.frame(biom3$Site, biom3$Fish, biom3$corr_biom))
+mat_biom_aus<-matrify(data.frame(biom3$Site, biom3$Fish, biom3$corr_biom))
 
 #site cluster plot based on biomass log transform
-plot(hclust(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm=T), 'average')) 
+plot(hclust(vegdist(decostand(mat_biom_aus, 'log'), 'bray', na.rm=T), 'average')) 
 
 # sqrt trans
-mat_biom_jpn<-matrify(data.frame(biom3$Site, biom3$Fish, sqrt(biom3$corr_biom)))
-plot(hclust(vegdist(mat_biom_jpn, 'bray', na.rm=T), 'average')) 
+mat_biom_aus<-matrify(data.frame(biom3$Site, biom3$Fish, sqrt(biom3$corr_biom)))
+plot(hclust(vegdist(mat_biom_aus, 'bray', na.rm=T), 'average')) 
 
 
 ### Correcting for uneven sampling
