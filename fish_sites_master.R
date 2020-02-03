@@ -173,11 +173,18 @@ plot(hclust(bdist, 'single'))  #splits sites into 2 clusts from lat <31deg N
 
 # biomass plot
 
-biom3<-dat%>%group_by(SpeciesFish, Name.x)%>%summarise(tot_biom=sum(Number*(a*SizeCm^b), na.rm=T))
+biom3<-dat%>%group_by(SpeciesFish, Name.x, SiteID)%>%
+  summarise(tot_biom=sum(Number*(a*SizeCm^b), na.rm=T))
+biom3<-left_join(biom3, biom1[, c(1,5)]%>%group_by(SiteID)%>%summarise_all(first), by='SiteID')
+biom3$corr_biom<-biom3$tot_biom/biom3$totMsurv
 
-mat_biom_jpn<-matrify(data.frame(biom3$Name.x, biom3$SpeciesFish, biom3$tot_biom))
+mat_biom_jpn<-matrify(data.frame(biom3$Name.x, biom3$SpeciesFish, biom3$corr_biom))
 
-# curiosity site cluster plot based on biomass
+#site cluster plot based on biomass log transform
+plot(hclust(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm=T), 'average')) 
+
+# sqrt trans
+mat_biom_jpn<-matrify(data.frame(biom3$Name.x, biom3$SpeciesFish, sqrt(biom3$corr_biom)))
 plot(hclust(vegdist(mat_biom_jpn, 'bray', na.rm=T), 'average')) 
 
 
@@ -315,17 +322,29 @@ write.csv(biom1, 'C:/coral_fish/data/Australia/aus_sites_biomass.csv', quote=F, 
 
 
 # make hclust visualisation
-mat_aus<-matrify(dat_aus_sub$Site, dat_aus_sub$Fish, dat_aus_sub$PA)
+mat_aus<-matrify(data.frame(dat_aus_sub$Site, dat_aus_sub$Fish, dat_aus_sub$PA))
 
 bdist<-dist.binary(mat_aus, method=1) # jaccard dist
 
 #shouldn't use ward centroid or median methods for jaccard dist
 plot(hclust(bdist, 'single'))  #splits sites into 3 clusts, make cut at Flat Rock 28 deg S
 
-mat_biom_aus<-matrify(data.frame(biom1$Site, biom1$Fish, biom3$mean_trans_biom))
+#biomass
 
-# curiosity site cluster plot based on biomass
-plot(hclust(vegdist(mat_biom_aus, 'bray', na.rm=T), 'average')) 
+biom3<-dat_aus_sub%>%group_by(Fish, Site)%>%
+  summarise(tot_biom=sum(Number*(a*Size^b), na.rm=T))
+biom3<-left_join(biom3, biom1[, c(1,9)]%>%group_by(Site)%>%summarise_all(first), by='Site')
+biom3$corr_biom<-biom3$tot_biom/biom3$totMsurv
+
+
+mat_biom_jpn<-matrify(data.frame(biom3$Site, biom3$Fish, biom3$corr_biom))
+
+#site cluster plot based on biomass log transform
+plot(hclust(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm=T), 'average')) 
+
+# sqrt trans
+mat_biom_jpn<-matrify(data.frame(biom3$Site, biom3$Fish, sqrt(biom3$corr_biom)))
+plot(hclust(vegdist(mat_biom_jpn, 'bray', na.rm=T), 'average')) 
 
 
 ### Correcting for uneven sampling
