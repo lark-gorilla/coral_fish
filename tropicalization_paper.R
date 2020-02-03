@@ -198,18 +198,24 @@ aus_trop_comm<-filter(bio_aus, ThermalAffinity2=='tropical')%>%
 aus_trop_comm$max_biom<-as.numeric(filter(aus_trop_comm, cor_biom<quantile(cor_biom, 0.95))%>%
                                      summarise(max_biom=max(cor_biom, na.rm=T)))
 
+# visual check to make sure things look right
+ggplot(data=rbind(data.frame(jpn_trop_comm, FG=99), jpn_trop_prop[c(6,8,9,2)]),
+       aes(x=lat, y=cor_biom))+geom_point()+geom_smooth()+facet_wrap(~FG, scales='free')
+
+ggplot(data=rbind(data.frame(jpn_trop_comm, FG=99), jpn_trop_prop[c(6,8,9,2)]),
+       aes(x=lat, y=cor_biom/max_biom))+geom_point()+geom_smooth()+facet_wrap(~FG, scales='free')
+
+
 # biomass
 ggplot(jpn_trop_prop, aes(x = lat, y = cor_biom/max_biom)) + 
   geom_point(aes(colour=factor(FG)))+geom_smooth(aes(colour=factor(FG)),se=F)+
   geom_smooth(data=jpn_trop_comm, se=F, colour='black', linetype='dashed')+
-  scale_x_continuous(breaks=24:35)+theme_bw()+ylim(c(0,1))
+  scale_x_continuous(breaks=24:35)+theme_bw()+ylim(c(0,1))+facet_wrap(~FG)
 
-ggplot(aus_trop_prop, aes(x = Lat, y = sum_biom/max_biom)) + 
-  geom_point(aes(colour=factor(FG)))+geom_smooth(aes(colour=factor(FG)),se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=0.1, linetype='dotted')+
-  geom_vline(xintercept=-25.5, linetype='dotted')+
-  geom_smooth(data=filter(aus_pa_biom_sum, ThermalAffinity2=='tropical')%>%group_by(Lat)%>%
-                summarise(sum_biom=sum(sum_biom))%>%mutate(max_biom=max(sum_biom, na.rm=T)),
-              se=F, colour='black', linetype='dashed')+scale_x_reverse(breaks=-23:-33)+theme_bw()
+ggplot(aus_trop_prop, aes(x = Lat, y = cor_biom/max_biom)) + 
+  geom_point(aes(colour=factor(FG)))+geom_smooth(aes(colour=factor(FG)),se=F)+
+  geom_smooth(data=aus_trop_comm, se=F, colour='black', linetype='dashed')+
+ scale_x_reverse(breaks=-23:-33)+ ylim(c(0,1))+theme_bw()+facet_wrap(~FG)
 
 # pa
 
