@@ -173,7 +173,20 @@ ggplot(bio_aus, aes(x = Lat, y = log((tot_biom/totMsurv+0.99)), colour=ThermalAf
 bio_aus$cor_biom<-bio_aus$tot_biom/bio_aus$totMsurv
 bio_jpn$cor_biom<-bio_jpn$tot_biom/bio_jpn$totMsurv
 
+
 # setup tropical only standardisation
+
+# Going to standardise using biomass of each FG in tropical site group
+# check for biomass outliers in these site groups
+
+ggplot(data=filter(bio_jpn, ThermalAffinity2=='tropical' & lat<29),
+       aes(x=lat, y=cor_biom))+geom_point(aes(colour=SiteID))+
+  geom_hline(data=filter(bio_jpn, ThermalAffinity2=='tropical' & lat<29)%>%
+               group_by(FG)%>%filter(., cor_biom<quantile(cor_biom, 0.95))%>%
+               summarise(max_biom=max(cor_biom, na.rm=T)),aes(yintercept = max_biom))+
+                facet_wrap(~FG, scales='free')
+
+
 jpn_trop_prop<-filter(bio_jpn, ThermalAffinity2=='tropical')%>%
   group_by(FG)%>%filter(., cor_biom<quantile(cor_biom, 0.95))%>%
   summarise(max_biom=max(cor_biom, na.rm=T))
