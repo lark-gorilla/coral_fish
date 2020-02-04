@@ -146,17 +146,16 @@ dat<-left_join(dat, fgs[,c(1,15,19)], by=c('SpeciesFish'='Species'))
 # add mass calc columns to data
 dat<-left_join(dat, wtlen[,c(1:3)], by=c('SpeciesFish'='SpeciesName'))
 
-biom1<-dat%>%group_by(SiteID, FG, ThermalAffinity2)%>%
+biom1<-dat%>%group_by(Site.trans.ID, FG, ThermalAffinity2)%>%
   summarise(tot_biom=sum(Number*(a*SizeCm^b), na.rm=T))%>%ungroup()%>%
-  complete(SiteID, FG, ThermalAffinity2, fill=list(tot_biom=0))
+  complete(Site.trans.ID, FG, ThermalAffinity2, fill=list(tot_biom=0))
 
-biom1<-left_join(biom1, dat%>%group_by(SiteID)%>%
-                   summarise(totMsurv=length(unique(Transect))*25), 
-                 by='SiteID')
+biom1$totMsurv<-25
+biom1$SiteID<-substr(biom1$Site.trans.ID, 1, (nchar(biom1$Site.trans.ID)-3))
 
 biom1<-left_join(biom1, locs[,2:4], by=c('SiteID'='Site'))
 
-write.csv(biom1, 'C:/coral_fish/data/Japan/Jpn_sites_biomass.csv', quote=F, row.names=F) 
+write.csv(biom1, 'C:/coral_fish/data/Japan/Jpn_transects_biomass.csv', quote=F, row.names=F) 
 
 
 # PLOTTING clusters
@@ -283,7 +282,12 @@ dat_aus_sub[which(is.na(dat_aus_sub$Size)),]$Size<-c(7, 16, 7) #Fix to fill 3 NA
 dat_aus_sub[which(is.na(dat_aus_sub$Number)),]$Number<-c(7, 16, 7) #Fix to fill 3 NA fish size measures 
 
 # Species accumulation curve
-#sumarise abundance per species per site, doing by transect sets the min abundance too low (6)
+#sumarise abundance per species per transect
+
+dat_aus_sub$Site.trans.ID<-paste(dat_aus_sub$Site, 
+          unlist(lapply(strsplit(as.character(unique(dat_aus_sub$id)), '_'),
+                        function(x){x[2]})), sep='_')
+
 aus_abun_mat<-dat_aus_sub %>% group_by(Site, Fish) %>% summarise(sum_abun=sum(Number))
 
 aus_abun_mat<-matrify(data.frame(aus_abun_mat$Site, aus_abun_mat$Fish, aus_abun_mat$sum_abun))
@@ -309,19 +313,20 @@ dat_aus_sub<-left_join(dat_aus_sub, fgs[,c(1,15,19)], by=c('Fish'='Species'))
 # add mass calc columns to data
 dat_aus_sub<-left_join(dat_aus_sub, wtlen[,c(1:3)], by=c('Fish'='SpeciesName'))
 
-biom1<-dat_aus_sub%>%group_by(Site, FG, ThermalAffinity2)%>%
+biom1<-dat_aus_sub%>%group_by(Site.trans.ID, FG, ThermalAffinity2)%>%
   summarise(tot_biom=sum(Number*(a*Size^b), na.rm=T))%>%ungroup()%>%
-  complete(Site, FG, ThermalAffinity2, fill=list(tot_biom=0))
+  complete(Site.trans.ID, FG, ThermalAffinity2, fill=list(tot_biom=0))
 
-biom1<-left_join(biom1, dat_aus_sub%>%group_by(Site)%>%
+biom1<-left_join(biom1, dat_aus_sub%>%group_by(Site.trans.ID)%>%
                    summarise(totNsurv=length(unique(id))), 
-                 by='Site')
+                 by='Site.trans.ID')
+biom1$Site<-substr(biom1$Site.trans.ID, 1, nchar(biom1$Site.trans.ID)-3)
 
 biom1<-left_join(biom1, locs[,c(1,6,7,15)], by=c('Site'='Site.name'))
-names(biom1)[8]<-'surv_length'
+names(biom1)[9]<-'surv_length'
 biom1$totMsurv<-biom1$totNsurv*biom1$surv_length
 
-write.csv(biom1, 'C:/coral_fish/data/Australia/aus_sites_biomass.csv', quote=F, row.names=F) 
+write.csv(biom1, 'C:/coral_fish/data/Australia/aus_transects_biomass.csv', quote=F, row.names=F) 
 
 
 # make hclust visualisation
