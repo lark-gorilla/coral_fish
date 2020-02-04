@@ -29,10 +29,10 @@ dat[dat$Species %in% aus_summer$Fish,]$AUS_sp<-0
 
 # Read in spacc-sprich and biomass data
 spr_jpn<-read.csv('C:/coral_fish/data/Japan/Jpn_sites_sprich_combos.csv')
-bio_jpn<-read.csv('C:/coral_fish/data/Japan/Jpn_sites_biomass.csv')
+bio_jpn<-read.csv('C:/coral_fish/data/Japan/Jpn_transects_biomass.csv')
 
 spr_aus<-read.csv('C:/coral_fish/data/Australia/Aus_sites_sprich_combos.csv')
-bio_aus<-read.csv('C:/coral_fish/data/Australia/Aus_sites_biomass.csv')
+bio_aus<-read.csv('C:/coral_fish/data/Australia/Aus_transects_biomass.csv')
 
 ### Functional Entity creation
 
@@ -173,27 +173,35 @@ ggplot(bio_aus, aes(x = Lat, y = log((tot_biom/totMsurv+0.99)), colour=ThermalAf
 bio_aus$cor_biom<-bio_aus$tot_biom/bio_aus$totMsurv
 bio_jpn$cor_biom<-bio_jpn$tot_biom/bio_jpn$totMsurv
 
-
 # setup tropical only standardisation
 
 # Going to standardise using biomass of each FG in tropical site group
 # check for biomass outliers in these site groups
 
-ggplot(data=filter(bio_jpn, ThermalAffinity2=='tropical' & lat<29),
+ggplot(data=filter(bio_jpn, ThermalAffinity2=='tropical' ),
        aes(x=lat, y=cor_biom))+geom_point(aes(colour=SiteID))+
   geom_hline(data=filter(bio_jpn, ThermalAffinity2=='tropical' & lat<29)%>%
-               group_by(FG)%>%filter(., cor_biom<quantile(cor_biom, 0.95))%>%
-               summarise(max_biom=max(cor_biom, na.rm=T)),aes(yintercept = max_biom))+
+               group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T)),
+             aes(yintercept = mean_biom))+
+  geom_hline(data=filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)%>%
+               group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T)),
+             aes(yintercept = mean_biom), col='red')+
                 facet_wrap(~FG, scales='free')
+# go for Irimote, lat<25.5 option in Japan
+
+ggplot(data=filter(bio_aus, ThermalAffinity2=='tropical'),
+       aes(x=Lat, y=cor_biom))+geom_point(aes(colour=Site))+
+  geom_hline(data=filter(bio_aus, ThermalAffinity2=='tropical' & Lat> -24.5)%>%
+               group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T)),aes(yintercept = mean_biom))+
+  facet_wrap(~FG, scales='free')
 
 
-jpn_trop_prop<-filter(bio_jpn, ThermalAffinity2=='tropical')%>%
-  group_by(FG)%>%filter(., cor_biom<quantile(cor_biom, 0.95))%>%
-  summarise(max_biom=max(cor_biom, na.rm=T))
 
-aus_trop_prop<-filter(bio_aus, ThermalAffinity2=='tropical')%>%
-  group_by(FG)%>%filter(., cor_biom<quantile(cor_biom, 0.95))%>%
-  summarise(max_biom=max(cor_biom, na.rm=T))
+jpn_trop_prop<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)%>%
+  group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T))
+
+aus_trop_prop<-filter(bio_aus, ThermalAffinity2=='tropical' & Lat> -24.5)%>%
+  group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T))
 
 jpn_trop_prop<-left_join(filter(bio_jpn, ThermalAffinity2=='tropical'),
                          jpn_trop_prop, by='FG')
@@ -202,14 +210,14 @@ aus_trop_prop<-left_join(filter(bio_aus, ThermalAffinity2=='tropical'),
                          aus_trop_prop, by='FG')
 
 jpn_trop_comm<-filter(bio_jpn, ThermalAffinity2=='tropical')%>%
-  group_by(lat)%>%summarise(cor_biom=sum(cor_biom))
-jpn_trop_comm$max_biom<-as.numeric(filter(jpn_trop_comm, cor_biom<quantile(cor_biom, 0.95))%>%
-  summarise(max_biom=max(cor_biom, na.rm=T)))
+  group_by(lat, Site.trans.ID)%>%summarise(cor_biom=sum(cor_biom))
+jpn_trop_comm$mean_biom<-as.numeric(filter(jpn_trop_comm, lat<25.5)%>%ungroup()%>%
+  summarise(mean_biom=mean(cor_biom, na.rm=T)))
 
 aus_trop_comm<-filter(bio_aus, ThermalAffinity2=='tropical')%>%
-  group_by(Lat)%>%summarise(cor_biom=sum(cor_biom))
-aus_trop_comm$max_biom<-as.numeric(filter(aus_trop_comm, cor_biom<quantile(cor_biom, 0.95))%>%
-                                     summarise(max_biom=max(cor_biom, na.rm=T)))
+  group_by(Lat, Site.trans.ID)%>%summarise(cor_biom=sum(cor_biom))
+aus_trop_comm$mean_biom<-as.numeric(filter(aus_trop_comm, Lat> -24.5)%>%ungroup()%>%
+                                     summarise(mean_biom=mean(cor_biom, na.rm=T)))
 
 # visual check to make sure things look right
 ggplot(data=rbind(data.frame(jpn_trop_comm, FG=99), jpn_trop_prop[c(6,8,9,2)]),
