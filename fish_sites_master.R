@@ -285,7 +285,7 @@ dat_aus_sub[which(is.na(dat_aus_sub$Number)),]$Number<-c(7, 16, 7) #Fix to fill 
 #sumarise abundance per species per transect
 
 dat_aus_sub$Site.trans.ID<-paste(dat_aus_sub$Site, 
-          unlist(lapply(strsplit(as.character(unique(dat_aus_sub$id)), '_'),
+          unlist(lapply(strsplit(as.character(dat_aus_sub$id), '_'),
                         function(x){x[2]})), sep='_')
 
 aus_abun_mat<-dat_aus_sub %>% group_by(Site, Fish) %>% summarise(sum_abun=sum(Number))
