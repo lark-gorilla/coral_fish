@@ -118,11 +118,14 @@ dat<-dat[-which(dat$SiteID==''),]
 
 # Species accumulation curve
 #sumarise abundance per species per site, doing by transect sets the min abundance too low (6)
-jpn_abun_mat<-dat %>% group_by(SiteID, SpeciesFish) %>% summarise(sum_abun=sum(Number))
+# Try summarise per transect
+dat$Site.trans.ID<-paste(dat$SiteID, dat$Transect, sep='_')
 
-jpn_abun_mat<-matrify(data.frame(jpn_abun_mat$SiteID, jpn_abun_mat$SpeciesFish, jpn_abun_mat$sum_abun))
+jpn_abun_mat<-dat %>% group_by(Site.trans.ID, SpeciesFish) %>% summarise(sum_abun=sum(Number))
 
-jpn_spac<-spacBreakdown(data=jpn_abun_mat, fgs=fgs, FGZ=1:18, TM2=c('tropical', 'subtropical'), thresh=100)
+jpn_abun_mat<-matrify(data.frame(jpn_abun_mat$Site.trans.ID, jpn_abun_mat$SpeciesFish, jpn_abun_mat$sum_abun))
+
+jpn_spac<-spacBreakdown(data=jpn_abun_mat, fgs=fgs, FGZ=1:18, TM2=c('tropical', 'subtropical'), thresh=50)
 
 jpn_spac2<-left_join(jpn_spac, locs[,2:4], by='Site')
 
