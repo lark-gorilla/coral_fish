@@ -193,7 +193,7 @@ ggplot(data=filter(bio_aus, ThermalAffinity2=='tropical'),
        aes(x=Lat, y=cor_biom))+geom_point(aes(colour=Site))+
   geom_hline(data=filter(bio_aus, ThermalAffinity2=='tropical' & Lat> -24.5)%>%
                group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T)),aes(yintercept = mean_biom))+
-  facet_wrap(~FG, scales='free')
+  facet_wrap(~FG, scales='free')+scale_x_reverse()
 
 
 
@@ -220,7 +220,7 @@ aus_trop_comm$mean_biom<-as.numeric(filter(aus_trop_comm, Lat> -24.5)%>%ungroup(
                                      summarise(mean_biom=mean(cor_biom, na.rm=T)))
 
 # visual check to make sure things look right
-ggplot(data=rbind(data.frame(jpn_trop_comm, FG=99), jpn_trop_prop[c(6,8,9,2)]),
+ggplot(data=rbind(data.frame(jpn_trop_comm, FG=99), jpn_trop_prop[c(7,1,9,10,2)]),
        aes(x=lat, y=cor_biom))+geom_point()+geom_smooth()+facet_wrap(~FG, scales='free')
 
 ggplot(data=rbind(data.frame(jpn_trop_comm, FG=99), jpn_trop_prop[c(6,8,9,2)]),
@@ -228,15 +228,24 @@ ggplot(data=rbind(data.frame(jpn_trop_comm, FG=99), jpn_trop_prop[c(6,8,9,2)]),
 
 
 # biomass
-ggplot(jpn_trop_prop, aes(x = lat, y = cor_biom/max_biom)) + 
-  geom_point(aes(colour=factor(FG)))+geom_smooth(aes(colour=factor(FG)),se=F)+
-  geom_smooth(data=jpn_trop_comm, se=F, colour='black', linetype='dashed')+
-  scale_x_continuous(breaks=24:35)+theme_bw()+ylim(c(0,1))+facet_wrap(~FG)
+outlz<-which(jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom>10)
 
-ggplot(aus_trop_prop, aes(x = Lat, y = cor_biom/max_biom)) + 
-  geom_point(aes(colour=factor(FG)))+geom_smooth(aes(colour=factor(FG)),se=F)+
+ggplot(jpn_trop_prop[-outlz,], aes(x = lat, y = cor_biom/mean_biom)) + 
+  geom_point(aes(colour=factor(FG)))+
+  geom_smooth(aes(colour=factor(FG)),se=F)+
+  geom_smooth(data=jpn_trop_comm, se=F, colour='black', linetype='dashed')+
+  scale_x_continuous(breaks=24:35)+theme_bw()+
+  facet_wrap(~FG, scales='free')+theme(legend.position = "none")
+
+outlz<-which(aus_trop_prop$cor_biom/aus_trop_prop$mean_biom>10)
+
+ggplot(aus_trop_prop[-outlz,], aes(x = Lat, y = cor_biom/mean_biom)) + 
+  geom_point(aes(colour=factor(FG)))+
+  geom_smooth(aes(colour=factor(FG)),se=F)+
   geom_smooth(data=aus_trop_comm, se=F, colour='black', linetype='dashed')+
- scale_x_reverse(breaks=-23:-33)+ ylim(c(0,1))+theme_bw()+facet_wrap(~FG)
+ scale_x_reverse(breaks=-23:-33)+theme_bw()+
+  facet_wrap(~FG, scales='free')+theme(legend.position = "none")
+# might need more wiggliness for Aussie GAM
 
 # pa
 
