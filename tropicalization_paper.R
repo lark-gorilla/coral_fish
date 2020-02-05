@@ -16,6 +16,7 @@ library(ggwordcloud)
 library(vegan)
 library(ade4)
 library(readxl)
+library(mgcv)
 
 #################### read data ##########################
 ##########################################################
@@ -257,27 +258,58 @@ ggplot(aus_trop_prop[-outlz,], aes(x = Lat, y = cor_biom/mean_biom)) +
   facet_wrap(~FG, scales='free')+theme(legend.position = "none")
 # might need more wiggliness for Aussie GAM
 
-
-ggplot(jpn_trop_prop, aes(x = Lat, y = sum_pa/max_sp)) + 
-  geom_point(aes(colour=factor(FG)))+geom_smooth(aes(colour=factor(FG)),se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=0.1, linetype='dotted')+
-  geom_vline(xintercept=31, linetype='dotted')+
-  geom_smooth(data=filter(jpn_pa_biom_sum, ThermalAffinity2=='tropical')%>%group_by(Lat)%>%
-                summarise(sum_pa=sum(sum_pa))%>%mutate(max_sp=max(sum_pa)),
-              se=F, colour='black', linetype='dashed')+scale_x_continuous(breaks=24:35)+theme_bw()
-
-ggplot(aus_trop_prop, aes(x = Lat, y = sum_pa/max_sp)) + 
-  geom_point(aes(colour=factor(FG)))+geom_smooth(aes(colour=factor(FG)),se=F)+geom_hline(yintercept=0)+geom_hline(yintercept=0.1, linetype='dotted')+
-  geom_vline(xintercept=-25.5, linetype='dotted')+
-  geom_smooth(data=filter(aus_pa_biom_sum, ThermalAffinity2=='tropical')%>%group_by(Lat)%>%
-                summarise(sum_pa=sum(sum_pa))%>%mutate(max_sp=max(sum_pa)),
-              se=F, colour='black', linetype='dashed')+scale_x_reverse(breaks=-23:-33)+theme_bw()
-
-
 # calc statistics 
 #1) make gams per FG and for comm to visualise tropicalization
 #2) make mixed anovas to compare FG tropicalization 'levels' within each site-group 
 
+# setup data for analyses
+# add tropicalization_metric: >1 = more biomass at site compared to tropical site-group
+jpn_trop_comm$trop_met<-jpn_trop_comm$cor_biom/jpn_trop_comm$mean_biom
+aus_trop_comm$trop_met<-aus_trop_comm$cor_biom/aus_trop_comm$mean_biom
+jpn_trop_prop$trop_met<-jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom
+aus_trop_prop$trop_met<-aus_trop_prop$cor_biom/aus_trop_prop$mean_biom
 
+# create site-groups based on dendrogram clustering
+
+# 1) GAMS
+
+jpn_comm_m1<-gam(log(trop_met)~s(lat), data=jpn_trop_comm, method = 'REML')
+summary(jpn_comm_m1)
+coef(jpn_comm_m1)
+plot(jpn_comm_m1, residuals = T, pch=1, cex=1, rug=T,
+     shade=T, seWithMean = T, shift = coef(jpn_comm_m1)[1],
+     xlab='Latitude', ylab='delta Biomass relative to tropical site')
+jpn_comm_m1$sp # smoothing parameter
+par(mfrow=c(2,2))
+gam.check(jpn_comm_m1)
+jpn_comm_m2<-gam(sqrt(sqrt(trop_met))~s(lat), data=jpn_trop_comm, method = 'REML')
+gam.check(jpn_comm_m2)
+plot(jpn_comm_m2, residuals = T, pch=1, cex=1, rug=T,
+     shade=T, seWithMean = T, shift = coef(jpn_comm_m2)[1],
+     xlab='Latitude', ylab='delta Biomass relative to tropical site')
+jpn_comm_m2$sp
+jpn_comm_m3<-gam(sqrt(sqrt(trop_met))~s(lat, sp=0.1), data=jpn_trop_comm, method = 'REML')
+gam.check(jpn_comm_m3)
+plot(jpn_comm_m3, residuals = T, pch=1, cex=1, rug=T,
+     shade=T, seWithMean = T, shift = coef(jpn_comm_m3)[1],
+     xlab='Latitude', ylab='delta Biomass relative to tropical site')
+
+jpn_trop_prop<-jpn_trop_prop[-which(jpn_trop_prop$FG %in% c(5,7,11,19)),] # drop some FGs
+jpn_trop_prop$FG<-factor(jpn_trop_prop$FG)
+
+
+qplot(data=jpn_trop_prop, x=trop_met, geom='histogram')+facet_wrap(~FG, scales='free')
+qplot(data=jpn_trop_prop, x=sqrt(sqrt(trop_met)), geom='histogram')+facet_wrap(~FG, scales='free')
+qplot(data=jpn_trop_prop, x=log(trop_met+0.01), geom='histogram')+facet_wrap(~FG, scales='free')
+
+jpn_fg_m1<-gam(sqrt(sqrt(trop_met))~s(lat, by=FG, k=10, sp=0.1)+FG, data=jpn_trop_prop, method = 'REML')
+summary(jpn_fg_m1)
+coef(jpn_fg_m1)
+gam.check(jpn_fg_m1)
+plot(jpn_fg_m1, residuals = F, rug=T, pages=1, all.terms = T)
+
+jpn_gam_pred<-expand.grid(lat=seq(24.3, 35, 0.1), FG=c(1:4, 6, 9, 10, 12:17))
+jpn_gam_pred<-cbind(jpn_gam_pred,predict.gam(jpn_fg_m1, newdata =jpn_gam_pred, type='link', se.fit=T ))
 
 
 # compare delta values with mean FG thermal midpoint data (stuart-smith)
