@@ -162,12 +162,24 @@ ggplot(bio_aus, aes(x = Lat, y = tot_biom/totMsurv, colour=ThermalAffinity2)) +
   geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
   scale_x_reverse()+theme_bw()
 
-ggplot(bio_jpn, aes(x = lat, y = log((tot_biom/totMsurv+0.99)), colour=ThermalAffinity2)) + 
+ggplot(spr_jpn, aes(x = lat, y = qD, colour=ThermalAffinity2)) + 
   geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+theme_bw()
 
-ggplot(bio_aus, aes(x = Lat, y = log((tot_biom/totMsurv+0.99)), colour=ThermalAffinity2)) + 
+ggplot(spr_aus, aes(x = Lat, y = qD, colour=ThermalAffinity2)) + 
   geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
   scale_x_reverse()+theme_bw()
+
+# make same plot with spprich data while we're here
+
+ggplot(bio_jpn, aes(x = lat, y = tot_biom/totMsurv, colour=ThermalAffinity2)) + 
+  geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+theme_bw()
+
+ggplot(bio_aus, aes(x = Lat, y = tot_biom/totMsurv, colour=ThermalAffinity2)) + 
+  geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
+  scale_x_reverse()+theme_bw()
+
+# 0.001 chosen as min constant as min corr biomass val
+# in Aus is 0.0016 and second min in Japan is 0.00098
 
 # ok biomass looks ok
 bio_aus$cor_biom<-bio_aus$tot_biom/bio_aus$totMsurv
@@ -194,8 +206,6 @@ ggplot(data=filter(bio_aus, ThermalAffinity2=='tropical'),
   geom_hline(data=filter(bio_aus, ThermalAffinity2=='tropical' & Lat> -24.5)%>%
                group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T)),aes(yintercept = mean_biom))+
   facet_wrap(~FG, scales='free')+scale_x_reverse()
-
-
 
 jpn_trop_prop<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)%>%
   group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T))
