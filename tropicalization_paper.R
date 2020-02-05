@@ -264,52 +264,72 @@ ggplot(aus_trop_prop[-outlz,], aes(x = Lat, y = cor_biom/mean_biom)) +
 
 # setup data for analyses
 # add tropicalization_metric: >1 = more biomass at site compared to tropical site-group
-jpn_trop_comm$trop_met<-jpn_trop_comm$cor_biom/jpn_trop_comm$mean_biom
-aus_trop_comm$trop_met<-aus_trop_comm$cor_biom/aus_trop_comm$mean_biom
-jpn_trop_prop$trop_met<-jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom
-aus_trop_prop$trop_met<-aus_trop_prop$cor_biom/aus_trop_prop$mean_biom
+# Using 4th root transformation to make data approx normality (still 0's though)
+jpn_trop_comm$trop_met<-(jpn_trop_comm$cor_biom/jpn_trop_comm$mean_biom)^0.25
+aus_trop_comm$trop_met<-(aus_trop_comm$cor_biom/aus_trop_comm$mean_biom)^0.25
+jpn_trop_prop$trop_met<-(jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom)^0.25
+aus_trop_prop$trop_met<-(aus_trop_prop$cor_biom/aus_trop_prop$mean_biom)^0.25
 
 # create site-groups based on dendrogram clustering
 
 # 1) GAMS
 
-jpn_comm_m1<-gam(log(trop_met)~s(lat), data=jpn_trop_comm, method = 'REML')
-summary(jpn_comm_m1)
-coef(jpn_comm_m1)
-plot(jpn_comm_m1, residuals = T, pch=1, cex=1, rug=T,
-     shade=T, seWithMean = T, shift = coef(jpn_comm_m1)[1],
-     xlab='Latitude', ylab='delta Biomass relative to tropical site')
-jpn_comm_m1$sp # smoothing parameter
-par(mfrow=c(2,2))
-gam.check(jpn_comm_m1)
-jpn_comm_m2<-gam(sqrt(sqrt(trop_met))~s(lat), data=jpn_trop_comm, method = 'REML')
+jpn_comm_m2<-gam(trop_met~s(lat), data=jpn_trop_comm, method = 'REML')
 gam.check(jpn_comm_m2)
 plot(jpn_comm_m2, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(jpn_comm_m2)[1],
      xlab='Latitude', ylab='delta Biomass relative to tropical site')
 jpn_comm_m2$sp
-jpn_comm_m3<-gam(sqrt(sqrt(trop_met))~s(lat, sp=0.1), data=jpn_trop_comm, method = 'REML')
+jpn_comm_m3<-gam(trop_met~s(lat, k=7, sp=0.1), data=jpn_trop_comm, method = 'REML')
 gam.check(jpn_comm_m3)
 plot(jpn_comm_m3, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(jpn_comm_m3)[1],
      xlab='Latitude', ylab='delta Biomass relative to tropical site')
 
+jpn_gam_pred<-expand.grid(lat=seq(24.3, 35, 0.1), FG='all')
+jpn_gam_pred<-cbind(jpn_gam_pred,predict.gam(jpn_comm_m3, newdata =jpn_gam_pred, type='link', se.fit=T ))
+
+
 jpn_trop_prop<-jpn_trop_prop[-which(jpn_trop_prop$FG %in% c(5,7,11,19)),] # drop some FGs
 jpn_trop_prop$FG<-factor(jpn_trop_prop$FG)
-
 
 qplot(data=jpn_trop_prop, x=trop_met, geom='histogram')+facet_wrap(~FG, scales='free')
 qplot(data=jpn_trop_prop, x=sqrt(sqrt(trop_met)), geom='histogram')+facet_wrap(~FG, scales='free')
 qplot(data=jpn_trop_prop, x=log(trop_met+0.01), geom='histogram')+facet_wrap(~FG, scales='free')
 
-jpn_fg_m1<-gam(sqrt(sqrt(trop_met))~s(lat, by=FG, k=10, sp=0.1)+FG, data=jpn_trop_prop, method = 'REML')
+jpn_fg_m1<-gam(trop_met~s(lat, by=FG, k=7, sp=0.1)+FG, data=jpn_trop_prop[jpn_trop_prop$trop_met<10^0.25,], method = 'REML')
 summary(jpn_fg_m1)
 coef(jpn_fg_m1)
 gam.check(jpn_fg_m1)
 plot(jpn_fg_m1, residuals = F, rug=T, pages=1, all.terms = T)
 
-jpn_gam_pred<-expand.grid(lat=seq(24.3, 35, 0.1), FG=c(1:4, 6, 9, 10, 12:17))
-jpn_gam_pred<-cbind(jpn_gam_pred,predict.gam(jpn_fg_m1, newdata =jpn_gam_pred, type='link', se.fit=T ))
+jpn_gam_pred2<-expand.grid(lat=seq(24.3, 35, 0.1), FG=c(1:4, 6, 9, 10, 12:17))
+jpn_gam_pred2<-cbind(jpn_gam_pred2,predict.gam(jpn_fg_m1, newdata =jpn_gam_pred2, type='link', se.fit=T ))
+
+jpn_gam_pred2$FG<-as.character(jpn_gam_pred2$FG)
+
+jpn_gam_pred<-rbind(jpn_gam_pred, jpn_gam_pred2)
+
+ggplot(jpn_gam_pred[jpn_gam_pred$FG!='all',], aes(x = lat, y = fit^4,
+                  ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4))+  
+  geom_ribbon(data=jpn_gam_pred[jpn_gam_pred$FG=='all',]%>%rename(FG2=FG), fill='yellow', alpha=0.5)+
+  geom_line(data=jpn_gam_pred[jpn_gam_pred$FG=='all',]%>%rename(FG2=FG))+
+  geom_ribbon(fill='red', alpha=0.5)+geom_line(colour='red')+
+                scale_x_continuous(breaks=24:35)+theme_bw()+
+                facet_wrap(~FG)
+                
+ggplot(jpn_gam_pred[jpn_gam_pred$FG!='all',], aes(x = lat))+  
+  geom_ribbon(data=jpn_gam_pred[jpn_gam_pred$FG=='all',]%>%rename(FG2=FG), 
+              aes(ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4),fill='yellow', alpha=0.5)+
+  geom_line(data=jpn_gam_pred[jpn_gam_pred$FG=='all',]%>%rename(FG2=FG), aes(y = fit^4))+
+  geom_ribbon(aes(ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4),fill='red', alpha=0.5)+geom_line(aes(y = fit^4),colour='red')+
+  scale_x_continuous(breaks=24:35)+theme_bw()+
+  geom_point(data=jpn_trop_prop, aes(x=lat, y=cor_biom/mean_biom), shape=1, size=0.6)+
+  facet_wrap(~FG, scales='free')
+
+
+
+
 
 
 # compare delta values with mean FG thermal midpoint data (stuart-smith)
