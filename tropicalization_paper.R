@@ -208,6 +208,7 @@ ggplot(data=filter(bio_aus, ThermalAffinity2=='tropical'),
                group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T)),aes(yintercept = mean_biom))+
   facet_wrap(~FG, scales='free')+scale_x_reverse()
 
+# Calc standardisation
 jpn_trop_prop<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)%>%
   group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T))
 
@@ -221,12 +222,12 @@ aus_trop_prop<-left_join(filter(bio_aus, ThermalAffinity2=='tropical'),
                          aus_trop_prop, by='FG')
 
 jpn_trop_comm<-filter(bio_jpn, ThermalAffinity2=='tropical')%>%
-  group_by(lat, Site.trans.ID)%>%summarise(cor_biom=sum(cor_biom))
+  group_by(lat, SiteID, Site.trans.ID)%>%summarise(cor_biom=sum(cor_biom))
 jpn_trop_comm$mean_biom<-as.numeric(filter(jpn_trop_comm, lat<25.5)%>%ungroup()%>%
   summarise(mean_biom=mean(cor_biom, na.rm=T)))
 
 aus_trop_comm<-filter(bio_aus, ThermalAffinity2=='tropical')%>%
-  group_by(Lat, Site.trans.ID)%>%summarise(cor_biom=sum(cor_biom))
+  group_by(Lat, Site, Site.trans.ID)%>%summarise(cor_biom=sum(cor_biom))
 aus_trop_comm$mean_biom<-as.numeric(filter(aus_trop_comm, Lat> -24.5)%>%ungroup()%>%
                                      summarise(mean_biom=mean(cor_biom, na.rm=T)))
 
@@ -274,49 +275,119 @@ aus_trop_prop$trop_met<-(aus_trop_prop$cor_biom/aus_trop_prop$mean_biom)^0.25
 
 # 1) GAMS
 
+# Japan all FGs
 jpn_comm_m2<-gam(trop_met~s(lat), data=jpn_trop_comm, method = 'REML')
+par(mfrow=c(2,2))
 gam.check(jpn_comm_m2)
 plot(jpn_comm_m2, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(jpn_comm_m2)[1],
      xlab='Latitude', ylab='delta Biomass relative to tropical site')
 jpn_comm_m2$sp
-jpn_comm_m3<-gam(trop_met~s(lat, k=7, sp=0.1), data=jpn_trop_comm, method = 'REML')
+jpn_comm_m3<-gam(trop_met~s(lat, k=5, sp=0.1)+s(SiteID, bs='re'), data=jpn_trop_comm, method = 'REML')
 gam.check(jpn_comm_m3)
 plot(jpn_comm_m3, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(jpn_comm_m3)[1],
      xlab='Latitude', ylab='delta Biomass relative to tropical site')
 
 jpn_gam_pred<-expand.grid(lat=seq(24.3, 35, 0.1), FG='all')
-jpn_gam_pred<-cbind(jpn_gam_pred,predict.gam(jpn_comm_m3, newdata =jpn_gam_pred, type='link', se.fit=T ))
+jpn_gam_pred<-cbind(jpn_gam_pred,predict.gam(jpn_comm_m3, newdata =jpn_gam_pred, 
+                     exclude='s(SiteID)', newdata.guaranteed = T, type='link', se.fit=T ))
+
+# Australia all FGs
+# exclude 1 outlier
+aus_comm_m3<-gam(trop_met~s(Lat, k=5, sp=0.1)+s(Site, bs='re'), data=aus_trop_comm[aus_trop_comm$trop_met<1.5,], method = 'REML')
+summary(aus_comm_m3)
+gam.check(aus_comm_m3)
+plot(aus_comm_m3, residuals = T, pch=1, cex=1, rug=T,
+     shade=T, seWithMean = T, shift = coef(aus_comm_m3)[1],
+     xlab='Latitude', ylab='delta Biomass relative to tropical site')
+
+aus_gam_pred<-expand.grid(Lat=seq(-31, -23, 0.1), FG='all')
+aus_gam_pred<-cbind(aus_gam_pred,predict.gam(aus_comm_m3, newdata =aus_gam_pred,
+                    type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T ))
 
 
-jpn_trop_prop<-jpn_trop_prop[-which(jpn_trop_prop$FG %in% c(5,7,11,19)),] # drop some FGs
-jpn_trop_prop$FG<-factor(jpn_trop_prop$FG)
+# Japan indivdiual FGs
 
-qplot(data=jpn_trop_prop, x=trop_met, geom='histogram')+facet_wrap(~FG, scales='free')
-qplot(data=jpn_trop_prop, x=sqrt(sqrt(trop_met)), geom='histogram')+facet_wrap(~FG, scales='free')
-qplot(data=jpn_trop_prop, x=log(trop_met+0.01), geom='histogram')+facet_wrap(~FG, scales='free')
+# FG1
+jpn.fg1<-gam(trop_met~s(lat, k=5)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==1), method = 'REML')
+modl<-jpn.fg1
+summary(modl)
+par(mfrow=c(2,2));gam.check(modl)
+par(mfrow=c(1,1));plot(modl, residuals = T, pch=1, cex=1, rug=T,
+     shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
+qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),type='link', se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
+  geom_jitter(data=filter(jpn_trop_prop, FG==1),aes(x=lat, y=trop_met^4), shape=1, height=0.05,width=0.1)
 
-jpn_fg_m1<-gam(trop_met~s(lat, by=FG, k=7, sp=0.1)+FG, data=jpn_trop_prop[jpn_trop_prop$trop_met<10^0.25,], method = 'REML')
+jpn.fg2<-gam(trop_met~s(lat, k=7, sp=0.1), data=filter(jpn_trop_prop, FG==2), method = 'REML')
+modl<-jpn.fg2
+summary(modl)
+par(mfrow=c(2,2));gam.check(modl)
+par(mfrow=c(1,1));plot(modl, residuals = T, pch=1, cex=1, rug=T,
+                       shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
+
+jpn.fg3<-gam(trop_met~s(lat, k=7, sp=0.1)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==3), method = 'REML')
+modl<-jpn.fg3
+summary(modl)
+par(mfrow=c(2,2));gam.check(modl)
+par(mfrow=c(1,1));plot(modl, residuals = T, pch=1, cex=1, rug=T,
+                       shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
+
+#Individual FGs modelled in one GAM
+
+#Japan
+
+jpn_trop_prop2<-filter(jpn_trop_prop, FG %in% c(1,2,4,6,9,10,12,15,16)) # drop some FGs
+jpn_trop_prop2$FG<-factor(jpn_trop_prop2$FG)
+
+jpn_fg_m1<-gam(trop_met~s(lat, by=FG, k=7, sp=0.1)+FG +s(SiteID, bs='re'), data=jpn_trop_prop2[jpn_trop_prop2$trop_met<10^0.25,], method = 'REML')
 summary(jpn_fg_m1)
 coef(jpn_fg_m1)
 gam.check(jpn_fg_m1)
 plot(jpn_fg_m1, residuals = F, rug=T, pages=1, all.terms = T)
 
-jpn_gam_pred2<-expand.grid(lat=seq(24.3, 35, 0.1), FG=c(1:4, 6, 9, 10, 12:17))
-jpn_gam_pred2<-cbind(jpn_gam_pred2,predict.gam(jpn_fg_m1, newdata =jpn_gam_pred2, type='link', se.fit=T ))
+jpn_gam_pred2<-expand.grid(lat=seq(24.3, 35, 0.1), FG=c(1,2,4, 6, 9, 10, 12, 15, 16))
+jpn_gam_pred2<-cbind(jpn_gam_pred2,predict.gam(jpn_fg_m1, newdata =jpn_gam_pred2,
+                     type='link', se.fit=T,exclude='s(SiteID)', newdata.guaranteed = T ))
 
 jpn_gam_pred2$FG<-as.character(jpn_gam_pred2$FG)
+jpn_gam_pred_all<-rbind(jpn_gam_pred, jpn_gam_pred2)
 
-jpn_gam_pred<-rbind(jpn_gam_pred, jpn_gam_pred2)
-
-ggplot(jpn_gam_pred[jpn_gam_pred$FG!='all',], aes(x = lat, y = fit^4,
+ggplot(jpn_gam_pred_all[jpn_gam_pred_all$FG!='all',], aes(x = lat, y = fit^4,
                   ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4))+  
-  geom_ribbon(data=jpn_gam_pred[jpn_gam_pred$FG=='all',]%>%rename(FG2=FG), fill='yellow', alpha=0.5)+
-  geom_line(data=jpn_gam_pred[jpn_gam_pred$FG=='all',]%>%rename(FG2=FG))+
+  geom_ribbon(data=jpn_gam_pred_all[jpn_gam_pred_all$FG=='all',]%>%rename(FG2=FG), fill='yellow', alpha=0.5)+
+  geom_line(data=jpn_gam_pred_all[jpn_gam_pred_all$FG=='all',]%>%rename(FG2=FG))+
   geom_ribbon(fill='red', alpha=0.5)+geom_line(colour='red')+
                 scale_x_continuous(breaks=24:35)+theme_bw()+
                 facet_wrap(~FG)
+
+# Australia
+
+aus_trop_prop2<-filter(aus_trop_prop, FG %in% c(1,2,4,6,9,10,12,15,16)) # drop some FGs
+aus_trop_prop2$FG<-factor(aus_trop_prop2$FG)
+
+aus_fg_m1<-gam(trop_met~s(Lat, by=FG, k=7, sp=0.1)+FG +s(Site, bs='re'), data=aus_trop_prop2[aus_trop_prop2$trop_met<10^0.25,], method = 'REML')
+summary(aus_fg_m1)
+coef(aus_fg_m1)
+gam.check(aus_fg_m1)
+plot(aus_fg_m1, residuals = F, rug=T, pages=1, all.terms = T)
+
+aus_gam_pred2<-expand.grid(Lat=seq(-31, -23, 0.1), FG=c(1,2,4, 6, 9, 10, 12, 15, 16))
+aus_gam_pred2<-cbind(aus_gam_pred2,predict.gam(aus_fg_m1, newdata =aus_gam_pred2,
+                                               type='link', se.fit=T,exclude='s(Site)', newdata.guaranteed = T ))
+
+aus_gam_pred2$FG<-as.character(aus_gam_pred2$FG)
+aus_gam_pred_all<-rbind(aus_gam_pred, aus_gam_pred2)
+
+ggplot(aus_gam_pred_all[aus_gam_pred_all$FG!='all',], aes(x = Lat, y = fit^4,
+                                                  ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4))+  
+  geom_ribbon(data=aus_gam_pred_all[aus_gam_pred_all$FG=='all',]%>%rename(FG2=FG), fill='yellow', alpha=0.5)+
+  geom_line(data=aus_gam_pred_all[aus_gam_pred_all$FG=='all',]%>%rename(FG2=FG))+
+  geom_ribbon(fill='red', alpha=0.5)+geom_line(colour='red')+
+ +theme_bw()+scale_x_reverse()+
+  facet_wrap(~FG)
+
+
                 
 ggplot(jpn_gam_pred[jpn_gam_pred$FG!='all',], aes(x = lat))+  
   geom_ribbon(data=jpn_gam_pred[jpn_gam_pred$FG=='all',]%>%rename(FG2=FG), 
@@ -324,7 +395,7 @@ ggplot(jpn_gam_pred[jpn_gam_pred$FG!='all',], aes(x = lat))+
   geom_line(data=jpn_gam_pred[jpn_gam_pred$FG=='all',]%>%rename(FG2=FG), aes(y = fit^4))+
   geom_ribbon(aes(ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4),fill='red', alpha=0.5)+geom_line(aes(y = fit^4),colour='red')+
   scale_x_continuous(breaks=24:35)+theme_bw()+
-  geom_point(data=jpn_trop_prop, aes(x=lat, y=cor_biom/mean_biom), shape=1, size=0.6)+
+  geom_point(data=jpn_trop_prop2, aes(x=lat, y=cor_biom/mean_biom), shape=1, size=0.6)+
   facet_wrap(~FG, scales='free')
 
 
