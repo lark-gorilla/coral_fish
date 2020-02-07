@@ -310,7 +310,7 @@ aus_gam_pred<-cbind(aus_gam_pred,predict.gam(aus_comm_m3, newdata =aus_gam_pred,
 # Japan indivdiual FGs
 
 # FG1
-jpn.fg1<-gam(trop_met~s(lat, k=5)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==1), method = 'REML')
+jpn.fg1<-gam(trop_met~s(lat, k=5, sp=0.1)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==1), method = 'REML')
 modl<-jpn.fg1
 summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
@@ -319,19 +319,24 @@ par(mfrow=c(1,1));plot(modl, residuals = T, pch=1, cex=1, rug=T,
 qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),type='link', se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
   geom_jitter(data=filter(jpn_trop_prop, FG==1),aes(x=lat, y=trop_met^4), shape=1, height=0.05,width=0.1)
 
-jpn.fg2<-gam(trop_met~s(lat, k=7, sp=0.1), data=filter(jpn_trop_prop, FG==2), method = 'REML')
+jpn.fg2<-gam(trop_met~s(lat, k=5, sp=0.1)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==2), method = 'REML')
 modl<-jpn.fg2
 summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
-par(mfrow=c(1,1));plot(modl, residuals = T, pch=1, cex=1, rug=T,
+plot(modl, residuals = T, pch=1, cex=1, rug=T,
                        shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
+qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),type='link', se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
+  geom_jitter(data=filter(jpn_trop_prop, FG==2),aes(x=lat, y=trop_met^4), shape=1, height=0.05,width=0.1)
 
-jpn.fg3<-gam(trop_met~s(lat, k=7, sp=0.1)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==3), method = 'REML')
-modl<-jpn.fg3
+jpn.fg3<-gam(trop_met~s(lat, k=5, sp=0.1)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==3), method = 'REML')
+modl<-jpn.fg2
 summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
-par(mfrow=c(1,1));plot(modl, residuals = T, pch=1, cex=1, rug=T,
-                       shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
+plot(modl, residuals = T, pch=1, cex=1, rug=T,
+     shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
+qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),type='link', se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
+  geom_jitter(data=filter(jpn_trop_prop, FG==3),aes(x=lat, y=trop_met^4), shape=1, height=0.05,width=0.1)
+
 
 #Individual FGs modelled in one GAM
 
