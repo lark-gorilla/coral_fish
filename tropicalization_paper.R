@@ -17,6 +17,7 @@ library(vegan)
 library(ade4)
 library(readxl)
 library(mgcv)
+library(lmerTest)
 
 #################### read data ##########################
 ##########################################################
@@ -34,6 +35,10 @@ bio_jpn<-read.csv('C:/coral_fish/data/Japan/Jpn_transects_biomass.csv')
 
 spr_aus<-read.csv('C:/coral_fish/data/Australia/Aus_sites_sprich_combos.csv')
 bio_aus<-read.csv('C:/coral_fish/data/Australia/Aus_transects_biomass.csv')
+
+# FG to factor
+bio_jpn$FG<-factor(bio_jpn$FG)
+bio_aus$FG<-factor(bio_aus$FG)
 
 ### Functional Entity creation
 
@@ -179,12 +184,12 @@ ggplot(bio_aus, aes(x = Lat, y = tot_biom/totMsurv, colour=ThermalAffinity2)) +
   geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
   scale_x_reverse()+theme_bw()
 
-# 0.001 chosen as min constant as min corr biomass val
+# If Logging: 0.001 chosen as min constant as min corr biomass val
 # in Aus is 0.0016 and second min in Japan is 0.00098
 
 # ok biomass looks ok
-bio_aus$cor_biom<-(bio_aus$tot_biom/bio_aus$totMsurv)^0.25
-bio_jpn$cor_biom<-(bio_jpn$tot_biom/bio_jpn$totMsurv)^0.25
+bio_aus$cor_biom<-bio_aus$tot_biom/bio_aus$totMsurv
+bio_jpn$cor_biom<-bio_jpn$tot_biom/bio_jpn$totMsurv
 
 # setup tropical only standardisation
 
@@ -211,6 +216,35 @@ ggplot(data=filter(bio_aus, ThermalAffinity2=='tropical'),
 # Calc standardisation
 jpn_trop_prop<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)%>%
   group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T))
+
+# trial how to generate best mean method with logged data
+
+qplot(data=filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5), x=log(cor_biom+0.001), geom='histogram')+facet_wrap(~FG, scales='free')
+
+# original method
+jpn_trop_prop1<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)%>%
+  group_by(FG)%>%summarise(mean_biom=mean(log(cor_biom+0.001), na.rm=T))
+jpn_trop_prop1$mean_biom<-exp(jpn_trop_prop1$mean_biom)
+# mixed fg method
+j_lm_trop<-lmer(log(cor_biom+0.001)~FG+(1|SiteID), data=filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5))
+
+my.compare<-data.frame(jpn_trop_prop1, lmer_fg=data.frame(emmeans(j_lm_trop, specs='FG', type='response'))$response)
+
+# per fg mixed site
+temp<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)
+out<-do.call('rbind', lapply(split(temp, temp$FG), function(x){data.frame(
+  emmeans(lmer(log(cor_biom+0.001)~(1|SiteID), data=x), specs='1', type='response'))}))
+
+my.compare$lmer_site=out$response
+
+# per fg all sites
+temp<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)
+out<-do.call('rbind', lapply(split(temp, temp$FG), function(x){data.frame(
+  emmeans(lm(log(cor_biom+0.001)~SiteID, data=x), specs='1', type='response'))}))
+
+my.compare$lm_allsite=out$response
+
+
 
 aus_trop_prop<-filter(bio_aus, ThermalAffinity2=='tropical' & Lat> -24.5)%>%
   group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T))
@@ -266,10 +300,10 @@ ggplot(aus_trop_prop[-outlz,], aes(x = Lat, y = cor_biom/mean_biom)) +
 # setup data for analyses
 # add tropicalization_metric: >1 = more biomass at site compared to tropical site-group
 # Using 4th root transformation to make data approx normality (still 0's though)
-jpn_trop_comm$trop_met<-jpn_trop_comm$cor_biom/jpn_trop_comm$mean_biom
-aus_trop_comm$trop_met<-aus_trop_comm$cor_biom/aus_trop_comm$mean_biom
-jpn_trop_prop$trop_met<-jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom
-aus_trop_prop$trop_met<-aus_trop_prop$cor_biom/aus_trop_prop$mean_biom
+jpn_trop_comm$trop_met<-(jpn_trop_comm$cor_biom/jpn_trop_comm$mean_biom)^0.25
+aus_trop_comm$trop_met<-(aus_trop_comm$cor_biom/aus_trop_comm$mean_biom)^0.25
+jpn_trop_prop$trop_met<-(jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom)^0.25
+aus_trop_prop$trop_met<-(aus_trop_prop$cor_biom/aus_trop_prop$mean_biom)^0.25
 
 # create site-groups based on dendrogram clustering
 
