@@ -183,8 +183,8 @@ ggplot(bio_aus, aes(x = Lat, y = tot_biom/totMsurv, colour=ThermalAffinity2)) +
 # in Aus is 0.0016 and second min in Japan is 0.00098
 
 # ok biomass looks ok
-bio_aus$cor_biom<-bio_aus$tot_biom/bio_aus$totMsurv
-bio_jpn$cor_biom<-bio_jpn$tot_biom/bio_jpn$totMsurv
+bio_aus$cor_biom<-(bio_aus$tot_biom/bio_aus$totMsurv)^0.25
+bio_jpn$cor_biom<-(bio_jpn$tot_biom/bio_jpn$totMsurv)^0.25
 
 # setup tropical only standardisation
 
@@ -266,10 +266,10 @@ ggplot(aus_trop_prop[-outlz,], aes(x = Lat, y = cor_biom/mean_biom)) +
 # setup data for analyses
 # add tropicalization_metric: >1 = more biomass at site compared to tropical site-group
 # Using 4th root transformation to make data approx normality (still 0's though)
-jpn_trop_comm$trop_met<-(jpn_trop_comm$cor_biom/jpn_trop_comm$mean_biom)^0.25
-aus_trop_comm$trop_met<-(aus_trop_comm$cor_biom/aus_trop_comm$mean_biom)^0.25
-jpn_trop_prop$trop_met<-(jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom)^0.25
-aus_trop_prop$trop_met<-(aus_trop_prop$cor_biom/aus_trop_prop$mean_biom)^0.25
+jpn_trop_comm$trop_met<-jpn_trop_comm$cor_biom/jpn_trop_comm$mean_biom
+aus_trop_comm$trop_met<-aus_trop_comm$cor_biom/aus_trop_comm$mean_biom
+jpn_trop_prop$trop_met<-jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom
+aus_trop_prop$trop_met<-aus_trop_prop$cor_biom/aus_trop_prop$mean_biom
 
 # create site-groups based on dendrogram clustering
 
@@ -283,8 +283,8 @@ plot(jpn_comm_m2, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(jpn_comm_m2)[1],
      xlab='Latitude', ylab='delta Biomass relative to tropical site')
 jpn_comm_m2$sp
-jpn_comm_m3<-gam(trop_met~s(lat, k=5, sp=0.1)+s(SiteID, bs='re'), data=jpn_trop_comm, method = 'REML')
-gam.check(jpn_comm_m3)
+jpn_comm_m3<-gam(trop_met~s(lat, k=7)+s(SiteID, bs='re'), data=jpn_trop_comm, method = 'REML')
+par(mfrow=c(2,2));gam.check(jpn_comm_m3)
 plot(jpn_comm_m3, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(jpn_comm_m3)[1],
      xlab='Latitude', ylab='delta Biomass relative to tropical site')
@@ -293,33 +293,103 @@ jpn_gam_pred<-expand.grid(lat=seq(24.3, 35, 0.1), FG='all')
 jpn_gam_pred<-cbind(jpn_gam_pred,predict.gam(jpn_comm_m3, newdata =jpn_gam_pred, 
                      exclude='s(SiteID)', newdata.guaranteed = T, type='link', se.fit=T ))
 
+qplot(data=jpn_gam_pred, x=lat, y=fit^4, geom='line')+
+  geom_point(data=jpn_trop_comm, aes(x=lat, y=trop_met^4))
+
 # Australia all FGs
 # exclude 1 outlier
-aus_comm_m3<-gam(trop_met~s(Lat, k=5, sp=0.1)+s(Site, bs='re'), data=aus_trop_comm[aus_trop_comm$trop_met<1.5,], method = 'REML')
+aus_comm_m3<-gam(trop_met~s(Lat, k=5 )+s(Site, bs='re'),data=aus_trop_comm, method = 'REML')
 summary(aus_comm_m3)
-gam.check(aus_comm_m3)
+par(mfrow=c(2,2));gam.check(aus_comm_m3)
 plot(aus_comm_m3, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(aus_comm_m3)[1],
      xlab='Latitude', ylab='delta Biomass relative to tropical site')
 
-aus_gam_pred<-expand.grid(Lat=seq(-31, -23, 0.1), FG='all')
+aus_gam_pred<-expand.grid(Lat=seq(-31, -23.4, 0.1), FG='all')
 aus_gam_pred<-cbind(aus_gam_pred,predict.gam(aus_comm_m3, newdata =aus_gam_pred,
                     type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T ))
+
+qplot(data=aus_gam_pred, x=Lat, y=fit^4, geom='line')+
+  geom_point(data=aus_trop_comm, aes(x=Lat, y=trop_met^4))
+
+#Individual FGs modelled in one GAM
+
+#Japan
+
+jpn_trop_prop2<-filter(jpn_trop_prop, FG %in% c(1,2,4,6,9,10,12,15,16)) # drop some FGs
+jpn_trop_prop2$FG<-factor(jpn_trop_prop2$FG)
+
+jpn_trop_prop2[jpn_trop_prop2$lat<25.5,]$trop_met<-1 # set tropical group-site
+# to 1 rather than divide by group-site mean = forces intercept thru 1
+
+jpn_fg_m1<-gam(trop_met~s(lat, by=FG, k=7)+FG +s(SiteID, bs='re'), 
+               data=jpn_trop_prop2[jpn_trop_prop2$trop_met<10^0.25,], method = 'REML')
+summary(jpn_fg_m1)
+coef(jpn_fg_m1)
+gam.check(jpn_fg_m1)
+plot(jpn_fg_m1, residuals = F, rug=T, pages=1, all.terms = T)
+
+jpn_gam_pred2<-expand.grid(lat=seq(24.3, 35, 0.1), FG=c(1,2,4, 6, 9, 10, 12, 15, 16))
+jpn_gam_pred2<-cbind(jpn_gam_pred2,predict.gam(jpn_fg_m1, newdata =jpn_gam_pred2,
+                                               type='link', se.fit=T,exclude='s(SiteID)', newdata.guaranteed = T ))
+
+jpn_gam_pred2$FG<-as.character(jpn_gam_pred2$FG)
+jpn_gam_pred_all<-rbind(jpn_gam_pred, jpn_gam_pred2)
+
+ggplot(jpn_gam_pred_all[jpn_gam_pred_all$FG!='all',], aes(x = lat, y = fit^4,
+                                                          ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4))+  
+  geom_ribbon(data=jpn_gam_pred_all[jpn_gam_pred_all$FG=='all',]%>%rename(FG2=FG), fill='yellow', alpha=0.5)+
+  geom_line(data=jpn_gam_pred_all[jpn_gam_pred_all$FG=='all',]%>%rename(FG2=FG))+
+  geom_ribbon(fill='red', alpha=0.5)+geom_line(colour='red')+
+  scale_x_continuous(breaks=24:35)+theme_bw()+
+  facet_wrap(~FG, scales='free')
+
+# Australia
+
+aus_trop_prop2<-filter(aus_trop_prop, FG %in% c(1,2,4,6,9,10,12,15,16)) # drop some FGs
+aus_trop_prop2$FG<-factor(aus_trop_prop2$FG)
+
+aus_trop_prop2[aus_trop_prop2$Lat> -24.5,]$trop_met<-1 # set tropical group-site
+# to 1 rather than divide by group-site mean = forces intercept thru 1
+
+
+aus_fg_m1<-gam(trop_met~s(Lat, by=FG, k=5)+FG +s(Site, bs='re'), 
+               data=aus_trop_prop2[aus_trop_prop2$trop_met<10^0.25,], method = 'REML')
+summary(aus_fg_m1)
+coef(aus_fg_m1)
+gam.check(aus_fg_m1)
+plot(aus_fg_m1, residuals = F, rug=T, pages=1, all.terms = T)
+
+aus_gam_pred2<-expand.grid(Lat=seq(-31, -23, 0.1), FG=c(1,2,4, 6, 9, 10, 12, 15, 16))
+aus_gam_pred2<-cbind(aus_gam_pred2,predict.gam(aus_fg_m1, newdata =aus_gam_pred2,
+                                               type='link', se.fit=T,exclude='s(Site)', newdata.guaranteed = T ))
+
+aus_gam_pred2$FG<-as.character(aus_gam_pred2$FG)
+aus_gam_pred_all<-rbind(aus_gam_pred, aus_gam_pred2)
+
+ggplot(aus_gam_pred_all[aus_gam_pred_all$FG!='all',], aes(x = Lat, y = fit^4,
+                                                          ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4))+  
+  geom_ribbon(data=aus_gam_pred_all[aus_gam_pred_all$FG=='all',]%>%rename(FG2=FG), fill='yellow', alpha=0.5)+
+  geom_line(data=aus_gam_pred_all[aus_gam_pred_all$FG=='all',]%>%rename(FG2=FG))+
+  geom_ribbon(fill='red', alpha=0.5)+geom_line(colour='red')+
+  theme_bw()+scale_x_reverse()+
+  facet_wrap(~FG, scales='free')
+
 
 
 # Japan indivdiual FGs
 
 # FG1
-jpn.fg1<-gam(trop_met~s(lat, k=5, sp=0.1)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==1), method = 'REML')
+jpn.fg1<-gam(trop_met~s(lat, k=7)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==1), method = 'REML')
 modl<-jpn.fg1
 summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
-par(mfrow=c(1,1));plot(modl, residuals = T, pch=1, cex=1, rug=T,
+plot(modl, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
 qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),type='link', se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
   geom_jitter(data=filter(jpn_trop_prop, FG==1),aes(x=lat, y=trop_met^4), shape=1, height=0.05,width=0.1)
 
-jpn.fg2<-gam(trop_met~s(lat, k=5, sp=0.1)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==2), method = 'REML')
+jpn.fg2<-gam(trop_met~s(lat, k=7)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==2), method = 'REML')
 modl<-jpn.fg2
 summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
@@ -337,60 +407,68 @@ plot(modl, residuals = T, pch=1, cex=1, rug=T,
 qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),type='link', se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
   geom_jitter(data=filter(jpn_trop_prop, FG==3),aes(x=lat, y=trop_met^4), shape=1, height=0.05,width=0.1)
 
+# Aus individual FGs
 
-#Individual FGs modelled in one GAM
+# FG1
+aus.fg1<-gam(trop_met~s(Lat, k=5, sp=0.001)+s(Site, bs='re'),
+             data=filter(aus_trop_prop2, FG==1 & trop_met< 10^0.25), method = 'REML')
+modl<-aus.fg1
+summary(modl)
+par(mfrow=c(2,2));gam.check(modl)
+plot(modl, residuals = T, pch=1, cex=1, rug=T,
+     shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
+qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
+  geom_point(data=filter(aus_trop_prop, FG==1),aes(x=Lat, y=trop_met^4), shape=1)+ylim(c(0,10))
 
-#Japan
+# FG2
 
-jpn_trop_prop2<-filter(jpn_trop_prop, FG %in% c(1,2,4,6,9,10,12,15,16)) # drop some FGs
-jpn_trop_prop2$FG<-factor(jpn_trop_prop2$FG)
+aus.fg2<-gam(trop_met~s(Lat, k=5, sp=0.001)+s(Site, bs='re'),
+             data=filter(aus_trop_prop2, FG==2 & trop_met< 10^0.25), method = 'REML')
+modl<-aus.fg2
+summary(modl)
+par(mfrow=c(2,2));gam.check(modl)
+plot(modl, residuals = T, pch=1, cex=1, rug=T,
+     shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
+qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
+  geom_point(data=filter(aus_trop_prop, FG==2),aes(x=Lat, y=trop_met^4), shape=1)
 
-jpn_fg_m1<-gam(trop_met~s(lat, by=FG, k=7, sp=0.1)+FG +s(SiteID, bs='re'), data=jpn_trop_prop2[jpn_trop_prop2$trop_met<10^0.25,], method = 'REML')
-summary(jpn_fg_m1)
-coef(jpn_fg_m1)
-gam.check(jpn_fg_m1)
-plot(jpn_fg_m1, residuals = F, rug=T, pages=1, all.terms = T)
+# FG4
 
-jpn_gam_pred2<-expand.grid(lat=seq(24.3, 35, 0.1), FG=c(1,2,4, 6, 9, 10, 12, 15, 16))
-jpn_gam_pred2<-cbind(jpn_gam_pred2,predict.gam(jpn_fg_m1, newdata =jpn_gam_pred2,
-                     type='link', se.fit=T,exclude='s(SiteID)', newdata.guaranteed = T ))
+aus.fg4<-gam(trop_met~s(Lat, k=5)+s(Site, bs='re'),
+             data=filter(aus_trop_prop2, FG==4 & trop_met< 10^0.25), method = 'REML') # sp=2730
+modl<-aus.fg4
+summary(modl)
+par(mfrow=c(2,2));gam.check(modl)
+plot(modl, residuals = T, pch=1, cex=1, rug=T,
+     shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
+qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
+  geom_point(data=filter(aus_trop_prop, FG==4),aes(x=Lat, y=trop_met^4), shape=1)+ylim(c(0,10))+geom_hline(yintercept=1, colour='red')
 
-jpn_gam_pred2$FG<-as.character(jpn_gam_pred2$FG)
-jpn_gam_pred_all<-rbind(jpn_gam_pred, jpn_gam_pred2)
 
-ggplot(jpn_gam_pred_all[jpn_gam_pred_all$FG!='all',], aes(x = lat, y = fit^4,
-                  ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4))+  
-  geom_ribbon(data=jpn_gam_pred_all[jpn_gam_pred_all$FG=='all',]%>%rename(FG2=FG), fill='yellow', alpha=0.5)+
-  geom_line(data=jpn_gam_pred_all[jpn_gam_pred_all$FG=='all',]%>%rename(FG2=FG))+
-  geom_ribbon(fill='red', alpha=0.5)+geom_line(colour='red')+
-                scale_x_continuous(breaks=24:35)+theme_bw()+
-                facet_wrap(~FG)
+# FG6
 
-# Australia
+aus.fg6<-gam(trop_met~s(Lat, k=5)+s(Site, bs='re'),
+             data=filter(aus_trop_prop2, FG==6 & trop_met< 10^0.25), method = 'REML') # sp=0.0019
+modl<-aus.fg6
+summary(modl)
+par(mfrow=c(2,2));gam.check(modl)
+plot(modl, residuals = T, pch=1, cex=1, rug=T,
+     shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
+qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
+  geom_point(data=filter(aus_trop_prop, FG==6),aes(x=Lat, y=trop_met^4), shape=1)+geom_hline(yintercept=1, colour='red')
 
-aus_trop_prop2<-filter(aus_trop_prop, FG %in% c(1,2,4,6,9,10,12,15,16)) # drop some FGs
-aus_trop_prop2$FG<-factor(aus_trop_prop2$FG)
+# FG9
 
-aus_fg_m1<-gam(trop_met~s(Lat, by=FG, k=7, sp=0.1)+FG +s(Site, bs='re'), data=aus_trop_prop2[aus_trop_prop2$trop_met<10^0.25,], method = 'REML')
-summary(aus_fg_m1)
-coef(aus_fg_m1)
-gam.check(aus_fg_m1)
-plot(aus_fg_m1, residuals = F, rug=T, pages=1, all.terms = T)
+aus.fg9<-gam(trop_met~s(Lat, k=5)+s(Site, bs='re'),
+             data=filter(aus_trop_prop2, FG==9 & trop_met< 10^0.25), method = 'REML') # sp=0.0019
+modl<-aus.fg9
+summary(modl)
+par(mfrow=c(2,2));gam.check(modl)
+plot(modl, residuals = T, pch=1, cex=1, rug=T,
+     shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
+qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
+  geom_point(data=filter(aus_trop_prop, FG==9),aes(x=Lat, y=trop_met^4), shape=1)+geom_hline(yintercept=1, colour='red')
 
-aus_gam_pred2<-expand.grid(Lat=seq(-31, -23, 0.1), FG=c(1,2,4, 6, 9, 10, 12, 15, 16))
-aus_gam_pred2<-cbind(aus_gam_pred2,predict.gam(aus_fg_m1, newdata =aus_gam_pred2,
-                                               type='link', se.fit=T,exclude='s(Site)', newdata.guaranteed = T ))
-
-aus_gam_pred2$FG<-as.character(aus_gam_pred2$FG)
-aus_gam_pred_all<-rbind(aus_gam_pred, aus_gam_pred2)
-
-ggplot(aus_gam_pred_all[aus_gam_pred_all$FG!='all',], aes(x = Lat, y = fit^4,
-                                                  ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4))+  
-  geom_ribbon(data=aus_gam_pred_all[aus_gam_pred_all$FG=='all',]%>%rename(FG2=FG), fill='yellow', alpha=0.5)+
-  geom_line(data=aus_gam_pred_all[aus_gam_pred_all$FG=='all',]%>%rename(FG2=FG))+
-  geom_ribbon(fill='red', alpha=0.5)+geom_line(colour='red')+
- +theme_bw()+scale_x_reverse()+
-  facet_wrap(~FG)
 
 
                 
