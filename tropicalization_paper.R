@@ -18,6 +18,7 @@ library(ade4)
 library(readxl)
 library(mgcv)
 library(lmerTest)
+library(ggResidpanel)
 
 #################### read data ##########################
 ##########################################################
@@ -217,35 +218,6 @@ ggplot(data=filter(bio_aus, ThermalAffinity2=='tropical'),
 jpn_trop_prop<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)%>%
   group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T))
 
-# trial how to generate best mean method with logged data
-
-qplot(data=filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5), x=log(cor_biom+0.001), geom='histogram')+facet_wrap(~FG, scales='free')
-
-# original method
-jpn_trop_prop1<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)%>%
-  group_by(FG)%>%summarise(mean_biom=mean(log(cor_biom+0.001), na.rm=T))
-jpn_trop_prop1$mean_biom<-exp(jpn_trop_prop1$mean_biom)
-# mixed fg method
-j_lm_trop<-lmer(log(cor_biom+0.001)~FG+(1|SiteID), data=filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5))
-
-my.compare<-data.frame(jpn_trop_prop1, lmer_fg=data.frame(emmeans(j_lm_trop, specs='FG', type='response'))$response)
-
-# per fg mixed site
-temp<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)
-out<-do.call('rbind', lapply(split(temp, temp$FG), function(x){data.frame(
-  emmeans(lmer(log(cor_biom+0.001)~(1|SiteID), data=x), specs='1', type='response'))}))
-
-my.compare$lmer_site=out$response
-
-# per fg all sites
-temp<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)
-out<-do.call('rbind', lapply(split(temp, temp$FG), function(x){data.frame(
-  emmeans(lm(log(cor_biom+0.001)~SiteID, data=x), specs='1', type='response'))}))
-
-my.compare$lm_allsite=out$response
-
-
-
 aus_trop_prop<-filter(bio_aus, ThermalAffinity2=='tropical' & Lat> -24.5)%>%
   group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T))
 
@@ -306,6 +278,42 @@ jpn_trop_prop$trop_met<-(jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom)^0.25
 aus_trop_prop$trop_met<-(aus_trop_prop$cor_biom/aus_trop_prop$mean_biom)^0.25
 
 # create site-groups based on dendrogram clustering
+jpn_trop_comm$FG<-'comm'
+jpn_trop_prop$FG<-as.character(jpn_trop_prop$FG)
+jpn_trop_tests<-rbind(data.frame(jpn_trop_comm), jpn_trop_prop[names(jpn_trop_comm)])
+jpn_trop_tests$site.group<-'trop.base'
+jpn_trop_tests[jpn_trop_tests$lat > 25 &  jpn_trop_tests$lat < 28.5,]$site.group<-'trop.island'
+jpn_trop_tests[jpn_trop_tests$lat > 28.5 &  jpn_trop_tests$lat < 31,]$site.group<-'trans.island'
+jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP28', 'JP29', 'JP30', 'JP31'),]$site.group<-'trans.inland'
+jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP8', 'JP9', 'JP10', 'JP11', 'JP12'),]$site.group<-'trans.headld'
+jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP27', 'JP32', 'JP10', 'JP11', 'JP12'),]$site.group<-'trans.bay'
+jpn_trop_tests[jpn_trop_tests$lat > 34,]$site.group<-'temp.headld'
+table(jpn_trop_tests$site.group, jpn_trop_tests$SiteID)
+
+aus_trop_comm$FG<-'comm'
+aus_trop_prop$FG<-as.character(aus_trop_prop$FG)
+aus_trop_tests<-rbind(data.frame(aus_trop_comm), aus_trop_prop[names(aus_trop_comm)])
+aus_trop_tests$site.group<-'trop.base'
+aus_trop_tests[aus_trop_tests$Lat > -25.6 &  aus_trop_tests$Lat < -24.5,]$site.group<-'trans.bay'
+aus_trop_tests[aus_trop_tests$Lat > -28 &  aus_trop_tests$Lat < -25.6,]$site.group<-'trans.offshore'
+aus_trop_tests[aus_trop_tests$Lat < -28,]$site.group<-'temp.offshore'
+aus_trop_tests[aus_trop_tests$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woolgoolga Headland', 'North Rock'),]$site.group<-'temp.inshore'
+
+table(aus_trop_tests$site.group, aus_trop_tests$Site)
+
+# run FG tropicalization comparisons
+
+#Japan
+
+# drop some FGs and set comm as intercept
+jpn_trop_tests<-jpn_trop_tests[-which(jpn_trop_tests$FG %in% c(17,18,19,5,7,11)),]
+jpn_trop_tests$FG<-factor(jpn_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,4,1,16,13,14,3,9))
+
+ggplot(data=filter(jpn_trop_tests, site.group=='trop.island'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+
+jpn_sg1_m1<-lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trop.island'))
+resid_panel(jpn_sg1_m1)
 
 # 1) GAMS
 
