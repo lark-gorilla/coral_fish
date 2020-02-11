@@ -17,7 +17,7 @@ library(vegan)
 library(ade4)
 library(readxl)
 library(mgcv)
-library(lmerTest)
+library(emmeans)
 library(ggResidpanel)
 
 #################### read data ##########################
@@ -312,8 +312,23 @@ jpn_trop_tests$FG<-factor(jpn_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,
 ggplot(data=filter(jpn_trop_tests, site.group=='trop.island'), aes(x=FG, y=trop_met))+
   geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
-jpn_sg1_m1<-lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trop.island'))
-resid_panel(jpn_sg1_m1)
+m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trop.island'))
+resid_panel(m1)
+summary(m1)
+
+mod.rg <- update(ref_grid(m1), tran = make.tran("power", 0.25))
+em1<-emmeans(mod.rg, specs='FG', type='response')
+pairs(em1)
+plot(em1, comparisons = TRUE)
+
+trop_comps_out<-data.frame(site.group='trop.island',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:13, c(1,6)]))
+
+ggplot()+
+  geom_jitter(data=jpn_trop_tests, aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept = trop_comps_out$response[1], linetype='dotted')+
+  geom_errorbar(data=trop_comps_out, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=trop_comps_out, aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+ ylim(c(0,5))+theme_bw()+theme(legend.position = "none")
 
 # 1) GAMS
 
