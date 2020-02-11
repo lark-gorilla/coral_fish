@@ -286,7 +286,7 @@ jpn_trop_tests[jpn_trop_tests$lat > 25 &  jpn_trop_tests$lat < 28.5,]$site.group
 jpn_trop_tests[jpn_trop_tests$lat > 28.5 &  jpn_trop_tests$lat < 31,]$site.group<-'trans.island'
 jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP28', 'JP29', 'JP30', 'JP31'),]$site.group<-'trans.inland'
 jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP8', 'JP9', 'JP10', 'JP11', 'JP12'),]$site.group<-'trans.headld'
-jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP27', 'JP32', 'JP10', 'JP11', 'JP12'),]$site.group<-'trans.bay'
+jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP27', 'JP32'),]$site.group<-'trans.bay'
 jpn_trop_tests[jpn_trop_tests$lat > 34,]$site.group<-'temp.headld'
 table(jpn_trop_tests$site.group, jpn_trop_tests$SiteID)
 
@@ -309,6 +309,8 @@ table(aus_trop_tests$site.group, aus_trop_tests$Site)
 jpn_trop_tests<-jpn_trop_tests[-which(jpn_trop_tests$FG %in% c(17,18,19,5,7,11)),]
 jpn_trop_tests$FG<-factor(jpn_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,4,1,16,13,14,3,9))
 
+## trop.island
+
 ggplot(data=filter(jpn_trop_tests, site.group=='trop.island'), aes(x=FG, y=trop_met))+
   geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
@@ -324,11 +326,154 @@ plot(em1, comparisons = TRUE)
 trop_comps_out<-data.frame(site.group='trop.island',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:13, c(1,6)]))
 
 ggplot()+
-  geom_jitter(data=jpn_trop_tests, aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_jitter(data=filter(jpn_trop_tests, site.group=='trop.island'), aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
   geom_hline(yintercept = trop_comps_out$response[1], linetype='dotted')+
   geom_errorbar(data=trop_comps_out, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
   geom_point(data=trop_comps_out, aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
- ylim(c(0,5))+theme_bw()+theme(legend.position = "none")
+ theme_bw()+theme(legend.position = "none")
+
+## trans.island
+
+ggplot(data=filter(jpn_trop_tests, site.group=='trans.island'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+
+m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trans.island'))
+resid_panel(m1)
+summary(m1)
+
+mod.rg <- update(ref_grid(m1), tran = make.tran("power", 0.25))
+em1<-emmeans(mod.rg, specs='FG', type='response')
+pairs(em1)
+plot(em1, comparisons = TRUE)
+
+trop_comps_out<-rbind(trop_comps_out,
+                      data.frame(site.group='trans.island',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:13, c(1,6)])))
+
+ggplot()+
+  geom_jitter(data=filter(jpn_trop_tests, site.group=='trans.island'), aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept =trop_comps_out[trop_comps_out$site.group=='trans.island',]$response[1], linetype='dotted')+
+  geom_errorbar(data=filter(trop_comps_out, site.group=='trans.island'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=filter(trop_comps_out, site.group=='trans.island'), aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  ylim(c(0,5))+theme_bw()+theme(legend.position = "none")
+
+## trans.inland
+
+ggplot(data=filter(jpn_trop_tests, site.group=='trans.inland'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+
+zer_fgs<-filter(jpn_trop_tests, site.group=='trans.inland')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
+
+
+m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trans.inland' & !FG%in% zer_fgs))
+resid_panel(m1)
+summary(m1)
+
+mod.rg <- update(ref_grid(m1), tran = make.tran("power", 0.25))
+em1<-emmeans(mod.rg, specs='FG', type='response')
+pairs(em1)
+plot(em1, comparisons = TRUE)
+
+trop_comps_out<-rbind(trop_comps_out,
+                      data.frame(site.group='trans.inland',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:(13-length(zer_fgs)), c(1,6)])))
+
+ggplot()+
+  geom_jitter(data=filter(jpn_trop_tests, site.group=='trans.inland'), aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept =trop_comps_out[trop_comps_out$site.group=='trans.inland',]$response[1], linetype='dotted')+
+  geom_errorbar(data=filter(trop_comps_out, site.group=='trans.inland'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=filter(trop_comps_out, site.group=='trans.inland'), aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+theme(legend.position = "none")
+
+
+## trans.headld
+
+ggplot(data=filter(jpn_trop_tests, site.group=='trans.headld'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+
+zer_fgs<-filter(jpn_trop_tests, site.group=='trans.headld')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
+
+
+m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trans.headld'& !FG%in% zer_fgs))
+resid_panel(m1)
+summary(m1)
+
+mod.rg <- update(ref_grid(m1), tran = make.tran("power", 0.25))
+em1<-emmeans(mod.rg, specs='FG', type='response')
+pairs(em1)
+plot(em1, comparisons = TRUE)
+
+trop_comps_out<-rbind(trop_comps_out,
+                      data.frame(site.group='trans.headld',data.frame(em1), rbind(c(NA, NA),
+                                                                                  data.frame(pairs(em1))[1:(13-length(zer_fgs)), c(1,6)])))
+
+ggplot()+
+  geom_jitter(data=filter(jpn_trop_tests, site.group=='trans.headld'), aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept =trop_comps_out[trop_comps_out$site.group=='trans.headld',]$response[1], linetype='dotted')+
+  geom_errorbar(data=filter(trop_comps_out, site.group=='trans.headld'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=filter(trop_comps_out, site.group=='trans.headld'), aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+ylim(c(0,5))+theme(legend.position = "none")
+
+## trans.bay
+
+ggplot(data=filter(jpn_trop_tests, site.group=='trans.bay'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+# remove FGs with only 0s - these will be sig diff 
+zer_fgs<-filter(jpn_trop_tests, site.group=='trans.bay')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
+
+m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trans.bay' & !FG%in% zer_fgs))
+resid_panel(m1)
+summary(m1)
+
+mod.rg <- update(ref_grid(m1), tran = make.tran("power", 0.25))
+em1<-emmeans(mod.rg, specs='FG', type='response')
+pairs(em1)
+plot(em1, comparisons = TRUE)
+
+trop_comps_out<-rbind(trop_comps_out,
+                      data.frame(site.group='trans.bay',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:(13-length(zer_fgs)), c(1,6)])))
+
+ggplot()+
+  geom_jitter(data=filter(jpn_trop_tests, site.group=='trans.bay'), aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept =trop_comps_out[trop_comps_out$site.group=='trans.bay',]$response[1], linetype='dotted')+
+  geom_errorbar(data=filter(trop_comps_out, site.group=='trans.bay'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=filter(trop_comps_out, site.group=='trans.bay'), aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+ylim(c(0,1))+theme(legend.position = "none")
+
+## temp.headld
+
+ggplot(data=filter(jpn_trop_tests, site.group=='temp.headld'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+# remove FGs with only 0s - these will be sig diff 
+zer_fgs<-filter(jpn_trop_tests, site.group=='temp.headld')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
+
+m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='temp.headld' & !FG%in% zer_fgs))
+resid_panel(m1)
+summary(m1)
+
+mod.rg <- update(ref_grid(m1), tran = make.tran("power", 0.25))
+em1<-emmeans(mod.rg, specs='FG', type='response')
+pairs(em1)
+plot(em1, comparisons = TRUE)
+
+trop_comps_out<-rbind(trop_comps_out,
+                      data.frame(site.group='temp.headld',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:(13-length(zer_fgs)), c(1,6)])))
+
+ggplot()+
+  geom_jitter(data=filter(jpn_trop_tests, site.group=='temp.headld'), aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept =trop_comps_out[trop_comps_out$site.group=='temp.headld',]$response[1], linetype='dotted')+
+  geom_errorbar(data=filter(trop_comps_out, site.group=='temp.headld'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=filter(trop_comps_out, site.group=='temp.headld'), aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+ylim(c(0,2))+theme(legend.position = "none")
+
+#all plot
+
+trop_comps_out$site.group<-factor(trop_comps_out$site.group, levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
+                                                                      'trans.headld', 'trans.bay', 'temp.headld'))
+
+ggplot()+
+  geom_hline(yintercept =filter(trop_comps_out, FG=='comm')$response, linetype='dotted')+
+  geom_errorbar(data=trop_comps_out, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=trop_comps_out, aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group, scales='free')
 
 # 1) GAMS
 
