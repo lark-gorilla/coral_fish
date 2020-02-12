@@ -41,7 +41,7 @@ bio_aus<-read.csv('C:/coral_fish/data/Australia/Aus_transects_biomass.csv')
 bio_jpn$FG<-factor(bio_jpn$FG)
 bio_aus$FG<-factor(bio_aus$FG)
 
-### Functional Entity creation
+#### Functional Entity creation and word clouds ####
 
 dat_mice<-mice(dat[,c(3:9)], m=5, method=c(rep('norm.predict', 3), rep('polyreg', 4)))
 dat_imp<-mice::complete(dat_mice)
@@ -118,7 +118,7 @@ FGnames<-as.data.frame(aggregate(FEcomp~FG, FGnames,
                                  function(x){paste(x, collapse='-')}))
 
 
-## first Redundancy plot with thermal affinity split
+#### Redundancy plots with thermal affinity split ####
 
 red_dat<-rbind(dat[dat$AUS_sp>0,] %>% group_by(groupk19) %>% summarise(num=n()) %>%
   arrange(num) %>% mutate(val=18:1, dat='Australia'),
@@ -158,7 +158,7 @@ ggplot()+
   scale_fill_manual(values = c('#2c7bb6', '#fdae61'))+
   ylab('# of species per FG')+xlab('Functional niche')
 
-# BIOMASS tropicalization
+#### BIOMASS tropicalization ####
 
 #sanity check to make sure per unit area biomass calc is correct
 
@@ -301,9 +301,9 @@ aus_trop_tests[aus_trop_tests$Site %in% c('Muttonbird Island', 'Woolgoolga Reef'
 
 table(aus_trop_tests$site.group, aus_trop_tests$Site)
 
-# run FG tropicalization comparisons
+#### run FG tropicalization comparisons ####
 
-#Japan
+#### Japan FG tropicalization comps ####
 
 # drop some FGs and set comm as intercept
 jpn_trop_tests<-jpn_trop_tests[-which(jpn_trop_tests$FG %in% c(17,18,19,5,7,11)),]
@@ -474,6 +474,129 @@ ggplot()+
   geom_errorbar(data=trop_comps_out, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
   geom_point(data=trop_comps_out, aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
   theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group, scales='free')
+
+#### Australia FG tropicalization comparisons #### 
+
+# drop some FGs and set comm as intercept
+aus_trop_tests<-aus_trop_tests[-which(aus_trop_tests$FG %in% c(17,18,19,11)),]
+aus_trop_tests$FG<-factor(aus_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,4,5,1,16,13,14,3,7,9))
+
+## trans.bay
+
+ggplot(data=filter(aus_trop_tests, site.group=='trans.bay'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+
+zer_fgs<-filter(aus_trop_tests, site.group=='trans.bay')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
+
+
+m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests, site.group=='trans.bay' & !FG%in% zer_fgs))
+resid_panel(m1)
+summary(m1)
+
+mod.rg <- update(ref_grid(m1), tran = make.tran("power", 0.25))
+em1<-emmeans(mod.rg, specs='FG', type='response')
+#pairs(em1)
+
+trop_comps_out_aus<-data.frame(site.group='trans.bay',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:(15-length(zer_fgs)), c(1,6)]))
+
+ggplot()+
+  geom_jitter(data=filter(aus_trop_tests, site.group=='trans.bay'), aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept =trop_comps_out_aus[trop_comps_out_aus$site.group=='trans.bay',]$response[1], linetype='dotted')+
+  geom_errorbar(data=filter(trop_comps_out_aus, site.group=='trans.bay'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=filter(trop_comps_out_aus, site.group=='trans.bay'), aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+theme(legend.position = "none")+ylim(c(0,2))
+
+
+## trans.offshore
+
+ggplot(data=filter(aus_trop_tests, site.group=='trans.offshore'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+
+zer_fgs<-filter(aus_trop_tests, site.group=='trans.offshore')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
+
+
+m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests, site.group=='trans.offshore'& !FG%in% zer_fgs))
+resid_panel(m1)
+summary(m1)
+
+mod.rg <- update(ref_grid(m1), tran = make.tran("power", 0.25))
+em1<-emmeans(mod.rg, specs='FG', type='response')
+#pairs(em1)
+#plot(em1, comparisons = TRUE)
+
+trop_comps_out_aus<-rbind(trop_comps_out_aus,
+                      data.frame(site.group='trans.offshore',data.frame(em1), rbind(c(NA, NA),
+                                                                                  data.frame(pairs(em1))[1:(15-length(zer_fgs)), c(1,6)])))
+ggplot()+
+  geom_jitter(data=filter(aus_trop_tests, site.group=='trans.offshore'), aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept =trop_comps_out_aus[trop_comps_out_aus$site.group=='trans.offshore',]$response[1], linetype='dotted')+
+  geom_errorbar(data=filter(trop_comps_out_aus, site.group=='trans.offshore'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=filter(trop_comps_out_aus, site.group=='trans.offshore'), aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+ylim(c(0,5))+theme(legend.position = "none")
+
+## temp.offshore
+
+ggplot(data=filter(aus_trop_tests, site.group=='temp.offshore'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+# remove FGs with only 0s - these will be sig diff 
+zer_fgs<-filter(aus_trop_tests, site.group=='temp.offshore')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
+
+m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests, site.group=='temp.offshore' & !FG%in% zer_fgs))
+resid_panel(m1)
+summary(m1)
+
+mod.rg <- update(ref_grid(m1), tran = make.tran("power", 0.25))
+em1<-emmeans(mod.rg, specs='FG', type='response')
+#pairs(em1)
+#plot(em1, comparisons = TRUE)
+
+trop_comps_out_aus<-rbind(trop_comps_out_aus,
+                      data.frame(site.group='temp.offshore',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:(15-length(zer_fgs)), c(1,6)])))
+
+ggplot()+
+  geom_jitter(data=filter(aus_trop_tests, site.group=='temp.offshore'), aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept =trop_comps_out_aus[trop_comps_out_aus$site.group=='temp.offshore',]$response[1], linetype='dotted')+
+  geom_errorbar(data=filter(trop_comps_out_aus, site.group=='temp.offshore'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=filter(trop_comps_out_aus, site.group=='temp.offshore'), aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+ylim(c(0,1))+theme(legend.position = "none")
+
+## temp.inshore
+
+ggplot(data=filter(aus_trop_tests, site.group=='temp.inshore'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+# remove FGs with only 0s - these will be sig diff 
+zer_fgs<-filter(aus_trop_tests, site.group=='temp.inshore')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
+
+m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests, site.group=='temp.inshore' & !FG%in% zer_fgs))
+resid_panel(m1)
+summary(m1)
+
+mod.rg <- update(ref_grid(m1), tran = make.tran("power", 0.25))
+em1<-emmeans(mod.rg, specs='FG', type='response')
+#pairs(em1)
+#plot(em1, comparisons = TRUE)
+
+trop_comps_out_aus<-rbind(trop_comps_out_aus,
+                      data.frame(site.group='temp.inshore',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:(15-length(zer_fgs)), c(1,6)])))
+
+ggplot()+
+  geom_jitter(data=filter(aus_trop_tests, site.group=='temp.inshore'), aes(x=FG, y=trop_met^4), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept =trop_comps_out_aus[trop_comps_out_aus$site.group=='temp.inshore',]$response[1], linetype='dotted')+
+  geom_errorbar(data=filter(trop_comps_out_aus, site.group=='temp.inshore'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=filter(trop_comps_out_aus, site.group=='temp.inshore'), aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+ylim(c(0,2))+theme(legend.position = "none")
+
+#all plot
+
+trop_comps_out_aus$site.group<-factor(trop_comps_out_aus$site.group, levels=c('trop.base', 'trans.bay', 'trans.offshore',
+                                                                              'temp.offshore', 'temp.inshore'))
+
+ggplot()+
+  geom_hline(yintercept =filter(trop_comps_out_aus, FG=='comm')$response, linetype='dotted')+
+  geom_errorbar(data=trop_comps_out_aus, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=trop_comps_out_aus, aes(x=FG, y=response, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group, scales='free')
+
 
 # 1) GAMS
 
