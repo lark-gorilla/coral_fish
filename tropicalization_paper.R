@@ -41,6 +41,11 @@ bio_aus<-read.csv('C:/coral_fish/data/Australia/Aus_transects_biomass.csv')
 bio_jpn$FG<-factor(bio_jpn$FG)
 bio_aus$FG<-factor(bio_aus$FG)
 
+# correct biomass
+bio_aus$cor_biom<-bio_aus$tot_biom/bio_aus$totMsurv
+bio_jpn$cor_biom<-bio_jpn$tot_biom/bio_jpn$totMsurv
+
+
 #### Functional Entity creation and word clouds ####
 
 dat_mice<-mice(dat[,c(3:9)], m=5, method=c(rep('norm.predict', 3), rep('polyreg', 4)))
@@ -162,35 +167,38 @@ ggplot()+
 
 #sanity check to make sure per unit area biomass calc is correct
 
-ggplot(bio_jpn, aes(x = lat, y = tot_biom/totMsurv, colour=ThermalAffinity2)) + 
-  geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+theme_bw()
+# If Logging: 0.01 chosen as min constant as min corr biomass val
+# in Aus is 0.0016 and second min in Japan is 0.00098 but there are only 5
 
-ggplot(bio_aus, aes(x = Lat, y = tot_biom/totMsurv, colour=ThermalAffinity2)) + 
-  geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
-  scale_x_reverse()+theme_bw()
+ggplot(filter(bio_jpn, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
+       aes(x = lat, y = log((tot_biom/totMsurv)+0.01), colour=ThermalAffinity2)) + 
+  geom_point(shape=1)+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
+  scale_colour_manual(values = c("#377eb8", "#ff7f00"))+
+  theme_bw()+theme(legend.position = "none")+
+  xlab('Latitude')+ylab('log standardised biomass')
 
-ggplot(spr_jpn, aes(x = lat, y = qD, colour=ThermalAffinity2)) + 
-  geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+theme_bw()
-
-ggplot(spr_aus, aes(x = Lat, y = qD, colour=ThermalAffinity2)) + 
-  geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
-  scale_x_reverse()+theme_bw()
+ggplot(filter(bio_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
+       aes(x = Lat, y = log((tot_biom/totMsurv)+0.01), colour=ThermalAffinity2)) + 
+  geom_point(shape=1)+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
+  scale_colour_manual(values = c("#377eb8", "#ff7f00"))+
+  theme_bw()+theme(legend.position = "none")+scale_x_reverse()+
+  xlab('Latitude')+ylab('log standardised biomass')
 
 # make same plot with spprich data while we're here
 
-ggplot(bio_jpn, aes(x = lat, y = tot_biom/totMsurv, colour=ThermalAffinity2)) + 
-  geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+theme_bw()
-
-ggplot(bio_aus, aes(x = Lat, y = tot_biom/totMsurv, colour=ThermalAffinity2)) + 
+ggplot(filter(spr_jpn, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
+       aes(x = lat, y = qD, colour=ThermalAffinity2)) + 
   geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
-  scale_x_reverse()+theme_bw()
+  scale_colour_manual(values = c("#377eb8", "#ff7f00"))+
+  theme_bw()+theme(legend.position = "none")+
+  xlab('Latitude')+ylab('Estimated species richness')
 
-# If Logging: 0.001 chosen as min constant as min corr biomass val
-# in Aus is 0.0016 and second min in Japan is 0.00098
-
-# ok biomass looks ok
-bio_aus$cor_biom<-bio_aus$tot_biom/bio_aus$totMsurv
-bio_jpn$cor_biom<-bio_jpn$tot_biom/bio_jpn$totMsurv
+ggplot(filter(spr_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
+       aes(x = Lat, y = qD, colour=ThermalAffinity2)) + 
+  geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
+  scale_colour_manual(values = c("#377eb8", "#ff7f00"))+
+  theme_bw()+theme(legend.position = "none")+scale_x_reverse()+
+  xlab('Latitude')+ylab('Estimated species richness')
 
 # setup tropical only standardisation
 
@@ -215,55 +223,65 @@ ggplot(data=filter(bio_aus, ThermalAffinity2=='tropical'),
   facet_wrap(~FG, scales='free')+scale_x_reverse()
 
 # Calc standardisation
+# filter out unwanted FGs for per FG objects but not for community total
 jpn_trop_prop<-filter(bio_jpn, ThermalAffinity2=='tropical' & lat<25.5)%>%
-  group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T))
+  group_by(FG)%>%summarise(mean_biom=(mean(cor_biom^0.25, na.rm=T))^4)
 
 aus_trop_prop<-filter(bio_aus, ThermalAffinity2=='tropical' & Lat> -24.5)%>%
-  group_by(FG)%>%summarise(mean_biom=mean(cor_biom, na.rm=T))
+  group_by(FG)%>%summarise(mean_biom=(mean(cor_biom^0.25, na.rm=T))^4)
 
-jpn_trop_prop<-left_join(filter(bio_jpn, ThermalAffinity2=='tropical'),
+jpn_trop_prop<-left_join(filter(bio_jpn, ThermalAffinity2=='tropical' & 
+                                  FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
                          jpn_trop_prop, by='FG')
 
-aus_trop_prop<-left_join(filter(bio_aus, ThermalAffinity2=='tropical'),
+aus_trop_prop<-left_join(filter(bio_aus, ThermalAffinity2=='tropical' & 
+                                  FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
                          aus_trop_prop, by='FG')
 
 jpn_trop_comm<-filter(bio_jpn, ThermalAffinity2=='tropical')%>%
-  group_by(lat, SiteID, Site.trans.ID)%>%summarise(cor_biom=sum(cor_biom))
+  group_by(lat, SiteID, Site.trans.ID)%>%summarise(cor_biom=sum(cor_biom)) 
 jpn_trop_comm$mean_biom<-as.numeric(filter(jpn_trop_comm, lat<25.5)%>%ungroup()%>%
-  summarise(mean_biom=mean(cor_biom, na.rm=T)))
+  summarise(mean_biom=(mean(cor_biom^0.25, na.rm=T))^4))
 
 aus_trop_comm<-filter(bio_aus, ThermalAffinity2=='tropical')%>%
   group_by(Lat, Site, Site.trans.ID)%>%summarise(cor_biom=sum(cor_biom))
 aus_trop_comm$mean_biom<-as.numeric(filter(aus_trop_comm, Lat> -24.5)%>%ungroup()%>%
-                                     summarise(mean_biom=mean(cor_biom, na.rm=T)))
-
-# visual check to make sure things look right
-ggplot(data=rbind(data.frame(jpn_trop_comm, FG=99), jpn_trop_prop[c(7,1,9,10,2)]),
-       aes(x=lat, y=cor_biom))+geom_point()+geom_smooth()+facet_wrap(~FG, scales='free')
-
-ggplot(data=rbind(data.frame(jpn_trop_comm, FG=99), jpn_trop_prop[c(6,8,9,2)]),
-       aes(x=lat, y=cor_biom/max_biom))+geom_point()+geom_smooth()+facet_wrap(~FG, scales='free')
+  summarise(mean_biom=(mean(cor_biom^0.25, na.rm=T))^4))
 
 
-# biomass
-outlz<-which(jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom>10)
+# FG tropicalization trends plots
 
-ggplot(jpn_trop_prop[-outlz,], aes(x = lat, y = cor_biom/mean_biom)) + 
+ggplot(jpn_trop_prop, aes(x = lat, y = (cor_biom/mean_biom)^0.25)) + 
+  geom_point(data=jpn_trop_comm, colour='black', alpha=0.3, shape=1)+
   geom_point(aes(colour=factor(FG)))+
   geom_smooth(aes(colour=factor(FG)),se=F)+
   geom_smooth(data=jpn_trop_comm, se=F, colour='black', linetype='dashed')+
-  scale_x_continuous(breaks=24:35)+theme_bw()+
-  facet_wrap(~FG, scales='free')+theme(legend.position = "none")
+  theme_bw()+facet_wrap(~FG, scales='free')+theme(legend.position = "none")+
+  xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
 
-outlz<-which(aus_trop_prop$cor_biom/aus_trop_prop$mean_biom>10)
+ggplot(jpn_trop_prop, aes(x = lat, y = (cor_biom/mean_biom)^0.25)) + 
+     geom_smooth(aes(colour=factor(FG)), se=F)+
+     geom_smooth(data=jpn_trop_comm, se=F, colour='black', linetype='dashed')+
+     theme_bw()+facet_wrap(~FG)+theme(legend.position = "none")+
+     geom_hline(yintercept=0.05^0.25)+
+  xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
 
-ggplot(aus_trop_prop[-outlz,], aes(x = Lat, y = cor_biom/mean_biom)) + 
+
+ggplot(aus_trop_prop, aes(x = Lat, y = (cor_biom/mean_biom)^0.25)) + 
+  geom_point(data=aus_trop_comm, colour='black', alpha=0.3, shape=1)+
   geom_point(aes(colour=factor(FG)))+
   geom_smooth(aes(colour=factor(FG)),se=F)+
   geom_smooth(data=aus_trop_comm, se=F, colour='black', linetype='dashed')+
- scale_x_reverse(breaks=-23:-33)+theme_bw()+
-  facet_wrap(~FG, scales='free')+theme(legend.position = "none")
-# might need more wiggliness for Aussie GAM
+  scale_x_reverse()+theme_bw()+
+  facet_wrap(~FG, scales='free')+theme(legend.position = "none")+
+  xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
+
+ggplot(aus_trop_prop, aes(x = Lat, y = (cor_biom/mean_biom)^0.25)) + 
+  geom_smooth(aes(colour=factor(FG)), se=F)+
+  geom_smooth(data=aus_trop_comm, se=F, colour='black', linetype='dashed')+
+  scale_x_reverse()+theme_bw()+
+  facet_wrap(~FG)+theme(legend.position = "none")+geom_hline(yintercept=0.05^0.25)+
+  xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
 
 # calc statistics 
 #1) make gams per FG and for comm to visualise tropicalization
@@ -272,10 +290,10 @@ ggplot(aus_trop_prop[-outlz,], aes(x = Lat, y = cor_biom/mean_biom)) +
 # setup data for analyses
 # add tropicalization_metric: >1 = more biomass at site compared to tropical site-group
 # Using 4th root transformation to make data approx normality (still 0's though)
-jpn_trop_comm$trop_met<-(jpn_trop_comm$cor_biom/jpn_trop_comm$mean_biom)^0.25
-aus_trop_comm$trop_met<-(aus_trop_comm$cor_biom/aus_trop_comm$mean_biom)^0.25
-jpn_trop_prop$trop_met<-(jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom)^0.25
-aus_trop_prop$trop_met<-(aus_trop_prop$cor_biom/aus_trop_prop$mean_biom)^0.25
+jpn_trop_comm$trop_met<-jpn_trop_comm$cor_biom/jpn_trop_comm$mean_biom
+aus_trop_comm$trop_met<-aus_trop_comm$cor_biom/aus_trop_comm$mean_biom
+jpn_trop_prop$trop_met<-jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom
+aus_trop_prop$trop_met<-aus_trop_prop$cor_biom/aus_trop_prop$mean_biom
 
 # create site-groups based on dendrogram clustering
 jpn_trop_comm$FG<-'comm'
@@ -305,9 +323,8 @@ table(aus_trop_tests$site.group, aus_trop_tests$Site)
 
 #### Japan FG tropicalization comps ####
 
-# drop some FGs and set comm as intercept
-jpn_trop_tests<-jpn_trop_tests[-which(jpn_trop_tests$FG %in% c(17,18,19,5,7,11)),]
-jpn_trop_tests$FG<-factor(jpn_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,4,1,16,13,14,3,9))
+# set comm as intercept
+jpn_trop_tests$FG<-factor(jpn_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,4,1,16))
 
 ## trop.island
 
@@ -478,8 +495,7 @@ ggplot()+
 #### Australia FG tropicalization comparisons #### 
 
 # drop some FGs and set comm as intercept
-aus_trop_tests<-aus_trop_tests[-which(aus_trop_tests$FG %in% c(17,18,19,11)),]
-aus_trop_tests$FG<-factor(aus_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,4,5,1,16,13,14,3,7,9))
+aus_trop_tests$FG<-factor(aus_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,4,1,16))
 
 ## trans.bay
 
