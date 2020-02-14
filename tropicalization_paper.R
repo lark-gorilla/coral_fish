@@ -266,21 +266,45 @@ ggplot(jpn_trop_prop, aes(x = lat, y = (cor_biom/mean_biom)^0.25)) +
      geom_hline(yintercept=0.05^0.25)+
   xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
 
+sg_lat_spans<-data.frame(xmin=c(24.2, 26.2, 28.5, 31,   32.7,  33.38, 34.6), 
+                         xmax=c(24.5, 28.4, 30.5, 31.6, 32.82, 33.5, 35 ))
 
+ggplot(jpn_trop_prop) + 
+  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+  geom_smooth(aes(x = lat, y = (cor_biom/mean_biom)^0.25, colour=factor(FG)), se=F)+
+  geom_smooth(data=jpn_trop_comm, aes(x = lat, y = (cor_biom/mean_biom)^0.25),
+              se=F, colour='black', linetype='dashed')+
+  theme_classic()+theme(legend.position = "none")+
+  geom_hline(yintercept=0.05^0.25)+scale_x_continuous(breaks=24:35)+
+  xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
+  
 ggplot(aus_trop_prop, aes(x = Lat, y = (cor_biom/mean_biom)^0.25)) + 
   geom_point(data=aus_trop_comm, colour='black', alpha=0.3, shape=1)+
   geom_point(aes(colour=factor(FG)))+
-  geom_smooth(aes(colour=factor(FG)),se=F)+
-  geom_smooth(data=aus_trop_comm, se=F, colour='black', linetype='dashed')+
+  geom_smooth(aes(colour=factor(FG)),se=F, span=0.5)+
+  geom_smooth(data=aus_trop_comm, se=F, span=0.5, colour='black', linetype='dashed')+
   scale_x_reverse()+theme_bw()+
   facet_wrap(~FG, scales='free')+theme(legend.position = "none")+
   xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
 
 ggplot(aus_trop_prop, aes(x = Lat, y = (cor_biom/mean_biom)^0.25)) + 
-  geom_smooth(aes(colour=factor(FG)), se=F)+
-  geom_smooth(data=aus_trop_comm, se=F, colour='black', linetype='dashed')+
+  geom_smooth(aes(colour=factor(FG)),  span=0.5, se=F)+
+  geom_smooth(data=aus_trop_comm, span=0.5, se=F, colour='black', linetype='dashed')+
   scale_x_reverse()+theme_bw()+
   facet_wrap(~FG)+theme(legend.position = "none")+geom_hline(yintercept=0.05^0.25)+
+  xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
+
+
+sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -25.9, -26.61, -27.38, -28.19, -29.9, -29.97), 
+                         xmax=c(-24.1, -25.3, -25.92, -26.98, -27.41, -28.616, -30.96, -30.3))
+
+ggplot(aus_trop_prop) + 
+  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.6)+
+  geom_smooth(aes(x = Lat, y = (cor_biom/mean_biom)^0.25, colour=factor(FG)), span=0.5, se=F)+
+  geom_smooth(data=aus_trop_comm, aes(x = Lat, y = (cor_biom/mean_biom)^0.25), span=0.5,
+              se=F, colour='black', linetype='dashed')+
+  theme_classic()+theme(legend.position = "none")+
+  geom_hline(yintercept=0.05^0.25)+scale_x_reverse(breaks=-23:-31)+
   xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
 
 # calc statistics 
@@ -306,7 +330,7 @@ jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP28', 'JP29', 'JP30', 'JP31'),]$si
 jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP8', 'JP9', 'JP10', 'JP11', 'JP12'),]$site.group<-'trans.headld'
 jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP27', 'JP32'),]$site.group<-'trans.bay'
 jpn_trop_tests[jpn_trop_tests$lat > 34,]$site.group<-'temp.headld'
-table(jpn_trop_tests$site.group, jpn_trop_tests$SiteID)
+table(jpn_trop_tests$SiteID, jpn_trop_tests$site.group)
 
 aus_trop_comm$FG<-'comm'
 aus_trop_prop$FG<-as.character(aus_trop_prop$FG)
@@ -314,10 +338,12 @@ aus_trop_tests<-rbind(data.frame(aus_trop_comm), aus_trop_prop[names(aus_trop_co
 aus_trop_tests$site.group<-'trop.base'
 aus_trop_tests[aus_trop_tests$Lat > -25.6 &  aus_trop_tests$Lat < -24.5,]$site.group<-'trans.bay'
 aus_trop_tests[aus_trop_tests$Lat > -28 &  aus_trop_tests$Lat < -25.6,]$site.group<-'trans.offshore'
+aus_trop_tests[aus_trop_tests$Site %in% c('Flat Rock', 'Wolf Rock'),]$site.group<-'trans.headld'
 aus_trop_tests[aus_trop_tests$Lat < -28,]$site.group<-'temp.offshore'
+aus_trop_tests[aus_trop_tests$Site %in% c('Julian Rock False Trench', 'Julian Rock Nursery', 'Cook Island'),]$site.group<-'trans.temp'
 aus_trop_tests[aus_trop_tests$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woolgoolga Headland', 'North Rock'),]$site.group<-'temp.inshore'
 
-table(aus_trop_tests$site.group, aus_trop_tests$Site)
+table(aus_trop_tests$Site,aus_trop_tests$site.group)
 
 #### run FG tropicalization comparisons ####
 
@@ -386,7 +412,7 @@ pairs(em1)
 plot(em1, comparisons = TRUE)
 
 trop_comps_out<-rbind(trop_comps_out,
-                      data.frame(site.group='trans.inland',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:(9-length(zer_fgs)), c(1,6)])))
+                      data.frame(site.group='trans.inland',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:9, c(1,6)])))
 
 ggplot()+
   geom_jitter(data=filter(jpn_trop_tests, site.group=='trans.inland'), aes(x=FG, y=trop_met), shape=1, alpha=0.5, width=0.2, colour='grey')+
@@ -412,7 +438,7 @@ plot(em1, comparisons = TRUE)
 
 trop_comps_out<-rbind(trop_comps_out,
                       data.frame(site.group='trans.headld',data.frame(em1), rbind(c(NA, NA),
-                                                                                  data.frame(pairs(em1))[1:(9-length(zer_fgs)), c(1,6)])))
+                                data.frame(pairs(em1))[1:9, c(1,6)])))
 
 ggplot()+
   geom_jitter(data=filter(jpn_trop_tests, site.group=='trans.headld'), aes(x=FG, y=trop_met), shape=1, alpha=0.5, width=0.2, colour='grey')+
@@ -525,7 +551,7 @@ summary(m1)
 
 em1<-emmeans(m1, specs='FG', type='link')
 #pairs(em1)
-#plot(em1, comparisons = TRUE)
+plot(em1, comparisons = TRUE)
 
 trop_comps_out_aus<-rbind(trop_comps_out_aus,
                       data.frame(site.group='trans.offshore',data.frame(em1), rbind(c(NA, NA),
@@ -535,6 +561,53 @@ ggplot()+
   geom_hline(yintercept =trop_comps_out_aus[trop_comps_out_aus$site.group=='trans.offshore',]$response[1], linetype='dotted')+
   geom_errorbar(data=filter(trop_comps_out_aus, site.group=='trans.offshore'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
   geom_point(data=filter(trop_comps_out_aus, site.group=='trans.offshore'), aes(x=FG, y=emmean, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+theme(legend.position = "none")
+
+## trans.headld
+
+ggplot(data=filter(aus_trop_tests, site.group=='trans.headld'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+
+m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests, site.group=='trans.headld'))
+resid_panel(m1)
+summary(m1)
+
+
+em1<-emmeans(m1, specs='FG', type='link')
+#pairs(em1)
+plot(em1, comparisons = TRUE)
+
+trop_comps_out_aus<-rbind(trop_comps_out_aus,
+                          data.frame(site.group='trans.headld',data.frame(em1), rbind(c(NA, NA),
+                                                                                        data.frame(pairs(em1))[1:9, c(1,6)])))
+ggplot()+
+  geom_jitter(data=filter(aus_trop_tests, site.group=='trans.headld'), aes(x=FG, y=trop_met), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept =trop_comps_out_aus[trop_comps_out_aus$site.group=='trans.headld',]$response[1], linetype='dotted')+
+  geom_errorbar(data=filter(trop_comps_out_aus, site.group=='trans.headld'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=filter(trop_comps_out_aus, site.group=='trans.headld'), aes(x=FG, y=emmean, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
+  theme_bw()+theme(legend.position = "none")
+
+## trans.temp
+
+ggplot(data=filter(aus_trop_tests, site.group=='trans.temp'), aes(x=FG, y=trop_met))+
+  geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+
+m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests, site.group=='trans.temp'))
+resid_panel(m1)
+summary(m1)
+
+em1<-emmeans(m1, specs='FG', type='link')
+#pairs(em1)
+plot(em1, comparisons = TRUE)
+
+trop_comps_out_aus<-rbind(trop_comps_out_aus,
+                          data.frame(site.group='trans.temp',data.frame(em1), rbind(c(NA, NA),
+                                                                                      data.frame(pairs(em1))[1:9, c(1,6)])))
+ggplot()+
+  geom_jitter(data=filter(aus_trop_tests, site.group=='trans.temp'), aes(x=FG, y=trop_met), shape=1, alpha=0.5, width=0.2, colour='grey')+
+  geom_hline(yintercept =trop_comps_out_aus[trop_comps_out_aus$site.group=='trans.temp',]$response[1], linetype='dotted')+
+  geom_errorbar(data=filter(trop_comps_out_aus, site.group=='trans.temp'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(data=filter(trop_comps_out_aus, site.group=='trans.temp'), aes(x=FG, y=emmean, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
   theme_bw()+theme(legend.position = "none")
 
 ## temp.offshore
@@ -550,7 +623,7 @@ summary(m1)
 
 em1<-emmeans(m1, specs='FG', type='link')
 #pairs(em1)
-#plot(em1, comparisons = TRUE)
+plot(em1, comparisons = TRUE)
 
 trop_comps_out_aus<-rbind(trop_comps_out_aus,
                       data.frame(site.group='temp.offshore',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:9, c(1,6)])))
@@ -561,6 +634,7 @@ ggplot()+
   geom_errorbar(data=filter(trop_comps_out_aus, site.group=='temp.offshore'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
   geom_point(data=filter(trop_comps_out_aus, site.group=='temp.offshore'), aes(x=FG, y=emmean, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
   theme_bw()+theme(legend.position = "none")
+
 
 ## temp.inshore
 
@@ -590,14 +664,8 @@ ggplot()+
 
 #all plot
 
-trop_comps_out_aus$site.group<-factor(trop_comps_out_aus$site.group, levels=c('trop.base', 'trans.bay', 'trans.offshore',
-                                                                              'temp.offshore', 'temp.inshore'))
-
-ggplot()+
-  geom_hline(yintercept =filter(trop_comps_out_aus, FG=='comm')$response, linetype='dotted')+
-  geom_errorbar(data=trop_comps_out_aus, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
-  geom_point(data=trop_comps_out_aus, aes(x=FG, y=emmean, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
-  theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group, scales='free')
+trop_comps_out_aus$site.group<-factor(trop_comps_out_aus$site.group, levels=c('trop.base', 'trans.bay', 'trans.offshore','trans.headld',
+                                                                              'trans.temp',  'temp.offshore', 'temp.inshore'))
 
 ggplot()+
   geom_hline(yintercept =filter(trop_comps_out_aus, FG=='comm')$response, linetype='dotted')+
@@ -680,29 +748,29 @@ ggplot(jpn_gam_pred_all[jpn_gam_pred_all$FG!='all',], aes(x = lat, y = fit^4,
 
 # Australia
 
-aus_trop_prop2<-filter(aus_trop_prop, FG %in% c(1,2,4,6,9,10,12,15,16)) # drop some FGs
+aus_trop_prop2<-filter(aus_trop_prop, FG %in% c(1,2,4,6,8,10,12,15,16)) # drop some FGs
 aus_trop_prop2$FG<-factor(aus_trop_prop2$FG)
 
 aus_trop_prop2[aus_trop_prop2$Lat> -24.5,]$trop_met<-1 # set tropical group-site
 # to 1 rather than divide by group-site mean = forces intercept thru 1
 
 
-aus_fg_m1<-gam(trop_met~s(Lat, by=FG, k=5)+FG +s(Site, bs='re'), 
-               data=aus_trop_prop2[aus_trop_prop2$trop_met<10^0.25,], method = 'REML')
+aus_fg_m1<-gam(trop_met~s(Lat, by=FG, k=10)+FG +s(Site, bs='re'), 
+               data=aus_trop_prop2[aus_trop_prop2$trop_met<4,], method = 'REML')
 summary(aus_fg_m1)
 coef(aus_fg_m1)
 gam.check(aus_fg_m1)
 plot(aus_fg_m1, residuals = F, rug=T, pages=1, all.terms = T)
 
-aus_gam_pred2<-expand.grid(Lat=seq(-31, -23, 0.1), FG=c(1,2,4, 6, 9, 10, 12, 15, 16))
+aus_gam_pred2<-expand.grid(Lat=seq(-31, -23, 0.1), FG=c(1,2,4, 6,8, 10, 12, 15, 16))
 aus_gam_pred2<-cbind(aus_gam_pred2,predict.gam(aus_fg_m1, newdata =aus_gam_pred2,
                                                type='link', se.fit=T,exclude='s(Site)', newdata.guaranteed = T ))
 
 aus_gam_pred2$FG<-as.character(aus_gam_pred2$FG)
 aus_gam_pred_all<-rbind(aus_gam_pred, aus_gam_pred2)
 
-ggplot(aus_gam_pred_all[aus_gam_pred_all$FG!='all',], aes(x = Lat, y = fit^4,
-                                                          ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4))+  
+ggplot(aus_gam_pred_all[aus_gam_pred_all$FG!='all',], aes(x = Lat, y = fit,
+                        ymax=(fit+se.fit*1.96), ymin=(fit-se.fit*1.96)))+  
   geom_ribbon(data=aus_gam_pred_all[aus_gam_pred_all$FG=='all',]%>%rename(FG2=FG), fill='yellow', alpha=0.5)+
   geom_line(data=aus_gam_pred_all[aus_gam_pred_all$FG=='all',]%>%rename(FG2=FG))+
   geom_ribbon(fill='red', alpha=0.5)+geom_line(colour='red')+
