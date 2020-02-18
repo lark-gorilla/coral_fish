@@ -359,9 +359,16 @@ ggplot(data=filter(jpn_trop_tests, site.group=='trop.island'), aes(x=FG, y=trop_
 
 m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trop.island'))
 resid_panel(m1)
+boxplot(residuals(m1, 'pearson')~filter(jpn_trop_tests, site.group=='trop.island')$FG) #hmmm not good
 summary(m1)
 
-em1<-emmeans(m1, specs='FG', type='link')
+# try gls model
+m2<-gls(trop_met~FG+SiteID, data=filter(jpn_trop_tests, site.group=='trop.island'), 
+        weights=varIdent(form=~1|FG))
+boxplot(residuals(m2, 'pearson')~filter(jpn_trop_tests, site.group=='trop.island')$FG) # ok good
+# pearson and normalized residuals incorporate the effect of the gls variance structure
+
+em1<-emmeans(m2, specs='FG', mode = "df.error")
 pairs(em1)
 plot(em1, comparisons = TRUE)
 
