@@ -177,13 +177,33 @@ plot(hclust(bdist, 'single'))  #splits sites into 2 clusts from lat <31deg N
 
 biom3<-dat%>%group_by(SpeciesFish, Name.x, SiteID)%>%
   summarise(tot_biom=sum(Number*(a*SizeCm^b), na.rm=T))
-biom3<-left_join(biom3, biom1[, c(1,5)]%>%group_by(SiteID)%>%summarise_all(first), by='SiteID')
+biom3<-left_join(biom3, biom1[, c(6,5)]%>%group_by(SiteID)%>%summarise_all(first), by='SiteID')
 biom3$corr_biom<-biom3$tot_biom/biom3$totMsurv
 
 mat_biom_jpn<-matrify(data.frame(biom3$Name.x, biom3$SpeciesFish, biom3$corr_biom))
 
+#drop Kochi 6 and kochi 1
+dimnames(mat_biom_jpn)[[1]][c(11,16)]
+mat_biom_jpn<-mat_biom_jpn[-c(11,16),]
+
 #site cluster plot based on biomass log transform
 plot(hclust(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm=T), 'average')) 
+
+library(dendextend)
+library(rvg)
+library(officer)
+
+# make dendextend object and rotate
+dend<-as.dendrogram(hclust(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm=T), 'average'))
+#get order that we want labels in
+plot(dend)
+labels(dend)
+dend2<-rotate(dend, order=labels(dend)[c(10:21,9, 22:29, 4:8, 1:3)])%>%as.ggdend()
+
+read_pptx() %>%
+  add_slide(layout = "Title and Content", master = "Office Theme") %>%
+  ph_with(dml(ggobj=ggplot(dend2)), location = ph_location_fullsize()) %>% 
+  print(target = 'C:/coral_fish/outputs/dend1.pptx')
 
 # sqrt trans
 mat_biom_jpn<-matrify(data.frame(biom3$Name.x, biom3$SpeciesFish, sqrt(biom3$corr_biom)))
@@ -341,14 +361,29 @@ plot(hclust(bdist, 'single'))  #splits sites into 3 clusts, make cut at Flat Roc
 
 biom3<-dat_aus_sub%>%group_by(Fish, Site)%>%
   summarise(tot_biom=sum(Number*(a*Size^b), na.rm=T))
-biom3<-left_join(biom3, biom1[, c(1,9)]%>%group_by(Site)%>%summarise_all(first), by='Site')
+biom3<-left_join(biom3, biom1[, c(6,10)]%>%group_by(Site)%>%summarise_all(first), by='Site')
 biom3$corr_biom<-biom3$tot_biom/biom3$totMsurv
-
 
 mat_biom_aus<-matrify(data.frame(biom3$Site, biom3$Fish, biom3$corr_biom))
 
+#drop Kochi 6 and kochi 1
+dimnames(mat_biom_aus)[[1]][c(6,25)]
+mat_biom_aus<-mat_biom_aus[-c(6,25),]
+
 #site cluster plot based on biomass log transform
 plot(hclust(vegdist(decostand(mat_biom_aus, 'log'), 'bray', na.rm=T), 'average')) 
+
+# make dendextend object and rotate
+dend<-as.dendrogram(hclust(vegdist(decostand(mat_biom_aus, 'log'), 'bray', na.rm=T), 'average'))
+#get order that we want labels in
+plot(dend)
+labels(dend)
+dend2<-rotate(dend, order=labels(dend)[c(1:10,15:25, 11:14)])%>%as.ggdend()
+
+read_pptx() %>%
+  add_slide(layout = "Title and Content", master = "Office Theme") %>%
+  ph_with(dml(ggobj=ggplot(dend2)), location = ph_location_fullsize()) %>% 
+  print(target = 'C:/coral_fish/outputs/dend2.pptx')
 
 # sqrt trans
 mat_biom_aus<-matrify(data.frame(biom3$Site, biom3$Fish, sqrt(biom3$corr_biom)))
