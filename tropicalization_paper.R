@@ -357,18 +357,18 @@ jpn_trop_tests$FG<-factor(jpn_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,
 ggplot(data=filter(jpn_trop_tests, site.group=='trop.island'), aes(x=FG, y=trop_met))+
   geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
-m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trop.island'))
-resid_panel(m1)
-boxplot(residuals(m1, 'pearson')~filter(jpn_trop_tests, site.group=='trop.island')$FG) #hmmm not good
+m1<-lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trop.island'))
+#resid_panel(m1)
+boxplot(residuals(m1, type='pearson')~filter(jpn_trop_tests, site.group=='trop.island')$FG) #hmmm not good
 summary(m1)
 
-# try gls model
-m2<-gls(trop_met~FG+SiteID, data=filter(jpn_trop_tests, site.group=='trop.island'), 
+# try lme model
+m1<-lme(trop_met~FG, random=~1|SiteID, data=filter(jpn_trop_tests, site.group=='trop.island'), 
         weights=varIdent(form=~1|FG))
-boxplot(residuals(m2, 'pearson')~filter(jpn_trop_tests, site.group=='trop.island')$FG) # ok good
+boxplot(residuals(m1, type='pearson')~filter(jpn_trop_tests, site.group=='trop.island')$FG) # ok good
 # pearson and normalized residuals incorporate the effect of the gls variance structure
 
-em1<-emmeans(m2, specs='FG', mode = "df.error")
+em1<-emmeans(m1, specs='FG')
 pairs(em1)
 plot(em1, comparisons = TRUE)
 
@@ -386,11 +386,11 @@ ggplot()+
 ggplot(data=filter(jpn_trop_tests, site.group=='trans.island'), aes(x=FG, y=trop_met))+
   geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
-m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trans.island'))
-resid_panel(m1)
+m1<-lme(trop_met~FG, random=~1|SiteID, weights=varIdent(form=~1|FG), data=filter(jpn_trop_tests, site.group=='trans.island'))
+#resid_panel(m1)
 summary(m1)
 
-em1<-emmeans(m1, specs='FG', type='link')
+em1<-emmeans(m1, specs='FG')
 pairs(em1)
 plot(em1, comparisons = TRUE)
 
@@ -409,12 +409,12 @@ ggplot()+
 ggplot(data=filter(jpn_trop_tests, site.group=='trans.inland'), aes(x=FG, y=trop_met))+
   geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
-m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trans.inland'))
-resid_panel(m1)
+m1<-lme(trop_met~FG, random=~1|SiteID, weights=varIdent(form=~1|FG), data=filter(jpn_trop_tests, site.group=='trans.inland'))
+#resid_panel(m1)
 summary(m1)
 
 
-em1<-emmeans(m1, specs='FG', type='link')
+em1<-emmeans(m1, specs='FG')
 pairs(em1)
 plot(em1, comparisons = TRUE)
 
@@ -434,12 +434,14 @@ ggplot()+
 ggplot(data=filter(jpn_trop_tests, site.group=='trans.headld'), aes(x=FG, y=trop_met))+
   geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
-m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trans.headld'))
-resid_panel(m1)
+m1<-lme(trop_met~FG, random=~1|SiteID, weights=varIdent(form=~1|FG),
+        data=filter(jpn_trop_tests, site.group=='trans.headld'),
+        control=lmeControl(opt = 'optim')) # different optimizer used to make run
+#resid_panel(m1)
 summary(m1)
 
 
-em1<-emmeans(m1, specs='FG', type='link')
+em1<-emmeans(m1, specs='FG')
 pairs(em1)
 plot(em1, comparisons = TRUE)
 
@@ -461,12 +463,12 @@ ggplot(data=filter(jpn_trop_tests, site.group=='trans.bay'), aes(x=FG, y=trop_me
 # remove FGs with only 0s - these will be sig diff 
 zer_fgs<-filter(jpn_trop_tests, site.group=='trans.bay')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
 
-m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='trans.bay' & !FG%in% zer_fgs))
-resid_panel(m1)
+m1<-lme(trop_met~FG, random=~1|SiteID, weights=varIdent(form=~1|FG), data=filter(jpn_trop_tests, site.group=='trans.bay' & !FG%in% zer_fgs))
+#resid_panel(m1)
 summary(m1)
 
 
-em1<-emmeans(m1, specs='FG', type='link')
+em1<-emmeans(m1, specs='FG')
 pairs(em1)
 plot(em1, comparisons = TRUE)
 
@@ -487,11 +489,11 @@ ggplot(data=filter(jpn_trop_tests, site.group=='temp.headld'), aes(x=FG, y=trop_
 # remove FGs with only 0s - these will be sig diff 
 zer_fgs<-filter(jpn_trop_tests, site.group=='temp.headld')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
 
-m1<-lme4::lmer(trop_met~FG+(1|SiteID), data=filter(jpn_trop_tests, site.group=='temp.headld' & !FG%in% zer_fgs))
-resid_panel(m1)
+m1<-lme(trop_met~FG, random=~1|SiteID, weights=varIdent(form=~1|FG), data=filter(jpn_trop_tests, site.group=='temp.headld' & !FG%in% zer_fgs))
+#resid_panel(m1)
 summary(m1)
 
-em1<-emmeans(m1, specs='FG', type='link')
+em1<-emmeans(m1, specs='FG')
 pairs(em1)
 plot(em1, comparisons = TRUE)
 
@@ -527,13 +529,13 @@ aus_trop_tests$FG<-factor(aus_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,
 ggplot(data=filter(aus_trop_tests, site.group=='trans.bay'), aes(x=FG, y=trop_met))+
   geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
-# drop 2 big outliers
-m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests,
-                         site.group=='trans.bay' & trop_met<3))
-resid_panel(m1)
+# drop 2 big outliers, actually don't
+m1<-lme(trop_met~FG, random=~1|Site, weights=varIdent(form=~1|FG), data=filter(aus_trop_tests,
+                         site.group=='trans.bay'))
+#resid_panel(m1)
 summary(m1)
 
-em1<-emmeans(m1, specs='FG', type='link')
+em1<-emmeans(m1, specs='FG')
 pairs(em1)
 
 trop_comps_out_aus<-data.frame(site.group='trans.bay',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:9, c(1,6)]))
@@ -551,12 +553,12 @@ ggplot()+
 ggplot(data=filter(aus_trop_tests, site.group=='trans.offshore'), aes(x=FG, y=trop_met))+
   geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
-m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests, site.group=='trans.offshore'))
-resid_panel(m1)
+m1<-lme(trop_met~FG, random=~1|Site, weights=varIdent(form=~1|FG), data=filter(aus_trop_tests, site.group=='trans.offshore'))
+#resid_panel(m1)
 summary(m1)
 
 
-em1<-emmeans(m1, specs='FG', type='link')
+em1<-emmeans(m1, specs='FG')
 #pairs(em1)
 plot(em1, comparisons = TRUE)
 
@@ -575,12 +577,12 @@ ggplot()+
 ggplot(data=filter(aus_trop_tests, site.group=='trans.headld'), aes(x=FG, y=trop_met))+
   geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
-m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests, site.group=='trans.headld'))
-resid_panel(m1)
+m1<-lme(trop_met~FG, random=~1|Site, weights=varIdent(form=~1|FG), data=filter(aus_trop_tests, site.group=='trans.headld'))
+#resid_panel(m1)
 summary(m1)
 
 
-em1<-emmeans(m1, specs='FG', type='link')
+em1<-emmeans(m1, specs='FG')
 #pairs(em1)
 plot(em1, comparisons = TRUE)
 
@@ -599,11 +601,11 @@ ggplot()+
 ggplot(data=filter(aus_trop_tests, site.group=='trans.temp'), aes(x=FG, y=trop_met))+
   geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
-m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests, site.group=='trans.temp'))
-resid_panel(m1)
+m1<-lme(trop_met~FG, random=~1|Site, weights=varIdent(form=~1|FG), data=filter(aus_trop_tests, site.group=='trans.temp'))
+#resid_panel(m1)
 summary(m1)
 
-em1<-emmeans(m1, specs='FG', type='link')
+em1<-emmeans(m1, specs='FG')
 #pairs(em1)
 plot(em1, comparisons = TRUE)
 
@@ -622,13 +624,13 @@ ggplot()+
 ggplot(data=filter(aus_trop_tests, site.group=='temp.offshore'), aes(x=FG, y=trop_met))+
   geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
-m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests, 
+m1<-lme(trop_met~FG, random=~1|Site, weights=varIdent(form=~1|FG), data=filter(aus_trop_tests, 
                 site.group=='temp.offshore' & trop_met<4)) # remove massive outlier
-resid_panel(m1)
+#resid_panel(m1)
 summary(m1)
 
 
-em1<-emmeans(m1, specs='FG', type='link')
+em1<-emmeans(m1, specs='FG')
 #pairs(em1)
 plot(em1, comparisons = TRUE)
 
@@ -650,12 +652,12 @@ ggplot(data=filter(aus_trop_tests, site.group=='temp.inshore'), aes(x=FG, y=trop
 # remove FGs with only 0s - these will be sig diff 
 zer_fgs<-filter(aus_trop_tests, site.group=='temp.inshore')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
 
-m1<-lme4::lmer(trop_met~FG+(1|Site), data=filter(aus_trop_tests, site.group=='temp.inshore' & !FG%in% zer_fgs))
-resid_panel(m1)
+m1<-lme(trop_met~FG, random=~1|Site, weights=varIdent(form=~1|FG), data=filter(aus_trop_tests, site.group=='temp.inshore' & !FG%in% zer_fgs))
+#resid_panel(m1)
 summary(m1)
 
 
-em1<-emmeans(m1, specs='FG', type='link')
+em1<-emmeans(m1, specs='FG')
 #pairs(em1)
 #plot(em1, comparisons = TRUE)
 
@@ -700,7 +702,7 @@ plot(jpn_comm_m3, residuals = T, pch=1, cex=1, rug=T,
 
 jpn_gam_pred<-expand.grid(lat=seq(24.3, 35, 0.1), FG='all')
 jpn_gam_pred<-cbind(jpn_gam_pred,predict.gam(jpn_comm_m3, newdata =jpn_gam_pred, 
-                     exclude='s(SiteID)', newdata.guaranteed = T, type='link', se.fit=T ))
+                     exclude='s(SiteID)', newdata.guaranteed = T, mode = "link", se.fit=T ))
 
 qplot(data=jpn_gam_pred, x=lat, y=fit^4, geom='line')+
   geom_point(data=jpn_trop_comm, aes(x=lat, y=trop_met^4))
@@ -716,7 +718,7 @@ plot(aus_comm_m3, residuals = T, pch=1, cex=1, rug=T,
 
 aus_gam_pred<-expand.grid(Lat=seq(-31, -23.4, 0.1), FG='all')
 aus_gam_pred<-cbind(aus_gam_pred,predict.gam(aus_comm_m3, newdata =aus_gam_pred,
-                    type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T ))
+                    mode = "link", se.fit=T, exclude='s(Site)', newdata.guaranteed = T ))
 
 qplot(data=aus_gam_pred, x=Lat, y=fit^4, geom='line')+
   geom_point(data=aus_trop_comm, aes(x=Lat, y=trop_met^4))
@@ -740,7 +742,7 @@ plot(jpn_fg_m1, residuals = F, rug=T, pages=1, all.terms = T)
 
 jpn_gam_pred2<-expand.grid(lat=seq(24.3, 35, 0.1), FG=c(1,2,4, 6, 9, 10, 12, 15, 16))
 jpn_gam_pred2<-cbind(jpn_gam_pred2,predict.gam(jpn_fg_m1, newdata =jpn_gam_pred2,
-                                               type='link', se.fit=T,exclude='s(SiteID)', newdata.guaranteed = T ))
+                                               mode = "link", se.fit=T,exclude='s(SiteID)', newdata.guaranteed = T ))
 
 jpn_gam_pred2$FG<-as.character(jpn_gam_pred2$FG)
 jpn_gam_pred_all<-rbind(jpn_gam_pred, jpn_gam_pred2)
@@ -771,7 +773,7 @@ plot(aus_fg_m1, residuals = F, rug=T, pages=1, all.terms = T)
 
 aus_gam_pred2<-expand.grid(Lat=seq(-31, -23, 0.1), FG=c(1,2,4, 6,8, 10, 12, 15, 16))
 aus_gam_pred2<-cbind(aus_gam_pred2,predict.gam(aus_fg_m1, newdata =aus_gam_pred2,
-                                               type='link', se.fit=T,exclude='s(Site)', newdata.guaranteed = T ))
+                                               mode = "link", se.fit=T,exclude='s(Site)', newdata.guaranteed = T ))
 
 aus_gam_pred2$FG<-as.character(aus_gam_pred2$FG)
 aus_gam_pred_all<-rbind(aus_gam_pred, aus_gam_pred2)
@@ -795,7 +797,7 @@ summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
 plot(modl, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
-qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),type='link', se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
+qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),mode = "link", se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
   geom_jitter(data=filter(jpn_trop_prop, FG==1),aes(x=lat, y=trop_met^4), shape=1, height=0.05,width=0.1)
 
 jpn.fg2<-gam(trop_met~s(lat, k=7)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==2), method = 'REML')
@@ -804,7 +806,7 @@ summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
 plot(modl, residuals = T, pch=1, cex=1, rug=T,
                        shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
-qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),type='link', se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
+qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),mode = "link", se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
   geom_jitter(data=filter(jpn_trop_prop, FG==2),aes(x=lat, y=trop_met^4), shape=1, height=0.05,width=0.1)
 
 jpn.fg3<-gam(trop_met~s(lat, k=5, sp=0.1)+s(SiteID, bs='re'), data=filter(jpn_trop_prop, FG==3), method = 'REML')
@@ -813,7 +815,7 @@ summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
 plot(modl, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
-qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),type='link', se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
+qplot(data=data.frame(lat=seq(24.3, 35, 0.1),predict.gam(modl, newdata =data.frame(lat=seq(24.3, 35, 0.1)),mode = "link", se.fit=T, exclude='s(SiteID)', newdata.guaranteed = T )),x=lat, y=fit^4, geom='line')+
   geom_jitter(data=filter(jpn_trop_prop, FG==3),aes(x=lat, y=trop_met^4), shape=1, height=0.05,width=0.1)
 
 # Aus individual FGs
@@ -826,7 +828,7 @@ summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
 plot(modl, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
-qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
+qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),mode = "link", se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
   geom_point(data=filter(aus_trop_prop, FG==1),aes(x=Lat, y=trop_met^4), shape=1)+ylim(c(0,10))
 
 # FG2
@@ -838,7 +840,7 @@ summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
 plot(modl, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
-qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
+qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),mode = "link", se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
   geom_point(data=filter(aus_trop_prop, FG==2),aes(x=Lat, y=trop_met^4), shape=1)
 
 # FG4
@@ -850,7 +852,7 @@ summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
 plot(modl, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
-qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
+qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),mode = "link", se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
   geom_point(data=filter(aus_trop_prop, FG==4),aes(x=Lat, y=trop_met^4), shape=1)+ylim(c(0,10))+geom_hline(yintercept=1, colour='red')
 
 
@@ -863,7 +865,7 @@ summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
 plot(modl, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
-qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
+qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),mode = "link", se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
   geom_point(data=filter(aus_trop_prop, FG==6),aes(x=Lat, y=trop_met^4), shape=1)+geom_hline(yintercept=1, colour='red')
 
 # FG9
@@ -875,7 +877,7 @@ summary(modl)
 par(mfrow=c(2,2));gam.check(modl)
 plot(modl, residuals = T, pch=1, cex=1, rug=T,
      shade=T, seWithMean = T, shift = coef(modl)[1],xlab='Latitude', ylab='delta Biomass relative to tropical site')
-qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),type='link', se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
+qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),mode = "link", se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
   geom_point(data=filter(aus_trop_prop, FG==9),aes(x=Lat, y=trop_met^4), shape=1)+geom_hline(yintercept=1, colour='red')
 
 
