@@ -70,6 +70,18 @@ spacBreakdown<-function(data=dat, fgs=fgs, FGZ=c(1,2), TM2=c('tropical', 'subtro
   return(return_df)
 }
 
+# read Sommer oceanographic data and export again
+#sst<-read.csv('C:/coral_fish/sourced_data/Sommer_site_env/sst_month_GlobalModis_1km.csv')
+#chl<-read.csv('C:/coral_fish/sourced_data/Sommer_site_env/chla_month_GlobalModis_4km.csv')
+
+#sst$month<-do.call(c,lapply(strsplit(as.character(sst$X), '/'), function(x)x[2]))
+#chl$month<-do.call(c,lapply(strsplit(as.character(chl$X), '/'), function(x)x[2]))
+#out_ocean<-data.frame(site=names(chl)[2:89], 
+#sst=apply(sst[,2:89], 2, function(x)median(x, na.rm=T)),
+#chl=apply(chl[,2:89], 2, function(x)median(x, na.rm=T)))
+
+#write.csv(out_ocean,'C:/coral_fish/sourced_data/Sommer_site_env/aus_jpn_sst_chl.csv')
+
 ## Read in data
 # read traits and FGs
 fgs<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_clusters.csv')
@@ -188,6 +200,17 @@ mat_biom_jpn<-mat_biom_jpn[-c(11,16),]
 
 #site cluster plot based on biomass log transform
 plot(hclust(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm=T), 'average')) 
+
+# test variable contribution
+#env_vars<-biom1%>%group_by(SiteID)%>%summarise_all(first)
+#temp<-biom3%>%group_by(SiteID)%>%summarise_all(first)
+#env_vars<-left_join(env_vars,temp[,c(1,3)], by='SiteID')
+#env_vars<-env_vars[order(env_vars$Name.x),]
+#env_vars<-env_vars[-c(11,16),]#drop Kochi 6 and kochi 1
+#write.csv(env_vars, 'C:/coral_fish/data/Japan/Japan_site_characteristics.csv', quote=F, row.names=F)
+
+adonis2(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm=T)~lat+lon,
+            data=env_vars, by='margin') # tests marginal contribution of variables rather than sequqnetially
 
 library(dendextend)
 library(rvg)
@@ -366,12 +389,21 @@ biom3$corr_biom<-biom3$tot_biom/biom3$totMsurv
 
 mat_biom_aus<-matrify(data.frame(biom3$Site, biom3$Fish, biom3$corr_biom))
 
-#drop Kochi 6 and kochi 1
+#drop North and WOlf Rock
 dimnames(mat_biom_aus)[[1]][c(6,25)]
 mat_biom_aus<-mat_biom_aus[-c(6,25),]
 
 #site cluster plot based on biomass log transform
 plot(hclust(vegdist(decostand(mat_biom_aus, 'log'), 'bray', na.rm=T), 'average')) 
+
+# test variable contribution
+#env_vars<-biom1%>%group_by(Site)%>%summarise_all(first)
+#env_vars<-env_vars[-c(6,25),]#North and WOlf Rock
+#write.csv(env_vars, 'C:/coral_fish/data/Australia/Australia_site_characteristics.csv', quote=F, row.names=F)
+
+adonis2(vegdist(decostand(mat_biom_aus, 'log'), 'bray', na.rm=T)~Lat+Long,
+        data=env_vars, by='margin') # tests marginal contribution of variables rather than sequqnetially
+
 
 # make dendextend object and rotate
 dend<-as.dendrogram(hclust(vegdist(decostand(mat_biom_aus, 'log'), 'bray', na.rm=T), 'average'))
