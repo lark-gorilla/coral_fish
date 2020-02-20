@@ -208,9 +208,16 @@ plot(hclust(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm=T), 'average')
 #env_vars<-env_vars[order(env_vars$Name.x),]
 #env_vars<-env_vars[-c(11,16),]#drop Kochi 6 and kochi 1
 #write.csv(env_vars, 'C:/coral_fish/data/Japan/Japan_site_characteristics.csv', quote=F, row.names=F)
+env_vars<-read.csv('C:/coral_fish/data/Japan/Japan_site_characteristics.csv')
 
-adonis2(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm=T)~lat+lon,
-            data=env_vars, by='margin') # tests marginal contribution of variables rather than sequqnetially
+pairs(env_vars[c('lat', 'lon', 'chl', 'sst', 'geog')])
+qplot(data=env_vars, x=lat, y=sst) # corr sst
+qplot(data=env_vars, x=lat, y=lon) # corr sst
+
+adonis(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm=T)~lat+lon+sst+chl+geog,
+        data=env_vars,permutations=9999) 
+# Use sequential tests knowing that lat is correlated ith others we enter it first
+
 
 library(dendextend)
 library(rvg)
@@ -389,7 +396,7 @@ biom3$corr_biom<-biom3$tot_biom/biom3$totMsurv
 
 mat_biom_aus<-matrify(data.frame(biom3$Site, biom3$Fish, biom3$corr_biom))
 
-#drop North and WOlf Rock
+#drop Flat and WOlf Rock
 dimnames(mat_biom_aus)[[1]][c(6,25)]
 mat_biom_aus<-mat_biom_aus[-c(6,25),]
 
@@ -398,11 +405,16 @@ plot(hclust(vegdist(decostand(mat_biom_aus, 'log'), 'bray', na.rm=T), 'average')
 
 # test variable contribution
 #env_vars<-biom1%>%group_by(Site)%>%summarise_all(first)
-#env_vars<-env_vars[-c(6,25),]#North and WOlf Rock
+#env_vars<-env_vars[-c(6,25),]#Flat and WOlf Rock
 #write.csv(env_vars, 'C:/coral_fish/data/Australia/Australia_site_characteristics.csv', quote=F, row.names=F)
+env_vars<-read.csv('C:/coral_fish/data/Australia/Australia_site_characteristics.csv')
 
-adonis2(vegdist(decostand(mat_biom_aus, 'log'), 'bray', na.rm=T)~Lat+Long,
-        data=env_vars, by='margin') # tests marginal contribution of variables rather than sequqnetially
+pairs(env_vars[c('Lat', 'Long', 'chl', 'sst', 'geog')])
+qplot(data=env_vars, x=Lat, y=sst) # remove sst
+
+adonis(vegdist(decostand(mat_biom_aus, 'log'), 'bray', na.rm=T)~Lat+Long+sst+chl+geog,
+       data=env_vars,permutations=9999) 
+# Use sequential tests knowing that lat is correlated ith others we enter it first
 
 
 # make dendextend object and rotate
