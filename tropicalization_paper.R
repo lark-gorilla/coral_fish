@@ -45,6 +45,12 @@ bio_aus$FG<-factor(bio_aus$FG)
 bio_aus$cor_biom<-bio_aus$tot_biom/bio_aus$totMsurv
 bio_jpn$cor_biom<-bio_jpn$tot_biom/bio_jpn$totMsurv
 
+# Remove bad 2 sites from Jpn and Aus
+bio_jpn<-filter(bio_jpn, !SiteID %in% c('JP27', 'JP32'))
+bio_aus<-filter(bio_aus, !Site %in% c('Flat Rock', 'Wolf Rock'))
+
+spr_jpn<-filter(spr_jpn, !Site %in% c('JP27', 'JP32'))
+spr_aus<-filter(spr_aus, !Site %in% c('Flat Rock', 'Wolf Rock'))
 
 #### Functional Entity creation and word clouds ####
 
@@ -281,22 +287,22 @@ ggplot(jpn_trop_prop) +
 ggplot(aus_trop_prop, aes(x = Lat, y = (cor_biom/mean_biom)^0.25)) + 
   geom_point(data=aus_trop_comm, colour='black', alpha=0.3, shape=1)+
   geom_point(aes(colour=factor(FG)))+
-  geom_smooth(aes(colour=factor(FG)),se=F, span=0.5)+
-  geom_smooth(data=aus_trop_comm, se=F, span=0.5, colour='black', linetype='dashed')+
+  geom_smooth(aes(colour=factor(FG)),se=F)+
+  geom_smooth(data=aus_trop_comm, se=F, colour='black', linetype='dashed')+
   scale_x_reverse()+theme_bw()+
   facet_wrap(~FG, scales='free')+theme(legend.position = "none")+
   xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
 
 ggplot(aus_trop_prop, aes(x = Lat, y = (cor_biom/mean_biom)^0.25)) + 
-  geom_smooth(aes(colour=factor(FG)),  span=0.5, se=F)+
-  geom_smooth(data=aus_trop_comm, span=0.5, se=F, colour='black', linetype='dashed')+
+  geom_smooth(aes(colour=factor(FG)), se=F)+
+  geom_smooth(data=aus_trop_comm, se=F, colour='black', linetype='dashed')+
   scale_x_reverse()+theme_bw()+
   facet_wrap(~FG)+theme(legend.position = "none")+geom_hline(yintercept=0.05^0.25)+
   xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
 
 
-sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -25.9, -26.61, -27.38, -28.19, -29.9, -29.97), 
-                         xmax=c(-24.1, -25.3, -25.92, -26.98, -27.41, -28.616, -30.96, -30.3))
+sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97), 
+                         xmax=c(-24.1, -25.3, -26.98, -28.616, -30.96, -30.3))
 
 ggplot(aus_trop_prop) + 
   geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.6)+
