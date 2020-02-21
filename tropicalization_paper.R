@@ -256,6 +256,9 @@ aus_trop_comm$mean_biom<-as.numeric(filter(aus_trop_comm, Lat> -24.5)%>%ungroup(
 
 
 # FG tropicalization trends plots
+jpn_trop_prop$FG<-factor(jpn_trop_prop$FG, levels=c(15, 10, 8, 2,6,12,4,1,16))
+aus_trop_prop$FG<-factor(aus_trop_prop$FG, levels=c(15, 10, 8, 2,6,12,4,1,16))
+
 
 ggplot(jpn_trop_prop, aes(x = lat, y = (cor_biom/mean_biom)^0.25)) + 
   geom_point(data=jpn_trop_comm, colour='black', alpha=0.3, shape=1)+
@@ -488,16 +491,24 @@ ggplot()+
   theme_bw()+theme(legend.position = "none")
 
 #all plot
+trop_comps_out<-rbind(trop_comps_out,
+                      data.frame(site.group='temp.headld', FG=c(6,12,1,16), emmean=0, SE=0,
+                      df=0, lower.CL=0, upper.CL=0, contrast=NA, p.value=0))
 
-trop_comps_out$site.group<-factor(trop_comps_out$site.group, levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
-                                                                      'trans.headld', 'temp.headld'))
+trop_comps_out$site.group<-factor(trop_comps_out$site.group,
+              levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
+                       'trans.headld', 'temp.headld'))
+ 
 
 ggplot()+
   geom_hline(yintercept =filter(trop_comps_out, FG=='comm')$response, linetype='dotted')+
   geom_errorbar(data=trop_comps_out, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
-  geom_point(data=trop_comps_out, aes(x=FG, y=emmean, colour=ifelse(is.na(p.value), 'black', ifelse(p.value>0.05, 'blue', 'red'))), size=2)+
+  geom_point(data=trop_comps_out, aes(x=FG, y=emmean, size=ifelse(is.na(p.value), 1, ifelse(p.value>0.05, 1, 2))), shape=1)+
+  geom_point(data=trop_comps_out, aes(x=FG, y=emmean, colour=factor(FG)), size=2)+
   theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group, nrow=1)+
-  scale_colour_manual(values = c("black", "red", "blue"))+ylab('Proportion of tropical biomass (4rt scaled)')
+  scale_colour_manual(values = c("black", "#F8766D", "#D39200" ,"#93AA00", "#00BA38",
+ "#00C19F", "#00B9E3", "#619CFF", "#DB72FB", "#FF61C3"))+
+  ylab('Proportion of tropical biomass (4rt scaled)')
 
 #### Australia FG tropicalization comparisons #### 
 
@@ -629,6 +640,10 @@ ggplot()+
   theme_bw()+theme(legend.position = "none")
 
 #all plot
+trop_comps_out<-rbind(trop_comps_out,
+                      data.frame(site.group='temp.inshore', FG=c(6,12,16), emmean=0, SE=0,
+                                 df=0, lower.CL=0, upper.CL=0, contrast=NA, p.value=0))
+
 
 trop_comps_out_aus$site.group<-factor(trop_comps_out_aus$site.group, levels=c('trop.base', 'trans.bay', 'trans.offshore',
                                                                               'trans.temp',  'temp.offshore', 'temp.inshore'))
@@ -636,9 +651,12 @@ trop_comps_out_aus$site.group<-factor(trop_comps_out_aus$site.group, levels=c('t
 ggplot()+
   geom_hline(yintercept =filter(trop_comps_out_aus, FG=='comm')$response, linetype='dotted')+
   geom_errorbar(data=trop_comps_out_aus, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
-  geom_point(data=trop_comps_out_aus, aes(x=FG, y=emmean, colour=ifelse(is.na(p.value), 'black', ifelse(p.value>0.05, 'blue', 'red'))), size=2)+
+  geom_point(data=trop_comps_out, aes(x=FG, y=emmean, size=ifelse(is.na(p.value), 1, ifelse(p.value>0.05, 1, 2))), shape=1)+
+  geom_point(data=trop_comps_out, aes(x=FG, y=emmean, colour=factor(FG)), size=2)+
   theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group, nrow=1)+
-  scale_colour_manual(values = c("black", "red", "blue"))+ylab('Proportion of tropical biomass (4rt scaled)')
+  scale_colour_manual(values = c("black", "#F8766D", "#D39200" ,"#93AA00", "#00BA38",
+  "#00C19F", "#00B9E3", "#619CFF", "#DB72FB", "#FF61C3"))+
+  ylab('Proportion of tropical biomass (4rt scaled)')
 
 
 # 1) GAMS
