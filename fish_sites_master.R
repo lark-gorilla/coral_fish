@@ -228,7 +228,7 @@ dend<-as.dendrogram(hclust(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm
 #get order that we want labels in
 plot(dend)
 labels(dend)
-dend2<-rotate(dend, order=labels(dend)[c(10:21,9, 22:29, 4:8, 1:3)])%>%as.ggdend()
+dend2<-rotate(dend, order=labels(dend)[c(10:21,9, 26:29, 22:25, 4:8, 1:3)])%>%as.ggdend()
 
 read_pptx() %>%
   add_slide(layout = "Title and Content", master = "Office Theme") %>%
