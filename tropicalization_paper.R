@@ -462,32 +462,6 @@ ggplot()+
   geom_point(data=filter(trop_comps_out, site.group=='trans.headld'), aes(x=FG, y=emmean, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
   theme_bw()+theme(legend.position = "none")
 
-## trans.bay
-
-ggplot(data=filter(jpn_trop_tests, site.group=='trans.bay'), aes(x=FG, y=trop_met))+
-  geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
-# remove FGs with only 0s - these will be sig diff 
-zer_fgs<-filter(jpn_trop_tests, site.group=='trans.bay')%>%group_by(FG)%>%summarise(st=sum(trop_met))%>%filter(., st==0)%>%.$FG
-
-m1<-lme(trop_met~FG, random=~1|SiteID, weights=varIdent(form=~1|FG), data=filter(jpn_trop_tests, site.group=='trans.bay' & !FG%in% zer_fgs))
-#resid_panel(m1)
-summary(m1)
-
-
-em1<-emmeans(m1, specs='FG')
-pairs(em1)
-plot(em1, comparisons = TRUE)
-
-trop_comps_out<-rbind(trop_comps_out,
-                      data.frame(site.group='trans.bay',data.frame(em1), rbind(c(NA, NA), data.frame(pairs(em1))[1:(9-length(zer_fgs)), c(1,6)])))
-
-ggplot()+
-  geom_jitter(data=filter(jpn_trop_tests, site.group=='trans.bay'), aes(x=FG, y=trop_met), shape=1, alpha=0.5, width=0.2, colour='grey')+
-  geom_hline(yintercept =trop_comps_out[trop_comps_out$site.group=='trans.bay',]$response[1], linetype='dotted')+
-  geom_errorbar(data=filter(trop_comps_out, site.group=='trans.bay'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
-  geom_point(data=filter(trop_comps_out, site.group=='trans.bay'), aes(x=FG, y=emmean, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
-  theme_bw()+theme(legend.position = "none")
-
 ## temp.headld
 
 ggplot(data=filter(jpn_trop_tests, site.group=='temp.headld'), aes(x=FG, y=trop_met))+
@@ -516,7 +490,7 @@ ggplot()+
 #all plot
 
 trop_comps_out$site.group<-factor(trop_comps_out$site.group, levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
-                                                                      'trans.headld', 'trans.bay', 'temp.headld'))
+                                                                      'trans.headld', 'temp.headld'))
 
 ggplot()+
   geom_hline(yintercept =filter(trop_comps_out, FG=='comm')$response, linetype='dotted')+
@@ -578,29 +552,6 @@ ggplot()+
   geom_point(data=filter(trop_comps_out_aus, site.group=='trans.offshore'), aes(x=FG, y=emmean, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
   theme_bw()+theme(legend.position = "none")
 
-## trans.headld
-
-ggplot(data=filter(aus_trop_tests, site.group=='trans.headld'), aes(x=FG, y=trop_met))+
-  geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
-
-m1<-lme(trop_met~FG, random=~1|Site, weights=varIdent(form=~1|FG), data=filter(aus_trop_tests, site.group=='trans.headld'))
-#resid_panel(m1)
-summary(m1)
-
-
-em1<-emmeans(m1, specs='FG')
-#pairs(em1)
-plot(em1, comparisons = TRUE)
-
-trop_comps_out_aus<-rbind(trop_comps_out_aus,
-                          data.frame(site.group='trans.headld',data.frame(em1), rbind(c(NA, NA),
-                                                                                        data.frame(pairs(em1))[1:9, c(1,6)])))
-ggplot()+
-  geom_jitter(data=filter(aus_trop_tests, site.group=='trans.headld'), aes(x=FG, y=trop_met), shape=1, alpha=0.5, width=0.2, colour='grey')+
-  geom_hline(yintercept =trop_comps_out_aus[trop_comps_out_aus$site.group=='trans.headld',]$response[1], linetype='dotted')+
-  geom_errorbar(data=filter(trop_comps_out_aus, site.group=='trans.headld'), aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
-  geom_point(data=filter(trop_comps_out_aus, site.group=='trans.headld'), aes(x=FG, y=emmean, colour=ifelse(p.value>0.05| is.na(p.value), 'blue', 'red')), size=2)+
-  theme_bw()+theme(legend.position = "none")
 
 ## trans.temp
 
@@ -679,7 +630,7 @@ ggplot()+
 
 #all plot
 
-trop_comps_out_aus$site.group<-factor(trop_comps_out_aus$site.group, levels=c('trop.base', 'trans.bay', 'trans.offshore','trans.headld',
+trop_comps_out_aus$site.group<-factor(trop_comps_out_aus$site.group, levels=c('trop.base', 'trans.bay', 'trans.offshore',
                                                                               'trans.temp',  'temp.offshore', 'temp.inshore'))
 
 ggplot()+
