@@ -259,7 +259,6 @@ aus_trop_comm$mean_biom<-as.numeric(filter(aus_trop_comm, Lat> -24.5)%>%ungroup(
 jpn_trop_prop$FG<-factor(jpn_trop_prop$FG, levels=c(15, 10, 8, 2,6,12,4,1,16))
 aus_trop_prop$FG<-factor(aus_trop_prop$FG, levels=c(15, 10, 8, 2,6,12,4,1,16))
 
-
 ggplot(jpn_trop_prop, aes(x = lat, y = (cor_biom/mean_biom)^0.25)) + 
   geom_point(data=jpn_trop_comm, colour='black', alpha=0.3, shape=1)+
   geom_point(aes(colour=factor(FG)))+
@@ -309,16 +308,16 @@ sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97),
 
 ggplot(aus_trop_prop) + 
   geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.6)+
-  geom_smooth(aes(x = Lat, y = (cor_biom/mean_biom)^0.25, colour=factor(FG)), span=0.5, se=F)+
-  geom_smooth(data=aus_trop_comm, aes(x = Lat, y = (cor_biom/mean_biom)^0.25), span=0.5,
+  geom_smooth(aes(x = Lat, y = (cor_biom/mean_biom)^0.25, colour=factor(FG)), se=F)+
+  geom_smooth(data=aus_trop_comm, aes(x = Lat, y = (cor_biom/mean_biom)^0.25),
               se=F, colour='black', linetype='dashed')+
   theme_classic()+theme(legend.position = "none")+
   geom_hline(yintercept=0.05^0.25)+scale_x_reverse(breaks=-23:-31)+
   xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
 
 # calc statistics 
-#1) make gams per FG and for comm to visualise tropicalization
-#2) make mixed anovas to compare FG tropicalization 'levels' within each site-group 
+
+# Make mixed anovas to compare FG tropicalization 'levels' within each site-group 
 
 # setup data for analyses
 # add tropicalization_metric: >1 = more biomass at site compared to tropical site-group
@@ -337,7 +336,6 @@ jpn_trop_tests[jpn_trop_tests$lat > 25 &  jpn_trop_tests$lat < 28.5,]$site.group
 jpn_trop_tests[jpn_trop_tests$lat > 28.5 &  jpn_trop_tests$lat < 31,]$site.group<-'trans.island'
 jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP28', 'JP29', 'JP30', 'JP31'),]$site.group<-'trans.inland'
 jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP8', 'JP9', 'JP10', 'JP11', 'JP12'),]$site.group<-'trans.headld'
-jpn_trop_tests[jpn_trop_tests$SiteID %in% c('JP27', 'JP32'),]$site.group<-'trans.bay'
 jpn_trop_tests[jpn_trop_tests$lat > 34,]$site.group<-'temp.headld'
 table(jpn_trop_tests$SiteID, jpn_trop_tests$site.group)
 
@@ -347,7 +345,6 @@ aus_trop_tests<-rbind(data.frame(aus_trop_comm), aus_trop_prop[names(aus_trop_co
 aus_trop_tests$site.group<-'trop.base'
 aus_trop_tests[aus_trop_tests$Lat > -25.6 &  aus_trop_tests$Lat < -24.5,]$site.group<-'trans.bay'
 aus_trop_tests[aus_trop_tests$Lat > -28 &  aus_trop_tests$Lat < -25.6,]$site.group<-'trans.offshore'
-aus_trop_tests[aus_trop_tests$Site %in% c('Flat Rock', 'Wolf Rock'),]$site.group<-'trans.headld'
 aus_trop_tests[aus_trop_tests$Lat < -28,]$site.group<-'temp.offshore'
 aus_trop_tests[aus_trop_tests$Site %in% c('Julian Rock False Trench', 'Julian Rock Nursery', 'Cook Island'),]$site.group<-'trans.temp'
 aus_trop_tests[aus_trop_tests$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woolgoolga Headland', 'North Rock'),]$site.group<-'temp.inshore'
@@ -355,7 +352,6 @@ aus_trop_tests[aus_trop_tests$Site %in% c('Muttonbird Island', 'Woolgoolga Reef'
 table(aus_trop_tests$Site,aus_trop_tests$site.group)
 
 #### run FG tropicalization comparisons ####
-
 #### Japan FG tropicalization comps ####
 
 # set comm as intercept
@@ -640,7 +636,7 @@ ggplot()+
   theme_bw()+theme(legend.position = "none")
 
 #all plot
-trop_comps_out<-rbind(trop_comps_out,
+trop_comps_out_aus<-rbind(trop_comps_out_aus,
                       data.frame(site.group='temp.inshore', FG=c(6,12,16), emmean=0, SE=0,
                                  df=0, lower.CL=0, upper.CL=0, contrast=NA, p.value=0))
 
@@ -651,15 +647,16 @@ trop_comps_out_aus$site.group<-factor(trop_comps_out_aus$site.group, levels=c('t
 ggplot()+
   geom_hline(yintercept =filter(trop_comps_out_aus, FG=='comm')$response, linetype='dotted')+
   geom_errorbar(data=trop_comps_out_aus, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
-  geom_point(data=trop_comps_out, aes(x=FG, y=emmean, size=ifelse(is.na(p.value), 1, ifelse(p.value>0.05, 1, 2))), shape=1)+
-  geom_point(data=trop_comps_out, aes(x=FG, y=emmean, colour=factor(FG)), size=2)+
+  geom_point(data=trop_comps_out_aus, aes(x=FG, y=emmean, size=ifelse(is.na(p.value), 1, ifelse(p.value>0.05, 1, 2))), shape=1)+
+  geom_point(data=trop_comps_out_aus, aes(x=FG, y=emmean, colour=factor(FG)), size=2)+
   theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group, nrow=1)+
   scale_colour_manual(values = c("black", "#F8766D", "#D39200" ,"#93AA00", "#00BA38",
   "#00C19F", "#00B9E3", "#619CFF", "#DB72FB", "#FF61C3"))+
   ylab('Proportion of tropical biomass (4rt scaled)')
 
 
-# 1) GAMS
+
+####  GAMS  ####
 
 # Japan all FGs
 jpn_comm_m2<-gam(trop_met~s(lat), data=jpn_trop_comm, method = 'REML')
@@ -855,9 +852,6 @@ plot(modl, residuals = T, pch=1, cex=1, rug=T,
 qplot(data=data.frame(Lat=seq(-31, -23, 0.1),predict.gam(modl, newdata =data.frame(Lat=seq(-31, -23, 0.1)),mode = "link", se.fit=T, exclude='s(Site)', newdata.guaranteed = T )),x=Lat, y=fit^4, geom='line')+
   geom_point(data=filter(aus_trop_prop, FG==9),aes(x=Lat, y=trop_met^4), shape=1)+geom_hline(yintercept=1, colour='red')
 
-
-
-                
 ggplot(jpn_gam_pred[jpn_gam_pred$FG!='all',], aes(x = lat))+  
   geom_ribbon(data=jpn_gam_pred[jpn_gam_pred$FG=='all',]%>%rename(FG2=FG), 
               aes(ymax=(fit+se.fit*1.96)^4, ymin=(fit-se.fit*1.96)^4),fill='yellow', alpha=0.5)+
@@ -871,64 +865,62 @@ ggplot(jpn_gam_pred[jpn_gam_pred$FG!='all',], aes(x = lat))+
 
 
 
+#### stuart-smith FG tropicalization test ####
 
-# compare delta values with mean FG thermal midpoint data (stuart-smith)
-therm_mid<-read_xlsx('C:/coral_fish/sourced_data/stuart_smith_thermal_midpoints/Thermal niche midpoints.xlsx')
-
+# compare tropicalization mean FG thermal midpoint data (stuart-smith)
+therm_mid<-readxl::read_xlsx('C:/coral_fish/sourced_data/stuart_smith_thermal_midpoints/Thermal niche midpoints.xlsx')
+tanika_match<-read.csv('C:/coral_fish/sourced_data/stuart_smith_thermal_midpoints/species_match_tanika.csv')
+# bodge loop to fix 13 species names
+for(i in tanika_match[tanika_match$Name.in.st.data!='',]$Name.in.st.data){
+therm_mid[therm_mid$SPECIES_NAME==i,]$SPECIES_NAME<-as.character(tanika_match[tanika_match$Name.in.st.data==i,]$Not.matched)}
+  
 dat_ss<-left_join(dat, therm_mid, by=c('Species'='SPECIES_NAME'))
-which(is.na(dat_ss$`95th SSTmax`)) # some naming mis-matches/ missing sp ~90
-table(dat_ss$ThermalAffinity2, dat_ss$`Temp-Trop (23cutoff)`)
+which(is.na(dat_ss$`95th SSTmax`)) # some naming mis-matches/ missing sp ~80
+table(dat_ss$ThermalAffinity2, dat_ss$`Temp-Trop (23cutoff)`) # some differences
 
-# confidence > 1 to filter out low confidence midpoints
-qplot(data=dat_ss[dat_ss$confidence>1,], x=ThermalAffinity, y=`MP(5min-95max)`)+geom_violin()
-dat_ss%>%group_by(ThermalAffinity)%>%summarize(n(), mn=mean(`MP(5min-95max)`, na.rm=T),
-     md=median(`MP(5min-95max)`, na.rm=T), sd=sd(`MP(5min-95max)`, na.rm=T))
+# check for coverage of FGs and compare within each region
+# filter to FGs we're interested in
+dat_ss<-filter(dat_ss, groupk19 %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))
+dat_ss$groupk19<-factor(dat_ss$groupk19)
+dat_ss$sst95<-dat_ss$`95th SSTmax`
 
-# check for sig dif between classes
-library(agricolae)
-m1<-lm(`MP(5min-95max)`~ThermalAffinity, data=dat_ss[dat_ss$confidence>1 &
-                         dat_ss$ThermalAffinity!='nonarctic',])
-t1<-HSD.test(m1, 'ThermalAffinity')
+#JPN
+dat_ss%>%filter(JPN_sp>0 & ThermalAffinity2=='tropical')%>%group_by(groupk19)%>%
+  summarise(n_sp=n(), n_sp_conf=length(confidence[confidence>1])) # pretty good
 
-# could us stu smith class or just keep mine. or blend?
+conf_tm_jpn<-dat_ss%>%filter(JPN_sp>0 & ThermalAffinity2=='tropical' & confidence>1)
 
-# do by region
-dat_aus$thermal_mid<-left_join(dat_aus, therm_mid, by=c('Species'='SPECIES_NAME'))$'MP(5min-95max)'
-dat_jpn$thermal_mid<-left_join(dat_jpn, therm_mid, by=c('Species'='SPECIES_NAME'))$'MP(5min-95max)'
-dat_aus$confidence<-left_join(dat_aus, therm_mid, by=c('Species'='SPECIES_NAME'))$confidence
-dat_jpn$confidence<-left_join(dat_jpn, therm_mid, by=c('Species'='SPECIES_NAME'))$confidence
+qplot(data=conf_tm_jpn, x=groupk19, y=sst95, geom='boxplot') # looks good but need closer 
 
-therms<-rbind(
-dat_aus%>%filter(AUS_trop==1 & confidence>1)%>%group_by(FG)%>%
-  summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
-            sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='trop', region='Australia'),
-dat_aus%>%filter(AUS_temp==1& confidence>1)%>%group_by(FG)%>%
-  summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
-            sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='temp', region='Australia'),
-dat_jpn%>%filter(JPN_trop==1& confidence>1)%>%group_by(FG)%>%
-  summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
-            sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='trop', region='Japan'),
-dat_jpn%>%filter(JPN_temp==1& confidence>1)%>%group_by(FG)%>%
-  summarise(mean_tm=mean(thermal_mid, na.rm=T),median_tm=median(thermal_mid, na.rm=T), 
-            sd_tm=sd(thermal_mid, na.rm=T))%>%mutate(comm='temp', region='Japan'))
+m1<-lm(sst95~groupk19, data=conf_tm_jpn[-80,]) #remove outlier
+par(mfrow=c(2,2));plot(m1)
+summary(m1)
+anova(m1) # ns
+pairs(emmeans(m1, 'groupk19'))
+boxplot(resid(m1, type='pearson')~factor(conf_tm_jpn$groupk19))
+#try with GLS to be sure
+m2<-gls(sst95~factor(groupk19), data=conf_tm_jpn,
+        weights=varIdent(form=~1|groupk19))
+boxplot(resid(m2, type='pearson')~factor(conf_tm_jpn$groupk19))
+# no better, remember these groups have different n() so standard 
+# error different anyway
 
-delta_trop_therm<-left_join(delta_trop, therms, by=c('region', 'comm', 'FG'))
+#AUS
 
-ggplot(data=delta_trop_therm, aes(x=delta_trop, y=mean_tm))+
-  geom_pointrange(aes(ymin=mean_tm-sd_tm, ymax=mean_tm+sd_tm))+
-  facet_wrap(~region+comm)
+dat_ss%>%filter(AUS_sp>0 & ThermalAffinity2=='tropical')%>%group_by(groupk19)%>%
+  summarise(n_sp=n(), n_sp_conf=length(confidence[confidence>1])) # pretty good
 
+conf_tm_aus<-dat_ss%>%filter(AUS_sp>0 & ThermalAffinity2=='tropical' & confidence>1)
 
-ggplot(data=filter(delta_trop_therm, FG%in%c(4,6,1,2)),
-       aes(x=delta_trop, y=mean_tm))+geom_vline(xintercept=0, linetype='dotted')+
-  geom_pointrange(aes(ymin=mean_tm-sd_tm, ymax=mean_tm+sd_tm))+
-  facet_wrap(~region+comm)+theme_bw()+xlab('Delta community prop. tropical')+
-  ylab('Thermal midpoint C')
+qplot(data=conf_tm_aus, x=groupk19, y=sst95, geom='boxplot') # looks good but need closer 
 
-# plots per FG
+m1<-lm(sst95~groupk19, data=conf_tm_aus) #remove outlier
+par(mfrow=c(2,2));plot(m1)
+summary(m1)
+anova(m1) # ns
+pairs(emmeans(m1, 'groupk19'))
+boxplot(resid(m1, type='pearson')~factor(conf_tm_aus$groupk19))
 
-ggplot(data=dat_jpn%>%filter(JPN_temp==1 &  FG %in%c(4,6,1,2)),
-       aes(x=factor(FG), y=thermal_mid))+geom_violin()
 
 ### calculate functional distance/overlap between tropical invaders and
 ## higher latitude residents in transititon zone
