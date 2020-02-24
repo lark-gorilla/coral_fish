@@ -62,10 +62,10 @@ bio_jpn$cor_biom<-bio_jpn$tot_biom/bio_jpn$totMsurv
 aus_sp_site$cor_biom<-aus_sp_site$tot_biom/aus_sp_site$totMsurv
 jpn_sp_site$cor_biom<-jpn_sp_site$tot_biom/jpn_sp_site$totMsurv
 # and summarise by site for sp site data
-aus_sp_site<-aus_sp_site%>%group_by(Site, FG, ThermalAffinity2, Fish)%>%
+aus_sp_site<-aus_sp_site%>%group_by(Site, Lat, FG, ThermalAffinity2, Fish)%>%
   summarise(cor_biom=sum(cor_biom))
 
-jpn_sp_site<-jpn_sp_site%>%group_by(SiteID, FG, ThermalAffinity2, SpeciesFish)%>%
+jpn_sp_site<-jpn_sp_site%>%group_by(SiteID, lat, FG, ThermalAffinity2, SpeciesFish)%>%
   summarise(cor_biom=sum(cor_biom))
 
 #### Functional Entity creation and word clouds ####
@@ -955,9 +955,7 @@ hist(distlog$eig)
 
 func_pco<-data.frame(func_dudi$li,dat)
 
-# add to regional datasets
-dat_aus<-left_join(dat_aus, func_pco[,c(1:5)], by='Species')
-dat_jpn<-left_join(dat_jpn, func_pco[,c(1:5)], by='Species')
+# see how it looks
 
 ppp<- ggplot()+
   geom_hline(yintercept=0, linetype="dotted") + 
@@ -980,26 +978,77 @@ ppp+geom_segment(data=varibs, aes(y=0, x=0, xend=A1, yend=A2),
                                           100* func_dudi$eig[2]/sum(func_dudi$eig))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[1]/sum(func_dudi$eig))))
-dat_aus$ThermalAffinity2<-factor(dat_aus$ThermalAffinity2, levels=c('tropical', 'subtropical'))
 
-ppp+geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2)),
-                   aes(x=A1, y=A2, colour=ThermalAffinity2))+
-  geom_polygon(data=dat_aus %>% filter(AUS_temp==1 & FG %in% c(4,6,1,2))%>%
-                 group_by(FG, ThermalAffinity2) %>% slice(chull(A1, A2)),
-               aes(x=A1, y=A2, fill=ThermalAffinity2), alpha=0.2)+
-  geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2))%>%
-               group_by(FG, ThermalAffinity2)%>%summarize(A1=mean(A1), A2=mean(A2)),
-             aes(x=A1, y=A2, colour=ThermalAffinity2), size=2)+
-  geom_point(data=dat_aus%>% filter(AUS_temp==1 & FG %in% c(4,6,1,2))%>%
-               group_by(FG, ThermalAffinity2)%>%summarize(A1=mean(A1), A2=mean(A2)),
-             aes(x=A1, y=A2, group=ThermalAffinity2), colour='black', size=2, shape=1)+
+# make plots per site-groups
+
+jpn_sp_site$site.group<-'trop.base'
+jpn_sp_site[jpn_sp_site$lat > 25 &  jpn_sp_site$lat < 28.5,]$site.group<-'trop.island'
+jpn_sp_site[jpn_sp_site$lat > 28.5 &  jpn_sp_site$lat < 31,]$site.group<-'trans.island'
+jpn_sp_site[jpn_sp_site$SiteID %in% c('JP28', 'JP29', 'JP30', 'JP31'),]$site.group<-'trans.inland'
+jpn_sp_site[jpn_sp_site$SiteID %in% c('JP8', 'JP9', 'JP10', 'JP11', 'JP12'),]$site.group<-'trans.headld'
+jpn_sp_site[jpn_sp_site$lat > 34,]$site.group<-'temp.headld'
+table(jpn_sp_site$SiteID, jpn_sp_site$site.group)
+
+aus_sp_site$site.group<-'trop.base'
+aus_sp_site[aus_sp_site$Lat > -25.6 &  aus_sp_site$Lat < -24.5,]$site.group<-'trans.bay'
+aus_sp_site[aus_sp_site$Lat > -28 &  aus_sp_site$Lat < -25.6,]$site.group<-'trans.offshore'
+aus_sp_site[aus_sp_site$Lat < -28,]$site.group<-'temp.offshore'
+aus_sp_site[aus_sp_site$Site %in% c('Julian Rock False Trench', 'Julian Rock Nursery', 'Cook Island'),]$site.group<-'trans.temp'
+aus_sp_site[aus_sp_site$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woolgoolga Headland', 'North Rock'),]$site.group<-'temp.inshore'
+
+# join with PCoA axis data
+
+jpn_sp_site_pco<-left_join(jpn_sp_site, func_pco[,1:5], by=c('SpeciesFish'='Species'))
+aus_sp_site_pco<-left_join(aus_sp_site, func_pco[,1:5], by=c('Fish'='Species'))
+
+# setup factor levels
+aus_sp_site_pco<-filter(aus_sp_site_pco, FG %in% c(15, 10, 8, 6, 2,16))
+aus_sp_site_pco$FG<-factor(aus_sp_site_pco$FG, levels=c(15, 10, 8, 6, 2,16))
+aus_sp_site_pco$site.group<-factor(aus_sp_site_pco$site.group,
+                                  levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
+                                           'temp.inshore', 'temp.offshore'))
+
+aus_sp_site_pco$ThermalAffinity2<-factor(aus_sp_site_pco$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+
+ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2))+
+  geom_polygon(data=aus_sp_site_pco%>%group_by(FG, site.group,ThermalAffinity2)%>%
+                 slice(chull(A1, A2)),aes(x=A1, y=A2, fill=ThermalAffinity2), alpha=0.2)+
+  geom_point(data=aus_sp_site_pco%>% group_by(FG, ThermalAffinity2)%>%
+               summarize(A1=mean(A1), A2=mean(A2)), aes(x=A1, y=A2, colour=ThermalAffinity2), size=2)+
   scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
-                                          100* func_dudi$eig[2]/sum(func_dudi$eig))))+
+                                          100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
-                                          100* func_dudi$eig[1]/sum(func_dudi$eig))))+
-  facet_wrap(~FG)+theme_minimal()
+                                          100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
+  facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
+
+# setup factor levels
+jpn_sp_site_pco<-filter(jpn_sp_site_pco, FG %in% c(15, 10, 8, 6, 2,16))
+jpn_sp_site_pco$FG<-factor(jpn_sp_site_pco$FG, levels=c(15, 10, 8, 6, 2,16))
+jpn_sp_site_pco$site.group<-factor(jpn_sp_site_pco$site.group,
+                                   levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
+                                            'trans.headld', 'temp.headld'))
+
+jpn_sp_site_pco$ThermalAffinity2<-factor(jpn_sp_site_pco$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+
+ppp+geom_point(data=jpn_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2))+
+  geom_polygon(data=jpn_sp_site_pco%>%group_by(FG, site.group,ThermalAffinity2)%>%
+                 slice(chull(A1, A2)),aes(x=A1, y=A2, fill=ThermalAffinity2), alpha=0.2)+
+  geom_point(data=jpn_sp_site_pco%>% group_by(FG, ThermalAffinity2)%>%
+               summarize(A1=mean(A1), A2=mean(A2)), aes(x=A1, y=A2, colour=ThermalAffinity2), size=2)+
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
+                                          100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
+                                          100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
+  facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
+
+
+
+
+
 
 dat_jpn$ThermalAffinity2<-factor(dat_jpn$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+
+
 
 ppp+geom_point(data=dat_jpn%>% filter(JPN_temp==1 & FG %in% c(4,6,1,2)),
                aes(x=A1, y=A2, colour=ThermalAffinity2))+
