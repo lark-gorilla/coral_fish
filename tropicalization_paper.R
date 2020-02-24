@@ -922,11 +922,19 @@ pairs(emmeans(m1, 'groupk19'))
 boxplot(resid(m1, type='pearson')~factor(conf_tm_aus$groupk19))
 
 
-### calculate functional distance/overlap between tropical invaders and
-## higher latitude residents in transititon zone
+#### calculate functional distance/overlap between tropical invaders and
+#### functional niche overlap, tropical vs higher latitude residents ####
 
-func_dudi<-dudi.pco(d = sqrt(eff_both), scannf = FALSE, nf = 4)
-# could do func distances for only 4 FGs?
+# recreate distance matrix from clustering
+
+distlog<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
+               metric = "gower",stand = FALSE, type = list(logratio = c(1,5)))
+
+
+func_dudi<-dudi.pco(d = cailliez(distlog, print=TRUE, cor.zero = F), scannf = FALSE, nf = 4)
+
+screeplot(func_dudi)
+hist(distlog$eig)
 
 func_pco<-data.frame(func_dudi$li,dat)
 
