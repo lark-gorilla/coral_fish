@@ -37,13 +37,13 @@ bio_jpn<-read.csv('C:/coral_fish/data/Japan/Jpn_transects_biomass.csv')
 spr_aus<-read.csv('C:/coral_fish/data/Australia/Aus_sites_sprich_combos.csv')
 bio_aus<-read.csv('C:/coral_fish/data/Australia/Aus_transects_biomass.csv')
 
+# read in species per site biomass data for PCoA
+aus_sp_site<-read.csv('C:/coral_fish/data/Australia/Aus_site_species_biomass.csv')
+jpn_sp_site<-read.csv('C:/coral_fish/data/Japan/Jpn_site_species_biomass.csv')
+
 # FG to factor
 bio_jpn$FG<-factor(bio_jpn$FG)
 bio_aus$FG<-factor(bio_aus$FG)
-
-# correct biomass
-bio_aus$cor_biom<-bio_aus$tot_biom/bio_aus$totMsurv
-bio_jpn$cor_biom<-bio_jpn$tot_biom/bio_jpn$totMsurv
 
 # Remove bad 2 sites from Jpn and Aus
 bio_jpn<-filter(bio_jpn, !SiteID %in% c('JP27', 'JP32'))
@@ -51,6 +51,22 @@ bio_aus<-filter(bio_aus, !Site %in% c('Flat Rock', 'Wolf Rock'))
 
 spr_jpn<-filter(spr_jpn, !Site %in% c('JP27', 'JP32'))
 spr_aus<-filter(spr_aus, !Site %in% c('Flat Rock', 'Wolf Rock'))
+
+jpn_sp_site<-filter(jpn_sp_site, !SiteID %in% c('JP27', 'JP32'))
+aus_sp_site<-filter(aus_sp_site, !Site %in% c('Flat Rock', 'Wolf Rock'))
+
+# correct biomass
+bio_aus$cor_biom<-bio_aus$tot_biom/bio_aus$totMsurv
+bio_jpn$cor_biom<-bio_jpn$tot_biom/bio_jpn$totMsurv
+
+aus_sp_site$cor_biom<-aus_sp_site$tot_biom/aus_sp_site$totMsurv
+jpn_sp_site$cor_biom<-jpn_sp_site$tot_biom/jpn_sp_site$totMsurv
+# and summarise by site for sp site data
+aus_sp_site<-aus_sp_site%>%group_by(Site, FG, ThermalAffinity2, Fish)%>%
+  summarise(cor_biom=sum(cor_biom))
+
+jpn_sp_site<-jpn_sp_site%>%group_by(SiteID, FG, ThermalAffinity2, SpeciesFish)%>%
+  summarise(cor_biom=sum(cor_biom))
 
 #### Functional Entity creation and word clouds ####
 
@@ -932,6 +948,7 @@ distlog<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange
 
 
 func_dudi<-dudi.pco(d = cailliez(distlog, print=TRUE, cor.zero = F), scannf = FALSE, nf = 4)
+#func_dudi<-dudi.pco(d = (distlog+3.04421), scannf = FALSE, nf =4)
 
 screeplot(func_dudi)
 hist(distlog$eig)
