@@ -133,6 +133,7 @@ dat<-dat[-which(dat$SiteID==''),]
 # Try summarise per transect
 dat$Site.trans.ID<-paste(dat$SiteID, dat$Transect, sep='_')
 
+
 jpn_abun_mat<-dat %>% group_by(Site.trans.ID, SpeciesFish) %>% summarise(sum_abun=sum(Number))
 
 jpn_abun_mat<-matrify(data.frame(jpn_abun_mat$Site.trans.ID, jpn_abun_mat$SpeciesFish, jpn_abun_mat$sum_abun))
@@ -168,6 +169,15 @@ biom1$SiteID<-substr(biom1$Site.trans.ID, 1, (nchar(biom1$Site.trans.ID)-3))
 biom1<-left_join(biom1, locs[,2:4], by=c('SiteID'='Site'))
 
 write.csv(biom1, 'C:/coral_fish/data/Japan/Jpn_transects_biomass.csv', quote=F, row.names=F) 
+
+#species site biomass output
+
+biom1<-dat%>%group_by(SiteID, Site.trans.ID, FG, ThermalAffinity2, SpeciesFish)%>%
+  summarise(tot_biom=sum(Number*(a*SizeCm^b), na.rm=T))
+
+biom1$totMsurv<-25
+
+write.csv(biom1, 'C:/coral_fish/data/Japan/Jpn_site_species_biomass.csv', quote=F, row.names=F) 
 
 
 # PLOTTING clusters
@@ -377,6 +387,23 @@ names(biom1)[9]<-'surv_length'
 biom1$totMsurv<-biom1$totNsurv*biom1$surv_length
 
 write.csv(biom1, 'C:/coral_fish/data/Australia/aus_transects_biomass.csv', quote=F, row.names=F) 
+
+# output species per site biomass
+
+biom1<-dat_aus_sub%>%group_by(Site, Site.trans.ID, FG, ThermalAffinity2, Fish)%>%
+  summarise(tot_biom=sum(Number*(a*Size^b), na.rm=T))
+
+biom1<-left_join(biom1, dat_aus_sub%>%group_by(Site.trans.ID)%>%
+                   summarise(totNsurv=length(unique(id))), 
+                 by='Site.trans.ID')
+biom1$Site<-substr(biom1$Site.trans.ID, 1, nchar(biom1$Site.trans.ID)-3)
+
+biom1<-left_join(biom1, locs[,c(1,6,7,15)], by=c('Site'='Site.name'))
+names(biom1)[9]<-'surv_length'
+biom1$totMsurv<-biom1$totNsurv*biom1$surv_length
+
+write.csv(biom1, 'C:/coral_fish/data/Australia/Aus_site_species_biomass.csv', quote=F, row.names=F) 
+
 
 
 # make hclust visualisation
