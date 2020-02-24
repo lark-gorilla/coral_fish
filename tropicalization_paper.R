@@ -1002,8 +1002,8 @@ jpn_sp_site_pco<-left_join(jpn_sp_site, func_pco[,1:5], by=c('SpeciesFish'='Spec
 aus_sp_site_pco<-left_join(aus_sp_site, func_pco[,1:5], by=c('Fish'='Species'))
 
 # setup factor levels
-aus_sp_site_pco<-filter(aus_sp_site_pco, FG %in% c(15, 10, 8, 6, 2,16))
-aus_sp_site_pco$FG<-factor(aus_sp_site_pco$FG, levels=c(15, 10, 8, 6, 2,16))
+aus_sp_site_pco<-filter(aus_sp_site_pco, FG %in% c(15, 10, 8, 2,6))
+aus_sp_site_pco$FG<-factor(aus_sp_site_pco$FG, levels=c(15, 10, 8, 2,6))
 aus_sp_site_pco$site.group<-factor(aus_sp_site_pco$site.group,
                                   levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
                                            'temp.inshore', 'temp.offshore'))
@@ -1013,17 +1013,15 @@ aus_sp_site_pco$ThermalAffinity2<-factor(aus_sp_site_pco$ThermalAffinity2, level
 ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2))+
   geom_polygon(data=aus_sp_site_pco%>%group_by(FG, site.group,ThermalAffinity2)%>%
                  slice(chull(A1, A2)),aes(x=A1, y=A2, fill=ThermalAffinity2), alpha=0.2)+
-  geom_point(data=aus_sp_site_pco%>% group_by(FG, ThermalAffinity2)%>%
-               summarize(A1=mean(A1), A2=mean(A2)), aes(x=A1, y=A2, colour=ThermalAffinity2), size=2)+
   scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
-  facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
+  facet_grid(FG~site.group, scales='free')+theme_minimal()+theme(legend.position = "none")
 
 # setup factor levels
-jpn_sp_site_pco<-filter(jpn_sp_site_pco, FG %in% c(15, 10, 8, 6, 2,16))
-jpn_sp_site_pco$FG<-factor(jpn_sp_site_pco$FG, levels=c(15, 10, 8, 6, 2,16))
+jpn_sp_site_pco<-filter(jpn_sp_site_pco, FG %in% c(15, 10, 8, 2,6))
+jpn_sp_site_pco$FG<-factor(jpn_sp_site_pco$FG, levels=c(15, 10, 8, 2,6))
 jpn_sp_site_pco$site.group<-factor(jpn_sp_site_pco$site.group,
                                    levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
                                             'trans.headld', 'temp.headld'))
@@ -1033,13 +1031,11 @@ jpn_sp_site_pco$ThermalAffinity2<-factor(jpn_sp_site_pco$ThermalAffinity2, level
 ppp+geom_point(data=jpn_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2))+
   geom_polygon(data=jpn_sp_site_pco%>%group_by(FG, site.group,ThermalAffinity2)%>%
                  slice(chull(A1, A2)),aes(x=A1, y=A2, fill=ThermalAffinity2), alpha=0.2)+
-  geom_point(data=jpn_sp_site_pco%>% group_by(FG, ThermalAffinity2)%>%
-               summarize(A1=mean(A1), A2=mean(A2)), aes(x=A1, y=A2, colour=ThermalAffinity2), size=2)+
   scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
-  facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
+  facet_grid(FG~site.group, scales='free')+theme_minimal()+theme(legend.position = "none")
 
 
 
