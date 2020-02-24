@@ -176,6 +176,7 @@ biom1<-dat%>%group_by(SiteID, Site.trans.ID, FG, ThermalAffinity2, SpeciesFish)%
   summarise(tot_biom=sum(Number*(a*SizeCm^b), na.rm=T))
 
 biom1$totMsurv<-25
+biom1<-left_join(biom1, locs[,2:4], by=c('SiteID'='Site'))
 
 write.csv(biom1, 'C:/coral_fish/data/Japan/Jpn_site_species_biomass.csv', quote=F, row.names=F) 
 
@@ -396,10 +397,10 @@ biom1<-dat_aus_sub%>%group_by(Site, Site.trans.ID, FG, ThermalAffinity2, Fish)%>
 biom1<-left_join(biom1, dat_aus_sub%>%group_by(Site.trans.ID)%>%
                    summarise(totNsurv=length(unique(id))), 
                  by='Site.trans.ID')
-biom1$Site<-substr(biom1$Site.trans.ID, 1, nchar(biom1$Site.trans.ID)-3)
+
 
 biom1<-left_join(biom1, locs[,c(1,6,7,15)], by=c('Site'='Site.name'))
-names(biom1)[9]<-'surv_length'
+names(biom1)[10]<-'surv_length'
 biom1$totMsurv<-biom1$totNsurv*biom1$surv_length
 
 write.csv(biom1, 'C:/coral_fish/data/Australia/Aus_site_species_biomass.csv', quote=F, row.names=F) 
