@@ -19,6 +19,8 @@ library(readxl)
 library(mgcv)
 library(emmeans)
 library(ggResidpanel)
+library(adehabitatHR)
+library(sf)
 
 #################### read data ##########################
 ##########################################################
@@ -1010,14 +1012,53 @@ aus_sp_site_pco$site.group<-factor(aus_sp_site_pco$site.group,
 
 aus_sp_site_pco$ThermalAffinity2<-factor(aus_sp_site_pco$ThermalAffinity2, levels=c('tropical', 'subtropical'))
 
+spdf<-SpatialPointsDataFrame(coords=aus_sp_site_pco[,c(8,9)], 
+      data=data.frame(ID=paste(aus_sp_site_pco$site.group, aus_sp_site_pco$FG, aus_sp_site_pco$ThermalAffinity2)))
+
+spdf<-spdf[-which(spdf$ID%in%data.frame(table(spdf$ID))[which(data.frame(table(spdf$ID))$Freq<5),]$Var1),]
+spdf$ID<-factor(spdf$ID)
+
+KDE.Surface <- kernelUD(spdf,same4all = T, h=0.075, grid=500)
+KDE.99 <- getverticeshr(KDE.Surface, percent = 99)
+KDE.99<-st_as_sf(KDE.99)
+temp<- do.call(rbind, lapply(strsplit(as.character(KDE.99$id), ' '),
+        function(x) data.frame(site.group=x[1], FG=x[2], ThermalAffinity2=x[3])))
+KDE.99$site.group<-temp$site.group
+KDE.99$FG<-temp$FG
+KDE.99$FG<-factor(KDE.99$FG, levels=c(15, 10, 8, 2,6))
+KDE.99$ThermalAffinity2<-temp$ThermalAffinity2
+KDE.99$site.group<-factor(KDE.99$site.group,
+                                   levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
+                                            'temp.inshore', 'temp.offshore'))
+
+KDE.99$ThermalAffinity2<-factor(KDE.99$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+
+ovl<-kerneloverlaphr(KDE.Surface, percent=99, meth="HR", conditional=T)
+ovl<-as.data.frame.table(ovl)
+ovl<-ovl[-which(ovl$Var1==ovl$Var2),]
+ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var1), ' '),
+                      function(x) data.frame(V1site.group=x[1], V1FG=x[2], V1ThermalAffinity2=x[3]))))
+ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var2), ' '),
+                                     function(x) data.frame(V2site.group=x[1], V2FG=x[2], V2ThermalAffinity2=x[3]))))
+ovl<-ovl[ovl$V1FG==ovl$V2FG,]
+ovl<-ovl[ovl$V1site.group==ovl$V2site.group,]
+ovl<-ovl%>%group_by(V1site.group, V1FG)%>%summarise_all(first) # prop of tropical FG space covered by subtropical FG
+names(ovl)[names(ovl)=="V1site.group"]<-'site.group'
+names(ovl)[names(ovl)=="V1FG"]<-'FG'
+ovl$FG<-factor(ovl$FG, levels=c(15, 10, 8, 2,6))
+ovl$site.group<-factor(ovl$site.group,
+                                   levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
+                                            'temp.inshore', 'temp.offshore'))
+
+
 ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2))+
-  geom_polygon(data=aus_sp_site_pco%>%group_by(FG, site.group,ThermalAffinity2)%>%
-                 slice(chull(A1, A2)),aes(x=A1, y=A2, fill=ThermalAffinity2), alpha=0.2)+
+  geom_sf(data=KDE.99, aes(fill=ThermalAffinity2), alpha=0.5)+
+  geom_text(data=ovl, aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
   scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
-  facet_grid(FG~site.group, scales='free')+theme_minimal()+theme(legend.position = "none")
+  facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
 
 # setup factor levels
 jpn_sp_site_pco<-filter(jpn_sp_site_pco, FG %in% c(15, 10, 8, 2,6))
