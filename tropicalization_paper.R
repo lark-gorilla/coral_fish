@@ -21,6 +21,7 @@ library(emmeans)
 library(ggResidpanel)
 library(adehabitatHR)
 library(sf)
+library(cluster)
 
 #################### read data ##########################
 ##########################################################
@@ -63,6 +64,7 @@ bio_jpn$cor_biom<-bio_jpn$tot_biom/bio_jpn$totMsurv
 
 aus_sp_site$cor_biom<-aus_sp_site$tot_biom/aus_sp_site$totMsurv
 jpn_sp_site$cor_biom<-jpn_sp_site$tot_biom/jpn_sp_site$totMsurv
+
 # and summarise by site for sp site data
 aus_sp_site<-aus_sp_site%>%group_by(Site, Lat, FG, ThermalAffinity2, Fish)%>%
   summarise(cor_biom=sum(cor_biom))
@@ -977,9 +979,9 @@ ppp+geom_segment(data=varibs, aes(y=0, x=0, xend=A1, yend=A2),
   geom_text(data=varibs, aes(x=A1, y=A2, label=predictors))+
   
   scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
-                                          100* func_dudi$eig[2]/sum(func_dudi$eig))))+
+                                          100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
-                                          100* func_dudi$eig[1]/sum(func_dudi$eig))))
+                                          100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))
 
 # make plots per site-groups
 
@@ -1000,6 +1002,12 @@ aus_sp_site[aus_sp_site$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woo
 
 # join with PCoA axis data
 
+# sum biomass per site.group
+jpn_sp_site<-jpn_sp_site%>%group_by(site.group, FG, SpeciesFish, ThermalAffinity2)%>%
+  summarise(cor_biom=sum(cor_biom))
+aus_sp_site<-aus_sp_site%>%group_by(site.group, FG, Fish, ThermalAffinity2)%>%
+  summarise(cor_biom=sum(cor_biom))
+
 jpn_sp_site_pco<-left_join(jpn_sp_site, func_pco[,1:5], by=c('SpeciesFish'='Species'))
 aus_sp_site_pco<-left_join(aus_sp_site, func_pco[,1:5], by=c('Fish'='Species'))
 
@@ -1012,10 +1020,24 @@ aus_sp_site_pco$site.group<-factor(aus_sp_site_pco$site.group,
 
 aus_sp_site_pco$ThermalAffinity2<-factor(aus_sp_site_pco$ThermalAffinity2, levels=c('tropical', 'subtropical'))
 
-spdf<-SpatialPointsDataFrame(coords=aus_sp_site_pco[,c(8,9)], 
-      data=data.frame(ID=paste(aus_sp_site_pco$site.group, aus_sp_site_pco$FG, aus_sp_site_pco$ThermalAffinity2)))
 
-spdf<-spdf[-which(spdf$ID%in%data.frame(table(spdf$ID))[which(data.frame(table(spdf$ID))$Freq<5),]$Var1),]
+
+for(i in 1:nrow(jpn_sp_site_pco)){
+  jpn_sp_site_pco_weighted<-rbind(jpn_sp_site_pco_weighted, 
+                                  do.call(rbind,replicate(ceiling((jpn_sp_site_pco[i,]$cor_biom)^0.5),jpn_sp_site_pco[i,], simplify=F)))
+}
+
+aus_sp_site_pco$ID<-paste(aus_sp_site_pco$site.group, aus_sp_site_pco$FG, aus_sp_site_pco$ThermalAffinity2)
+
+# loop to find IDs with < 5 data points and replicate until n=5 so kernels can be made
+for(i in data.frame(table(aus_sp_site_pco$ID))[which(data.frame(table(aus_sp_site_pco$ID))$Freq<5),]$Var1)
+{
+aus_sp_site_pco<-rbind(aus_sp_site_pco, 
+do.call(rbind,replicate(4, aus_sp_site_pco[aus_sp_site_pco$ID==i,], simplify=F)))
+}
+                                  
+spdf<-SpatialPointsDataFrame(coords=aus_sp_site_pco[,c(6,7)],  data=data.frame(ID=aus_sp_site_pco$ID))
+
 spdf$ID<-factor(spdf$ID)
 
 KDE.Surface <- kernelUD(spdf,same4all = T, h=0.075, grid=500)
@@ -1051,7 +1073,7 @@ ovl$site.group<-factor(ovl$site.group,
                                             'temp.inshore', 'temp.offshore'))
 
 
-ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2))+
+ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2), shape=1)+
   geom_sf(data=KDE.99, aes(fill=ThermalAffinity2), alpha=0.5)+
   geom_text(data=ovl, aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
   scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
@@ -1069,14 +1091,67 @@ jpn_sp_site_pco$site.group<-factor(jpn_sp_site_pco$site.group,
 
 jpn_sp_site_pco$ThermalAffinity2<-factor(jpn_sp_site_pco$ThermalAffinity2, levels=c('tropical', 'subtropical'))
 
+#trial using weighted biomass kernels - probably not necessary when using 99% UD
+#jpn_sp_site_pco_weighted<-NULL
+#for(i in 1:nrow(jpn_sp_site_pco)){
+#  jpn_sp_site_pco_weighted<-rbind(jpn_sp_site_pco_weighted, 
+#  do.call(rbind,replicate(ceiling((jpn_sp_site_pco[i,]$cor_biom)^0.5),jpn_sp_site_pco[i,], simplify=F)))
+#  }
+
+jpn_sp_site_pco$ID<-paste(jpn_sp_site_pco$site.group, jpn_sp_site_pco$FG, jpn_sp_site_pco$ThermalAffinity2)
+
+# loop to find IDs with < 5 data points and replicate until n=5 so kernels can be made
+for(i in data.frame(table(jpn_sp_site_pco$ID))[which(data.frame(table(jpn_sp_site_pco$ID))$Freq<5),]$Var1)
+{
+  jpn_sp_site_pco<-rbind(jpn_sp_site_pco, 
+                         do.call(rbind,replicate(4, jpn_sp_site_pco[jpn_sp_site_pco$ID==i,], simplify=F)))
+}
+
+spdf<-SpatialPointsDataFrame(coords=jpn_sp_site_pco[,c(6,7)],  data=data.frame(ID=jpn_sp_site_pco$ID))
+
+spdf$ID<-factor(spdf$ID)
+
+KDE.Surface <- kernelUD(spdf,same4all = T, h=0.075, grid=500)
+KDE.99 <- getverticeshr(KDE.Surface, percent = 99)
+KDE.99<-st_as_sf(KDE.99)
+temp<- do.call(rbind, lapply(strsplit(as.character(KDE.99$id), ' '),
+                             function(x) data.frame(site.group=x[1], FG=x[2], ThermalAffinity2=x[3])))
+KDE.99$site.group<-temp$site.group
+KDE.99$FG<-temp$FG
+KDE.99$FG<-factor(KDE.99$FG, levels=c(15, 10, 8, 2,6))
+KDE.99$ThermalAffinity2<-temp$ThermalAffinity2
+KDE.99$site.group<-factor(KDE.99$site.group,
+                          levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
+                                   'trans.headld', 'temp.headld'))
+
+KDE.99$ThermalAffinity2<-factor(KDE.99$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+
+ovl<-kerneloverlaphr(KDE.Surface, percent=99, meth="HR", conditional=T)
+ovl<-as.data.frame.table(ovl)
+ovl<-ovl[-which(ovl$Var1==ovl$Var2),]
+ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var1), ' '),
+                                     function(x) data.frame(V1site.group=x[1], V1FG=x[2], V1ThermalAffinity2=x[3]))))
+ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var2), ' '),
+                                     function(x) data.frame(V2site.group=x[1], V2FG=x[2], V2ThermalAffinity2=x[3]))))
+ovl<-ovl[ovl$V1FG==ovl$V2FG,]
+ovl<-ovl[ovl$V1site.group==ovl$V2site.group,]
+ovl<-ovl%>%group_by(V1site.group, V1FG)%>%summarise_all(first) # prop of tropical FG space covered by subtropical FG
+names(ovl)[names(ovl)=="V1site.group"]<-'site.group'
+names(ovl)[names(ovl)=="V1FG"]<-'FG'
+ovl$FG<-factor(ovl$FG, levels=c(15, 10, 8, 2,6))
+ovl$site.group<-factor(ovl$site.group,
+                       levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
+                                'trans.headld', 'temp.headld'))
+
+
 ppp+geom_point(data=jpn_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2))+
-  geom_polygon(data=jpn_sp_site_pco%>%group_by(FG, site.group,ThermalAffinity2)%>%
-                 slice(chull(A1, A2)),aes(x=A1, y=A2, fill=ThermalAffinity2), alpha=0.2)+
+  geom_sf(data=KDE.99, aes(fill=ThermalAffinity2), alpha=0.5)+
+  geom_text(data=ovl, aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
   scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
-  facet_grid(FG~site.group, scales='free')+theme_minimal()+theme(legend.position = "none")
+  facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
 
 
 
