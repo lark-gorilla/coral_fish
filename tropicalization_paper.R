@@ -210,6 +210,34 @@ ggplot(filter(bio_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
   theme_bw()+theme(legend.position = "none")+scale_x_reverse()+
   xlab('Latitude')+ylab('log standardised biomass')
 
+# same plots as above but refined for traitspace comparisons
+sg_lat_spans<-data.frame(xmin=c(24.2, 26.2, 28.5, 31,   32.7,  33.38, 34.6), 
+                         xmax=c(24.5, 28.4, 30.5, 31.6, 32.82, 33.5, 35 ))
+
+bio_jpn$ThermalAffinity2<-factor(bio_jpn$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+
+ggplot(data=filter(bio_jpn, FG %in% c(15, 10, 8, 2, 6))) + 
+  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=5, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+  geom_point(aes(x = lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2), shape=1)+
+  geom_smooth(aes(x = lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2),se=F)+
+  facet_wrap(~FG, scales='free', nrow=5)+
+  theme_bw()+theme(legend.position = "none")+
+  xlab('Latitude')+ylab('4rt-trans standardised biomass')
+
+sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97), 
+                           xmax=c(-24.1, -25.3, -26.98, -28.616, -30.96, -30.3))
+
+bio_aus$ThermalAffinity2<-factor(bio_aus$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+
+ggplot(data=filter(bio_aus, FG %in% c(15, 10, 8, 2, 6))) + 
+    geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=5, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+    geom_point(aes(x = Lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2), shape=1)+
+    geom_smooth(aes(x = Lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2),se=F)+
+    facet_wrap(~FG, scales='free', nrow=5)+scale_x_reverse()+
+    theme_bw()+theme(legend.position = "none")+
+    xlab('Latitude')+ylab('4rt-trans standardised biomass')
+  
+
 # make same plot with spprich data while we're here
 
 ggplot(filter(spr_jpn, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
