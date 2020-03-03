@@ -11,38 +11,31 @@ library(readxl)
 
 # source clVal function
 source('C:/coral_fish/scripts/coral_fish/clVal.R')
-source('C:/coral_fish/scripts/coral_fish/functions.R')
 
-#dat<-read_xlsx('C:/coral_fish/data/Traits/Coral_DB_condensed_KMC0107.xlsx',
-#sheet = 2, na='NA')
-
-dat<-read.csv('C:/coral_fish/data/Traits/coral_traits_filter2911.csv')
+dat<-read.csv('C:/coral_fish/data/Traits/echino_traits_2502_clean.csv')
 
 summary(dat) # 23 missing vals in max depth and reporduction
 str(dat)
 
-#dat$Corallite.width.maximum<-as.numeric(dat$Corallite.width.maximum)
-#dat$Depth.lower<-as.numeric(dat$Depth.lower)
-#dat$growth_rate<-as.numeric(dat$growth_rate)
+dat[dat$Spines=='No ',]$Spines<-'No'
+dat$Spines<-factor(dat$Spines)
 
-table(dat$Coloniality)
-table(dat$Corallite.width.maximum)
-table(dat$Depth.lower)
-table(dat$'Growth.form.typical')
-table(dat$growth_rate)
-table(dat$larval_development)
-table(dat$Sexual_system)
-table(dat$Wave.exposure.preference)
-table(dat$Water.clarity.preference)
+table(dat$Spines)
+table(dat$Max_Length)
+table(dat$Depth_Range)
+table(dat$Aggregation)
+table(dat$Tidal_zone)
+table(dat$Exposure)
+table(dat$habitat_KMC)
+table(dat$Diet)
+table(dat$Mating_System_KMC)
 
-#make 2 ordered factors
-dat$Wave.exposure.preference<-factor(dat$Wave.exposure.preference,
-                          levels=c("protected", "broad","exposed"), ordered = T,
+#make ordered factor
+dat$Exposure<-factor(dat$Exposure,
+                          levels=c("Protected", "both","Exposed"), ordered = T,
                           exclude='NA')
 
-dat$Water.clarity.preference<-factor(dat$Water.clarity.preference,
-                                     levels=c("clear", "both","turbid"), ordered = T,
-                                     exclude='NA')
+
 
 # apparently daisy won't accept characters? change to factor
 
@@ -53,13 +46,23 @@ dat$Sexual_system<-factor(dat$Sexual_system, exclude='NA')
 
 str(dat)
 
-crl_out<-clVal(data=dat[,c('Coloniality', 'Corallite.width.maximum',
-                           'Depth.lower','Growth.form.typical',
-                            'larval_development',
-                           'Sexual_system','Wave.exposure.preference',
-                           'Water.clarity.preference')], runs=1000,
-               min_cl=2, max_cl=20, subs_perc=0.95,
-               fast.k.h = 0.1, calc_wigl = F)
+table(dat$Spines)
+table(dat$Max_Length)
+table(dat$Depth_Range)
+table(dat$Aggregation_KMC)
+table(dat$Tidal_zone)
+table(dat$Exposure)
+table(dat$habitat_KMC)
+table(dat$Diet)
+table(dat$Mating_System_KMC)
+
+crl_out<-clVal(data=dat[,c('Spines', 'Max_Length','Depth_Range',
+                           'Aggregation_KMC','Tidal_zone',
+                           'Exposure','habitat_KMC',
+                           'Diet', 'Mating_System_KMC')],
+               daisytypelist = list(symm=c(1,4,9)),
+               runs=500, min_cl=2, max_cl=20, subs_perc=0.95,
+               fast.k.h = 0.1, calc_wigl = F, daisyweights=rep(1, 9))
 
 
 a_melt<-melt(crl_out$stats, id.vars=c( 'k', 'runs'))
@@ -77,72 +80,27 @@ ggplot()+
   geom_line(data=a_sum, aes(x=k, y=median), color='green')+
   scale_x_continuous(breaks=2:20)+
   facet_wrap(~variable, scales='free_y')+
-  geom_vline(xintercept = 3, color='cyan')
+  geom_vline(xintercept = 3, color='cyan')+
+  geom_vline(xintercept = 11, color='cyan')+
+  geom_vline(xintercept = 15, color='cyan')
 
-crl_out$clust_centres<-crl_out$clust_centres %>% group_by(kval, jc_match) %>%
-  mutate_if(is.numeric, funs(replace(., is.na(.), mean(., na.rm=T)))) %>%
-  as.data.frame()
-
-alg_pca<-pca_vis(rundat=na.omit(dat[,c('Coloniality', 'Corallite.width.maximum',
-                               'Depth.lower','Growth.form.typical',
-                               'growth_rate', 'larval_development',
-                               'Sexual_system','Wave.exposure.preference',
-                               'Water.clarity.preference')]), clValresult=crl_out$clust_centres, kval=3)
-
-grid.arrange(alg_pca[[4]], alg_pca[[5]], alg_pca[[6]])
 
 # write clusters out
 
-hc<-hclust(daisy(dat[,c('Coloniality', 'Corallite.width.maximum',
-                         'Depth.lower','Growth.form.typical',
-                         'growth_rate', 'larval_development',
-                         'Sexual_system','Wave.exposure.preference',
-                         'Water.clarity.preference')],
-                  metric='gower', stand = FALSE), method='average')
+hc<-hclust(daisy(dat[,c('Spines', 'Max_Length','Depth_Range',
+                        'Aggregation_KMC','Tidal_zone',
+                        'Exposure','habitat_KMC',
+                        'Diet', 'Mating_System_KMC')],
+                  metric='gower', 
+                 type = list(symm=c(1,4,9)),stand = FALSE), method='average')
 
-plot(hc); rect.hclust(hc, k=9)
+plot(hc); rect.hclust(hc, k=3);rect.hclust(hc, k=11, border=4);rect.hclust(hc, k=15, border=3)
 
 
-full_crl_clust<-cutree(hc, k=9)
+dat$groupk3<-cutree(hc, k=3)
+dat$groupk11<-cutree(hc, k=11)
+dat$groupk15<-cutree(hc, k=15)
 
-dat$group<-full_crl_clust
 
-write.csv(dat, 'C:/coral_fish/outputs/coral_clust.csv', quote=F, row.names=F)
-
-## post cluster analyses from maria data
-
-darl_vs<-read_xlsx('C:/coral_fish/data/Traits/coral_clust_5Jul2019.xlsx',
-               sheet = 1, na='NA')#
-
-table(darl_vs$group, darl_vs$Darling) # not good
-
-# try ward clustering
-dat<-as.data.frame(dat)
-row.names(dat)<-dat$genus
-
-plot(hclust(daisy(dat[,2:10],metric='gower', stand = FALSE), method='ward.D'))
-
-# looks like Darlings... ok so now do the clusters match better
-darl_vs$ward_group<-cutree(hclust(daisy(dat[,2:10],
-                    metric='gower', stand = FALSE),
-                    method='ward.D'), k=4)
-
-table(darl_vs$ward_group, darl_vs$Darling) # better
-
-# but does ward perform ok with copo corr to dist
-
-cor(daisy(dat[,2:10], metric='gower', stand = FALSE),
-           cophenetic(hclust(daisy(dat[,2:10],
-                            metric='gower', stand = FALSE),
-                      method='ward.D')))
-
-cor(daisy(dat[,2:10], metric='gower', stand = FALSE),
-    cophenetic(hclust(daisy(dat[,2:10],
-                            metric='gower', stand = FALSE),
-                      method='ward.D')))
-
-# nope..
-
-# write out results
-write.csv(darl_vs, 'C:/coral_fish/data/Traits/coral_clust_ward_5Jul2019.csv', quote=F, row.names=F)
+write.csv(dat, 'C:/coral_fish/outputs/echinoderm_clust.csv', quote=F, row.names=F)
 
