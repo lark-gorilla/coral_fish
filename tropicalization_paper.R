@@ -1039,6 +1039,8 @@ aus_sp_site<-aus_sp_site%>%group_by(site.group, FG, Fish, ThermalAffinity2)%>%
 jpn_sp_site_pco<-left_join(jpn_sp_site, func_pco[,1:5], by=c('SpeciesFish'='Species'))
 aus_sp_site_pco<-left_join(aus_sp_site, func_pco[,1:5], by=c('Fish'='Species'))
 
+#### AUS functional overlap ####
+
 # setup factor levels
 aus_sp_site_pco<-filter(aus_sp_site_pco, FG %in% c(15, 10, 8, 2,6))
 aus_sp_site_pco$FG<-factor(aus_sp_site_pco$FG, levels=c(15, 10, 8, 2,6))
@@ -1047,13 +1049,6 @@ aus_sp_site_pco$site.group<-factor(aus_sp_site_pco$site.group,
                                            'temp.inshore', 'temp.offshore'))
 
 aus_sp_site_pco$ThermalAffinity2<-factor(aus_sp_site_pco$ThermalAffinity2, levels=c('tropical', 'subtropical'))
-
-
-
-for(i in 1:nrow(jpn_sp_site_pco)){
-  jpn_sp_site_pco_weighted<-rbind(jpn_sp_site_pco_weighted, 
-                                  do.call(rbind,replicate(ceiling((jpn_sp_site_pco[i,]$cor_biom)^0.5),jpn_sp_site_pco[i,], simplify=F)))
-}
 
 aus_sp_site_pco$ID<-paste(aus_sp_site_pco$site.group, aus_sp_site_pco$FG, aus_sp_site_pco$ThermalAffinity2)
 
@@ -1099,7 +1094,8 @@ ovl$FG<-factor(ovl$FG, levels=c(15, 10, 8, 2,6))
 ovl$site.group<-factor(ovl$site.group,
                                    levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
                                             'temp.inshore', 'temp.offshore'))
-
+# store ovl_object
+aus_ovl<-ovl
 
 ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2), shape=1)+
   geom_sf(data=KDE.99, aes(fill=ThermalAffinity2), alpha=0.5)+
@@ -1109,6 +1105,8 @@ ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2), s
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
+
+#### JAPAN functional overlap ####
 
 # setup factor levels
 jpn_sp_site_pco<-filter(jpn_sp_site_pco, FG %in% c(15, 10, 8, 2,6))
@@ -1171,6 +1169,8 @@ ovl$site.group<-factor(ovl$site.group,
                        levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
                                 'trans.headld', 'temp.headld'))
 
+# store ovl_object
+jpn_ovl<-ovl
 
 ppp+geom_point(data=jpn_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2))+
   geom_sf(data=KDE.99, aes(fill=ThermalAffinity2), alpha=0.5)+
@@ -1180,6 +1180,74 @@ ppp+geom_point(data=jpn_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
+
+#### combine site-group tropicalization lme models with overlap results ####
+
+# Add site.group classes to biomass data
+
+bio_jpn$site.group<-'trop.base'
+bio_jpn[bio_jpn$lat > 25 &  bio_jpn$lat < 28.5,]$site.group<-'trop.island'
+bio_jpn[bio_jpn$lat > 28.5 &  bio_jpn$lat < 31,]$site.group<-'trans.island'
+bio_jpn[bio_jpn$SiteID %in% c('JP28', 'JP29', 'JP30', 'JP31'),]$site.group<-'trans.inland'
+bio_jpn[bio_jpn$SiteID %in% c('JP8', 'JP9', 'JP10', 'JP11', 'JP12'),]$site.group<-'trans.headld'
+bio_jpn[bio_jpn$lat > 34,]$site.group<-'temp.headld'
+table(bio_jpn$SiteID, bio_jpn$site.group)
+
+bio_aus$site.group<-'trop.base'
+bio_aus[bio_aus$Lat > -25.6 &  bio_aus$Lat < -24.5,]$site.group<-'trans.bay'
+bio_aus[bio_aus$Lat > -28 &  bio_aus$Lat < -25.6,]$site.group<-'trans.offshore'
+bio_aus[bio_aus$Lat < -28,]$site.group<-'temp.offshore'
+bio_aus[bio_aus$Site %in% c('Julian Rock False Trench', 'Julian Rock Nursery', 'Cook Island'),]$site.group<-'trans.temp'
+bio_aus[bio_aus$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woolgoolga Headland', 'North Rock'),]$site.group<-'temp.inshore'
+
+# summarise biomass data to site.group and FG, then filter to jsut subtropical
+bio_jpn_sg<-bio_jpn%>%group_by(site.group, FG, ThermalAffinity2)%>%
+  summarise(cor_biom=sum(cor_biom))%>%filter(., ThermalAffinity2=='subtropical')
+bio_aus_sg<-bio_aus%>%group_by(site.group, FG, ThermalAffinity2)%>%
+  summarise(cor_biom=sum(cor_biom))%>%filter(., ThermalAffinity2=='subtropical')
+
+##### JAPAN ####
+
+trop_comps_out<-trop_comps_out[trop_comps_out$FG!='comm',1:7]
+trop_comps_out<-rbind(trop_comps_out, data.frame(site.group='trop.base', FG=c(15, 10, 8, 2,6, 12,4, 1, 16),
+                   emmean=1, SE=0, df=0, lower.CL=1, upper.CL=1))
+
+trop_expl<-left_join(trop_comps_out, jpn_ovl[,c(1,2,5)], by=c('site.group', 'FG'))
+trop_expl[is.na(trop_expl$Freq),]$Freq<-0
+trop_expl<-left_join(trop_expl, bio_jpn_sg[,c(1,2,4)], by=c('site.group', 'FG'))
+trop_expl$cor_biom<-trop_expl$cor_biom^0.25 #apply 4rt transformation
+trop_expl%>%group_by(FG)%>%mutate(max_biom=max(cor_biom))->trop_expl
+
+trop_expl$site.group<-factor(trop_expl$site.group,
+                    levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
+                     'trans.headld', 'temp.headld'))
+
+ggplot(data=trop_expl[trop_expl$FG%in%c(15,10,8,2,6),], aes(x=site.group))+
+  geom_pointrange(aes(y=emmean, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(aes(y=Freq), colour='red')+
+  geom_point(aes(y=cor_biom/max_biom), colour='blue', shape=1)+facet_wrap(~FG, scale='free')
+
+#### Australia ####
+
+trop_comps_out_aus<-trop_comps_out_aus[trop_comps_out_aus$FG!='comm',1:7]
+trop_comps_out_aus<-rbind(trop_comps_out_aus, data.frame(site.group='trop.base', FG=c(15, 10, 8, 2,6, 12,4, 1, 16),
+                                                 emmean=1, SE=0, df=0, lower.CL=1, upper.CL=1))
+
+trop_expl_aus<-left_join(trop_comps_out_aus, aus_ovl[,c(1,2,5)], by=c('site.group', 'FG'))
+trop_expl_aus[is.na(trop_expl_aus$Freq),]$Freq<-0
+trop_expl_aus<-left_join(trop_expl_aus, bio_aus_sg[,c(1,2,4)], by=c('site.group', 'FG'))
+trop_expl_aus$cor_biom<-trop_expl_aus$cor_biom^0.25 #apply 4rt transformation
+trop_expl_aus%>%group_by(FG)%>%mutate(max_biom=max(cor_biom))->trop_expl_aus
+
+trop_expl_aus$site.group<-factor(trop_expl_aus$site.group,
+                          levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
+                           'temp.inshore', 'temp.offshore'))
+
+ggplot(data=trop_expl_aus[trop_expl_aus$FG%in%c(15,10,8,2,6),], aes(x=site.group))+
+  geom_pointrange(aes(y=emmean, ymin=lower.CL, ymax=upper.CL))+
+  geom_point(aes(y=Freq), colour='red')+
+  geom_point(aes(y=cor_biom/max_biom), colour='blue', shape=1)+facet_wrap(~FG, scale='free')
+
 
 
 
