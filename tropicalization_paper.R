@@ -1042,8 +1042,8 @@ aus_sp_site_pco<-left_join(aus_sp_site, func_pco[,1:5], by=c('Fish'='Species'))
 #### AUS functional overlap ####
 
 # setup factor levels
-aus_sp_site_pco<-filter(aus_sp_site_pco, FG %in% c(15, 10, 8, 2,6))
-aus_sp_site_pco$FG<-factor(aus_sp_site_pco$FG, levels=c(15, 10, 8, 2,6))
+aus_sp_site_pco<-filter(aus_sp_site_pco, FG %in% c(15, 10, 8, 2,6, 12, 4,1, 16))
+aus_sp_site_pco$FG<-factor(aus_sp_site_pco$FG, levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
 aus_sp_site_pco$site.group<-factor(aus_sp_site_pco$site.group,
                                   levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
                                            'temp.inshore', 'temp.offshore'))
@@ -1070,7 +1070,7 @@ temp<- do.call(rbind, lapply(strsplit(as.character(KDE.99$id), ' '),
         function(x) data.frame(site.group=x[1], FG=x[2], ThermalAffinity2=x[3])))
 KDE.99$site.group<-temp$site.group
 KDE.99$FG<-temp$FG
-KDE.99$FG<-factor(KDE.99$FG, levels=c(15, 10, 8, 2,6))
+KDE.99$FG<-factor(KDE.99$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
 KDE.99$ThermalAffinity2<-temp$ThermalAffinity2
 KDE.99$site.group<-factor(KDE.99$site.group,
                                    levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
@@ -1086,20 +1086,35 @@ ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var1), ' '),
 ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var2), ' '),
                                      function(x) data.frame(V2site.group=x[1], V2FG=x[2], V2ThermalAffinity2=x[3]))))
 ovl<-ovl[ovl$V1FG==ovl$V2FG,]
-ovl<-ovl[ovl$V1site.group==ovl$V2site.group,]
-ovl<-ovl%>%group_by(V1site.group, V1FG)%>%summarise_all(first) # prop of tropical FG space covered by subtropical FG
-names(ovl)[names(ovl)=="V1site.group"]<-'site.group'
-names(ovl)[names(ovl)=="V1FG"]<-'FG'
-ovl$FG<-factor(ovl$FG, levels=c(15, 10, 8, 2,6))
-ovl$site.group<-factor(ovl$site.group,
+
+
+ovl_comp<-ovl[ovl$V1site.group==ovl$V2site.group,]
+ovl_comp<-ovl_comp%>%group_by(V1site.group, V1FG)%>%summarise_all(first) # prop of tropical FG space covered by subtropical FG
+names(ovl_comp)[names(ovl_comp)=="V1site.group"]<-'site.group'
+names(ovl_comp)[names(ovl_comp)=="V1FG"]<-'FG'
+ovl_comp$FG<-factor(ovl_comp$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
+ovl_comp$site.group<-factor(ovl_comp$site.group,
                                    levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
                                             'temp.inshore', 'temp.offshore'))
-# store ovl_object
-aus_ovl<-ovl
+
+ovl_filt<-ovl[ovl$V1ThermalAffinity2==ovl$V2ThermalAffinity2,]
+ovl_filt<-ovl_filt[ovl_filt$V1ThermalAffinity2=='tropical',]
+ovl_filt<-ovl_filt[ovl_filt$V1site.group=='trop.base',]
+names(ovl_filt)[names(ovl_filt)=="V2site.group"]<-'site.group'
+names(ovl_filt)[names(ovl_filt)=="V1FG"]<-'FG'
+ovl_filt$FG<-factor(ovl_filt$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
+ovl_filt$site.group<-factor(ovl_filt$site.group,
+                            levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
+                                     'temp.inshore', 'temp.offshore'))
+
+# store ovl_objects
+aus_ovl_comp<-ovl_comp
+aus_ovl_filt<-ovl_filt
 
 ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2), shape=1)+
   geom_sf(data=KDE.99, aes(fill=ThermalAffinity2), alpha=0.5)+
-  geom_text(data=ovl, aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
+  geom_text(data=aus_ovl_comp, aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
+  geom_text(data=aus_ovl_filt, aes(x=0.7, y=0.7, label=paste(round(Freq, 2)*100,'%', sep='')), colour='red')+
   scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
@@ -1109,8 +1124,8 @@ ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2), s
 #### JAPAN functional overlap ####
 
 # setup factor levels
-jpn_sp_site_pco<-filter(jpn_sp_site_pco, FG %in% c(15, 10, 8, 2,6))
-jpn_sp_site_pco$FG<-factor(jpn_sp_site_pco$FG, levels=c(15, 10, 8, 2,6))
+jpn_sp_site_pco<-filter(jpn_sp_site_pco, FG %in% c(15, 10, 8, 2,6,12, 4,1, 16))
+jpn_sp_site_pco$FG<-factor(jpn_sp_site_pco$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
 jpn_sp_site_pco$site.group<-factor(jpn_sp_site_pco$site.group,
                                    levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
                                             'trans.headld', 'temp.headld'))
@@ -1144,7 +1159,7 @@ temp<- do.call(rbind, lapply(strsplit(as.character(KDE.99$id), ' '),
                              function(x) data.frame(site.group=x[1], FG=x[2], ThermalAffinity2=x[3])))
 KDE.99$site.group<-temp$site.group
 KDE.99$FG<-temp$FG
-KDE.99$FG<-factor(KDE.99$FG, levels=c(15, 10, 8, 2,6))
+KDE.99$FG<-factor(KDE.99$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
 KDE.99$ThermalAffinity2<-temp$ThermalAffinity2
 KDE.99$site.group<-factor(KDE.99$site.group,
                           levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
@@ -1160,21 +1175,35 @@ ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var1), ' '),
 ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var2), ' '),
                                      function(x) data.frame(V2site.group=x[1], V2FG=x[2], V2ThermalAffinity2=x[3]))))
 ovl<-ovl[ovl$V1FG==ovl$V2FG,]
-ovl<-ovl[ovl$V1site.group==ovl$V2site.group,]
-ovl<-ovl%>%group_by(V1site.group, V1FG)%>%summarise_all(first) # prop of tropical FG space covered by subtropical FG
-names(ovl)[names(ovl)=="V1site.group"]<-'site.group'
-names(ovl)[names(ovl)=="V1FG"]<-'FG'
-ovl$FG<-factor(ovl$FG, levels=c(15, 10, 8, 2,6))
-ovl$site.group<-factor(ovl$site.group,
-                       levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
-                                'trans.headld', 'temp.headld'))
 
-# store ovl_object
-jpn_ovl<-ovl
+ovl_comp<-ovl[ovl$V1site.group==ovl$V2site.group,]
+ovl_comp<-ovl_comp%>%group_by(V1site.group, V1FG)%>%summarise_all(first) # prop of tropical FG space covered by subtropical FG
+names(ovl_comp)[names(ovl_comp)=="V1site.group"]<-'site.group'
+names(ovl_comp)[names(ovl_comp)=="V1FG"]<-'FG'
+ovl_comp$FG<-factor(ovl_comp$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
+ovl_comp$site.group<-factor(ovl_comp$site.group,
+                            levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
+                                     'trans.headld', 'temp.headld'))
+
+ovl_filt<-ovl[ovl$V1ThermalAffinity2==ovl$V2ThermalAffinity2,]
+ovl_filt<-ovl_filt[ovl_filt$V1ThermalAffinity2=='tropical',]
+ovl_filt<-ovl_filt[ovl_filt$V1site.group=='trop.base',]
+names(ovl_filt)[names(ovl_filt)=="V2site.group"]<-'site.group'
+names(ovl_filt)[names(ovl_filt)=="V1FG"]<-'FG'
+ovl_filt$FG<-factor(ovl_filt$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
+ovl_filt$site.group<-factor(ovl_filt$site.group,
+                            levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
+                                     'trans.headld', 'temp.headld'))
+
+                      
+# store ovl_objects
+jpn_ovl_comp<-ovl_comp
+jpn_ovl_filt<-ovl_filt
 
 ppp+geom_point(data=jpn_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2))+
   geom_sf(data=KDE.99, aes(fill=ThermalAffinity2), alpha=0.5)+
-  geom_text(data=ovl, aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
+  geom_text(data=jpn_ovl_comp, aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
+  geom_text(data=jpn_ovl_filt, aes(x=0.7, y=0.7, label=paste(round(Freq, 2)*100,'%', sep='')), colour='red')+
   scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
@@ -1202,9 +1231,9 @@ bio_aus[bio_aus$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woolgoolga 
 
 # summarise biomass data to site.group and FG, then filter to jsut subtropical
 bio_jpn_sg<-bio_jpn%>%group_by(site.group, FG, ThermalAffinity2)%>%
-  summarise(cor_biom=sum(cor_biom))%>%filter(., ThermalAffinity2=='subtropical')
+  summarise(cor_biom=sum(cor_biom), lat=max(lat))%>%filter(., ThermalAffinity2=='subtropical')
 bio_aus_sg<-bio_aus%>%group_by(site.group, FG, ThermalAffinity2)%>%
-  summarise(cor_biom=sum(cor_biom))%>%filter(., ThermalAffinity2=='subtropical')
+  summarise(cor_biom=sum(cor_biom), Lat=min(Lat))%>%filter(., ThermalAffinity2=='subtropical')
 
 ##### JAPAN ####
 
@@ -1214,9 +1243,10 @@ trop_comps_out<-rbind(trop_comps_out, data.frame(site.group='trop.base', FG=c(15
 
 trop_expl<-left_join(trop_comps_out, jpn_ovl[,c(1,2,5)], by=c('site.group', 'FG'))
 trop_expl[is.na(trop_expl$Freq),]$Freq<-0
-trop_expl<-left_join(trop_expl, bio_jpn_sg[,c(1,2,4)], by=c('site.group', 'FG'))
+trop_expl<-left_join(trop_expl, bio_jpn_sg[,c(1,2,4,5)], by=c('site.group', 'FG'))
 trop_expl$cor_biom<-trop_expl$cor_biom^0.25 #apply 4rt transformation
-trop_expl%>%group_by(FG)%>%mutate(max_biom=max(cor_biom))->trop_expl
+trop_expl%>%group_by(FG)%>%mutate(max_biom=max(cor_biom),
+                                  res=resid(lm(emmean~poly(lat, 2))))->trop_expl
 
 trop_expl$site.group<-factor(trop_expl$site.group,
                     levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
@@ -1227,6 +1257,14 @@ ggplot(data=trop_expl[trop_expl$FG%in%c(15,10,8,2,6),], aes(x=site.group))+
   geom_point(aes(y=Freq), colour='red')+
   geom_point(aes(y=cor_biom/max_biom), colour='blue', shape=1)+facet_wrap(~FG, scale='free')
 
+# trial with model resids
+ggplot(data=trop_expl[trop_expl$FG%in%c(15,10,8,2,6),], aes(x=lat, y=emmean))+
+  geom_point()+geom_smooth(method='lm', colour='red',se=F)+
+  geom_smooth(method='lm', formula=y~poly(x, 2), colour='green', se=F)+
+  facet_wrap(~FG)
+
+ggplot(data=trop_expl[trop_expl$FG%in%c(15,10,8,2,6),], aes(x=lat, y=res))+
+  geom_point()+facet_wrap(~FG)
 #### Australia ####
 
 trop_comps_out_aus<-trop_comps_out_aus[trop_comps_out_aus$FG!='comm',1:7]
@@ -1235,7 +1273,7 @@ trop_comps_out_aus<-rbind(trop_comps_out_aus, data.frame(site.group='trop.base',
 
 trop_expl_aus<-left_join(trop_comps_out_aus, aus_ovl[,c(1,2,5)], by=c('site.group', 'FG'))
 trop_expl_aus[is.na(trop_expl_aus$Freq),]$Freq<-0
-trop_expl_aus<-left_join(trop_expl_aus, bio_aus_sg[,c(1,2,4)], by=c('site.group', 'FG'))
+trop_expl_aus<-left_join(trop_expl_aus, bio_aus_sg[,c(1,2,4,5)], by=c('site.group', 'FG'))
 trop_expl_aus$cor_biom<-trop_expl_aus$cor_biom^0.25 #apply 4rt transformation
 trop_expl_aus%>%group_by(FG)%>%mutate(max_biom=max(cor_biom))->trop_expl_aus
 
