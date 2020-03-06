@@ -1030,6 +1030,105 @@ aus_sp_site[aus_sp_site$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woo
 
 # join with PCoA axis data
 
+# leave biomass summed per site
+
+jpn_sp_site_pco<-left_join(jpn_sp_site, func_pco[,1:5], by=c('SpeciesFish'='Species'))
+aus_sp_site_pco<-left_join(aus_sp_site, func_pco[,1:5], by=c('Fish'='Species'))
+
+
+funcOvlPerSite<-function(pcodat=mydat, FGz=c(10, 15))
+{
+  print('lat and Lat, Site and siteID')
+  
+  pcodat$ID<-paste(pcodat$Site, pcodat$FG, pcodat$ThermalAffinity2, sep='@')
+  
+  # loop to find IDs with < 5 data points and replicate until n=5 so kernels can be made
+  for(i in data.frame(table(pcodat$ID))[which(data.frame(table(pcodat$ID))$Freq<5),]$Var1)
+  {
+    pcodat<-rbind(pcodat, 
+                  do.call(rbind,replicate(4, pcodat[pcodat$ID==i,], simplify=F)))
+  }
+  
+  site_ovl_comp<-NULL
+  site_ovl_filt<-NULL
+  for(j in FGz)
+  {
+    pcFG<-pcodat[pcodat$FG==j,]
+    
+    temp_base<-pcFG[pcFG$site.group=='trop.base',]
+    temp_base$ID<-paste(temp_base$site.group, temp_base$FG, temp_base$ThermalAffinity2, sep='@')
+    pcFG<-rbind(pcFG, temp_base)  
+    
+    spdf<-SpatialPointsDataFrame(coords=pcFG[,c(8,9)],  data=data.frame(ID=pcFG$ID))
+    
+    spdf$ID<-factor(spdf$ID)
+    
+    KDE.Surface <- kernelUD(spdf,same4all = T, h=0.075, grid=500)
+    #KDE.99 <- getverticeshr(KDE.Surface, percent = 99)
+    #KDE.99<-st_as_sf(KDE.99)
+    #temp<- do.call(rbind, lapply(strsplit(as.character(KDE.99$id), '@'),
+  #function(x) data.frame(Site=x[1], FG=x[2], ThermalAffinity2=x[3])))
+  #KDE.99$Site<-temp$Site
+  #KDE.99$FG<-temp$FG
+  #KDE.99$FG<-factor(KDE.99$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
+  #KDE.99$ThermalAffinity2<-temp$ThermalAffinity2
+  #KDE.99$Site<-factor(KDE.99$Site,
+  #                                   levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
+  #                                            'temp.inshore', 'temp.offshore'))
+  #KDE.99$ThermalAffinity2<-factor(KDE.99$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+  
+  ovl<-kerneloverlaphr(KDE.Surface, percent=99, meth="HR", conditional=T)
+  ovl<-as.data.frame.table(ovl)
+  ovl<-ovl[-which(ovl$Var1==ovl$Var2),]
+  ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var1), '@'),
+                                       function(x) data.frame(V1Site=x[1], V1FG=x[2], V1ThermalAffinity2=x[3]))))
+  ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var2), '@'),
+                                       function(x) data.frame(V2Site=x[1], V2FG=x[2], V2ThermalAffinity2=x[3]))))
+  ovl<-ovl[ovl$V1FG==ovl$V2FG,]
+  
+  ovl_comp<-ovl[ovl$V1Site==ovl$V2Site,]
+  ovl_comp<-ovl_comp%>%group_by(V1Site, V1FG)%>%summarise_all(first) # prop of tropical FG space covered by subtropical FG
+  names(ovl_comp)[names(ovl_comp)=="V1Site"]<-'Site'
+  names(ovl_comp)[names(ovl_comp)=="V1FG"]<-'FG'
+  ovl_comp<-ovl_comp[ovl_comp$Site!='trop.base',]
+  
+  ovl_filt<-ovl[ovl$V1ThermalAffinity2==ovl$V2ThermalAffinity2,]
+  ovl_filt<-ovl_filt[ovl_filt$V1ThermalAffinity2=='tropical',]
+  ovl_filt<-ovl_filt[ovl_filt$V1Site=='trop.base',]
+  names(ovl_filt)[names(ovl_filt)=="V2Site"]<-'Site'
+  names(ovl_filt)[names(ovl_filt)=="V1FG"]<-'FG'
+  
+  site_ovl_comp<-rbind(site_ovl_comp, ovl_comp)
+  site_ovl_filt<-rbind(site_ovl_filt, ovl_filt)
+  print(j)
+    }
+    return(list(site_ovl_comp, site_ovl_filt))
+} # function end #
+
+t3<-funcOvlPerSite(pcodat=aus_sp_site_pco, FGz=10)
+
+### trial plots
+# trial plot for site level results
+aus_ovl_comp<-left_join(aus_ovl_comp,aus_sp_site%>%group_by(Site)%>%summarise_all(first)%>%dplyr::select(Site, Lat), by='Site')
+aus_ovl_filt<-left_join(aus_ovl_filt,aus_sp_site%>%group_by(Site)%>%summarise_all(first)%>%dplyr::select(Site, Lat), by='Site')
+
+ggplot()+
+  geom_smooth(data=aus_trop_prop[aus_trop_prop$FG==10,], aes(x=Lat, y=trop_met), se=F, colour='black')+
+  geom_smooth(data=aus_ovl_comp, aes(x=Lat, y=Freq), colour='red', se=F)+
+  geom_smooth(data=aus_ovl_filt, aes(x=Lat, y=Freq), colour='blue', se=F)+
+  geom_point(data=aus_trop_prop[aus_trop_prop$FG==10,], aes(x=Lat, y=trop_met))+
+  geom_point(data=aus_ovl_comp, aes(x=Lat, y=Freq), colour='red')+
+  geom_point(data=aus_ovl_filt, aes(x=Lat, y=Freq), colour='blue')+scale_x_reverse()
+
+t3<-left_join(aus_trop_prop[aus_trop_prop$FG==10,], aus_ovl_comp[,c(1,5)], by='Site')
+names(t3)[14]<-'ovl_comp'
+t3<-left_join(t3, aus_ovl_filt[,c(7,3)], by='Site')
+names(t3)[15]<-'ovl_filt'
+ggplot(data=t3, aes(x=ovl_comp, y=trop_met))+geom_point()+geom_smooth()
+ggplot(data=t3, aes(x=ovl_filt, y=trop_met))+geom_point()+geom_smooth()
+
+
+
 # sum biomass per site.group
 jpn_sp_sg<-jpn_sp_site%>%group_by(site.group, FG, SpeciesFish, ThermalAffinity2)%>%
   summarise(cor_biom=sum(cor_biom))
