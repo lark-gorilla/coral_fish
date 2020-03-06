@@ -1031,13 +1031,13 @@ aus_sp_site[aus_sp_site$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woo
 # join with PCoA axis data
 
 # sum biomass per site.group
-jpn_sp_site<-jpn_sp_site%>%group_by(site.group, FG, SpeciesFish, ThermalAffinity2)%>%
+jpn_sp_sg<-jpn_sp_site%>%group_by(site.group, FG, SpeciesFish, ThermalAffinity2)%>%
   summarise(cor_biom=sum(cor_biom))
-aus_sp_site<-aus_sp_site%>%group_by(site.group, FG, Fish, ThermalAffinity2)%>%
+aus_sp_sg<-aus_sp_site%>%group_by(site.group, FG, Fish, ThermalAffinity2)%>%
   summarise(cor_biom=sum(cor_biom))
 
-jpn_sp_site_pco<-left_join(jpn_sp_site, func_pco[,1:5], by=c('SpeciesFish'='Species'))
-aus_sp_site_pco<-left_join(aus_sp_site, func_pco[,1:5], by=c('Fish'='Species'))
+jpn_sp_site_pco<-left_join(jpn_sp_sg, func_pco[,1:5], by=c('SpeciesFish'='Species'))
+aus_sp_site_pco<-left_join(aus_sp_sg, func_pco[,1:5], by=c('Fish'='Species'))
 
 #### AUS functional overlap ####
 
