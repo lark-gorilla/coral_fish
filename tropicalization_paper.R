@@ -1241,8 +1241,13 @@ trop_comps_out<-trop_comps_out[trop_comps_out$FG!='comm',1:7]
 trop_comps_out<-rbind(trop_comps_out, data.frame(site.group='trop.base', FG=c(15, 10, 8, 2,6, 12,4, 1, 16),
                    emmean=1, SE=0, df=0, lower.CL=1, upper.CL=1))
 
-trop_expl<-left_join(trop_comps_out, jpn_ovl[,c(1,2,5)], by=c('site.group', 'FG'))
-trop_expl[is.na(trop_expl$Freq),]$Freq<-0
+trop_expl<-left_join(trop_comps_out, jpn_ovl_comp[,c(1,2,5)], by=c('site.group', 'FG'))
+names(trop_expl)[8]<-'comp_ovl'
+trop_expl[is.na(trop_expl$comp_ovl),]$comp_ovl<-0
+trop_expl<-left_join(trop_expl, jpn_ovl_filt[,c(5,7,3)], by=c('site.group', 'FG'))
+names(trop_expl)[9]<-'filt_ovl'
+trop_expl[is.na(trop_expl$filt_ovl),]$filt_ovl<-0
+trop_expl[trop_expl$site.group=='trop.base',]$filt_ovl<-1
 trop_expl<-left_join(trop_expl, bio_jpn_sg[,c(1,2,4,5)], by=c('site.group', 'FG'))
 trop_expl$cor_biom<-trop_expl$cor_biom^0.25 #apply 4rt transformation
 trop_expl%>%group_by(FG)%>%mutate(max_biom=max(cor_biom),
@@ -1251,41 +1256,88 @@ trop_expl%>%group_by(FG)%>%mutate(max_biom=max(cor_biom),
 trop_expl$site.group<-factor(trop_expl$site.group,
                     levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
                      'trans.headld', 'temp.headld'))
+trop_expl$FG<-factor(trop_expl$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
 
-ggplot(data=trop_expl[trop_expl$FG%in%c(15,10,8,2,6),], aes(x=site.group))+
+ggplot(data=trop_expl, aes(x=site.group))+
+  geom_point(aes(y=comp_ovl, group=FG), stat='summary', fun.y=sum, colour='red') +
+  stat_summary(aes(y=comp_ovl, group=FG),fun.y=sum, geom="line", colour='red', linetype='dotted')+
+  geom_point(aes(y=filt_ovl, group=FG), stat='summary', fun.y=sum, colour='green', shape=17) +
+  stat_summary(aes(y=filt_ovl, group=FG),fun.y=sum, geom="line", colour='green', linetype='dotted')+
   geom_pointrange(aes(y=emmean, ymin=lower.CL, ymax=upper.CL))+
-  geom_point(aes(y=Freq), colour='red')+
-  geom_point(aes(y=cor_biom/max_biom), colour='blue', shape=1)+facet_wrap(~FG, scale='free')
+  facet_wrap(~FG)+theme_bw()+theme(axis.text.x = element_text(angle = 90, vjust = 0))
 
-# trial with model resids
-ggplot(data=trop_expl[trop_expl$FG%in%c(15,10,8,2,6),], aes(x=lat, y=emmean))+
-  geom_point()+geom_smooth(method='lm', colour='red',se=F)+
-  geom_smooth(method='lm', formula=y~poly(x, 2), colour='green', se=F)+
-  facet_wrap(~FG)
 
-ggplot(data=trop_expl[trop_expl$FG%in%c(15,10,8,2,6),], aes(x=lat, y=res))+
-  geom_point()+facet_wrap(~FG)
+ggplot(data=trop_expl, aes(x=emmean))+
+  geom_point(aes(y=filt_ovl))+geom_smooth(aes(y=filt_ovl,colour=FG), method='lm', se=F)+
+   geom_point(aes(y=comp_ovl), shape=1)+geom_smooth(aes(y=comp_ovl,colour=FG), method='lm', formula=y~poly(x,2),se=F, linetype='dashed')+theme_bw()+facet_wrap(~FG)
+
+# models
+
+m1<-lm(emmean~filt_ovl+ FG + FG:filt_ovl, data=trop_expl)
+plot(m1)
+summary(m1)
+anova(m1)
+m1<-lm(emmean~filt_ovl+ FG, data=trop_expl)
+summary(m1)
+anova(m1)
+
+nd<-expand.grid(filt_ovl=seq(0, 1, 0.05), FG=factor(c(15, 10, 8, 2,6,12, 4,1, 16)))
+nd$p1<-predict(m1, nd)
+
+ggplot(data=trop_expl, aes(x=filt_ovl))+
+  geom_point(aes(y=emmean,colour=FG))+
+  geom_line(data=nd, aes(y=p1,colour=FG))+
+  theme_bw()+facet_wrap(~FG)
+
+m2<-lm(emmean~comp_ovl, data=trop_expl[trop_expl$FG!=16,])
+plot(m2)
+summary(m2)
+anova(m2)
+nd<-expand.grid(comp_ovl=seq(0, 1, 0.05), FG=factor(c(15, 10, 8, 2,6,12, 4,1)))
+nd$p1<-predict(m2, nd)
+
+ggplot(data=trop_expl, aes(x=comp_ovl))+
+  geom_point(aes(y=emmean,colour=FG))+
+  geom_line(data=nd, aes(y=p1,colour=FG))+
+  theme_bw()+facet_wrap(~FG)
+
+
 #### Australia ####
 
 trop_comps_out_aus<-trop_comps_out_aus[trop_comps_out_aus$FG!='comm',1:7]
 trop_comps_out_aus<-rbind(trop_comps_out_aus, data.frame(site.group='trop.base', FG=c(15, 10, 8, 2,6, 12,4, 1, 16),
                                                  emmean=1, SE=0, df=0, lower.CL=1, upper.CL=1))
 
-trop_expl_aus<-left_join(trop_comps_out_aus, aus_ovl[,c(1,2,5)], by=c('site.group', 'FG'))
-trop_expl_aus[is.na(trop_expl_aus$Freq),]$Freq<-0
+trop_expl_aus<-left_join(trop_comps_out_aus, aus_ovl_comp[,c(1,2,5)], by=c('site.group', 'FG'))
+names(trop_expl_aus)[8]<-'comp_ovl'
+trop_expl_aus[is.na(trop_expl_aus$comp_ovl),]$comp_ovl<-0
+trop_expl_aus<-left_join(trop_expl_aus, aus_ovl_filt[,c(5,7,3)], by=c('site.group', 'FG'))
+names(trop_expl_aus)[9]<-'filt_ovl'
+trop_expl_aus[is.na(trop_expl_aus$filt_ovl),]$filt_ovl<-0
+trop_expl_aus[trop_expl_aus$site.group=='trop.base',]$filt_ovl<-1
 trop_expl_aus<-left_join(trop_expl_aus, bio_aus_sg[,c(1,2,4,5)], by=c('site.group', 'FG'))
 trop_expl_aus$cor_biom<-trop_expl_aus$cor_biom^0.25 #apply 4rt transformation
-trop_expl_aus%>%group_by(FG)%>%mutate(max_biom=max(cor_biom))->trop_expl_aus
+trop_expl_aus%>%group_by(FG)%>%mutate(max_biom=max(cor_biom),
+                                  res=resid(lm(emmean~poly(Lat, 2))))->trop_expl_aus
 
 trop_expl_aus$site.group<-factor(trop_expl_aus$site.group,
                           levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
                            'temp.inshore', 'temp.offshore'))
+trop_expl_aus$FG<-factor(trop_expl_aus$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
 
-ggplot(data=trop_expl_aus[trop_expl_aus$FG%in%c(15,10,8,2,6),], aes(x=site.group))+
+
+ggplot(data=trop_expl_aus, aes(x=site.group))+
+  geom_point(aes(y=comp_ovl, group=FG), stat='summary', fun.y=sum, colour='red') +
+  stat_summary(aes(y=comp_ovl, group=FG),fun.y=sum, geom="line", colour='red', linetype='dotted')+
+  geom_point(aes(y=filt_ovl, group=FG), stat='summary', fun.y=sum, colour='green', shape=17) +
+  stat_summary(aes(y=filt_ovl, group=FG),fun.y=sum, geom="line", colour='green', linetype='dotted')+
   geom_pointrange(aes(y=emmean, ymin=lower.CL, ymax=upper.CL))+
-  geom_point(aes(y=Freq), colour='red')+
-  geom_point(aes(y=cor_biom/max_biom), colour='blue', shape=1)+facet_wrap(~FG, scale='free')
+  facet_wrap(~FG)+theme_bw()+theme(axis.text.x = element_text(angle = 90, vjust=0))
 
+
+ggplot(data=trop_expl_aus, aes(x=emmean))+
+  geom_point(aes(y=filt_ovl))+geom_smooth(aes(y=filt_ovl,colour=FG), method='lm', se=F)+
+  geom_point(aes(y=comp_ovl), shape=1)+geom_smooth(aes(y=comp_ovl,colour=FG), method='lm', formula=y~poly(x,2),se=F, linetype='dashed')+theme_bw()+facet_wrap(~FG)
 
 
 
