@@ -1035,12 +1035,17 @@ aus_sp_site[aus_sp_site$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woo
 jpn_sp_site_pco<-left_join(jpn_sp_site, func_pco[,1:5], by=c('SpeciesFish'='Species'))
 aus_sp_site_pco<-left_join(aus_sp_site, func_pco[,1:5], by=c('Fish'='Species'))
 
+names(jpn_sp_site_pco)[1]<-'Site'
+names(jpn_sp_site_pco)[2]<-'Lat'
 
-funcOvlPerSite<-function(pcodat=mydat, FGz=c(10, 15))
+funcOvl<-function(pcodat=mydat, FGz=c(10, 15), bywhat='site', mkern=F)
 {
-  print('lat and Lat, Site and siteID')
+  pcodat<-as.data.frame(pcodat)
   
-  pcodat$ID<-paste(pcodat$Site, pcodat$FG, pcodat$ThermalAffinity2, sep='@')
+  if(bywhat=='site'){
+  pcodat$ID<-paste(pcodat$Site, pcodat$FG, pcodat$ThermalAffinity2, sep='@')}
+  if(bywhat=='site.group'){
+    pcodat$ID<-paste(pcodat$site.group, pcodat$FG, pcodat$ThermalAffinity2, sep='@')}
   
   # loop to find IDs with < 5 data points and replicate until n=5 so kernels can be made
   for(i in data.frame(table(pcodat$ID))[which(data.frame(table(pcodat$ID))$Freq<5),]$Var1)
@@ -1051,33 +1056,31 @@ funcOvlPerSite<-function(pcodat=mydat, FGz=c(10, 15))
   
   site_ovl_comp<-NULL
   site_ovl_filt<-NULL
+  site_ovl_kernz<-NULL
   for(j in FGz)
   {
     pcFG<-pcodat[pcodat$FG==j,]
     
+    if(bywhat=='site'){
     temp_base<-pcFG[pcFG$site.group=='trop.base',]
     temp_base$ID<-paste(temp_base$site.group, temp_base$FG, temp_base$ThermalAffinity2, sep='@')
-    pcFG<-rbind(pcFG, temp_base)  
+    pcFG<-rbind(pcFG, temp_base)}  
     
     spdf<-SpatialPointsDataFrame(coords=pcFG[,c(8,9)],  data=data.frame(ID=pcFG$ID))
     
     spdf$ID<-factor(spdf$ID)
     
     KDE.Surface <- kernelUD(spdf,same4all = T, h=0.075, grid=500)
-    #KDE.99 <- getverticeshr(KDE.Surface, percent = 99)
-    #KDE.99<-st_as_sf(KDE.99)
-    #temp<- do.call(rbind, lapply(strsplit(as.character(KDE.99$id), '@'),
-  #function(x) data.frame(Site=x[1], FG=x[2], ThermalAffinity2=x[3])))
-  #KDE.99$Site<-temp$Site
-  #KDE.99$FG<-temp$FG
-  #KDE.99$FG<-factor(KDE.99$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
-  #KDE.99$ThermalAffinity2<-temp$ThermalAffinity2
-  #KDE.99$Site<-factor(KDE.99$Site,
-  #                                   levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
-  #                                            'temp.inshore', 'temp.offshore'))
-  #KDE.99$ThermalAffinity2<-factor(KDE.99$ThermalAffinity2, levels=c('tropical', 'subtropical'))
-  
-  ovl<-kerneloverlaphr(KDE.Surface, percent=99, meth="HR", conditional=T)
+    
+    if(mkern==T){
+      KDE.99_site <- getverticeshr(KDE.Surface, percent = 99)
+      KDE.99_site<-st_as_sf(KDE.99_site)
+    temp<- do.call(rbind, lapply(strsplit(as.character(KDE.99_site$id), '@'),
+    function(x) data.frame(Site=x[1], FG=x[2], ThermalAffinity2=x[3])))
+    KDE.99_site$Site<-temp$Site
+    KDE.99_site$FG<-temp$FG}else{KDE.99_site<-NULL}
+
+  ovl<-kerneloverlaphr(KDE.Surface, percent=99, meth="HR")
   ovl<-as.data.frame.table(ovl)
   ovl<-ovl[-which(ovl$Var1==ovl$Var2),]
   ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var1), '@'),
@@ -1100,214 +1103,100 @@ funcOvlPerSite<-function(pcodat=mydat, FGz=c(10, 15))
   
   site_ovl_comp<-rbind(site_ovl_comp, ovl_comp)
   site_ovl_filt<-rbind(site_ovl_filt, ovl_filt)
+  site_ovl_kernz<-rbind(site_ovl_kernz, KDE.99_site)
   print(j)
     }
-    return(list(site_ovl_comp, site_ovl_filt))
+    return(list(site_ovl_comp, site_ovl_filt, KDE.99_site))
 } # function end #
 
-t3<-funcOvlPerSite(pcodat=aus_sp_site_pco, FGz=10)
+# run function per site for lat plots with tropicalization metric
+ovl_site_aus<-funcOvl(pcodat=aus_sp_site_pco, FGz=c(15, 10, 8, 2,6, 12, 4,1, 16), bywhat='site', mkern=F)
+ovl_site_jpn<-funcOvl(pcodat=jpn_sp_site_pco, FGz=c(15, 10, 8, 2,6, 12, 4,1, 16), bywhat='site', mkern=F)
 
-### trial plots
+# run function per site.group for kernel visualisation in FG space
+ovl_site.group_aus<-funcOvl(pcodat=aus_sp_site_pco, FGz=c(15, 10, 8, 2,6, 12, 4,1, 16), bywhat='site.group', mkern=T)
+ovl_site.group_jpn<-funcOvl(pcodat=jpn_sp_site_pco, FGz=c(15, 10, 8, 2,6, 12, 4,1, 16), bywhat='site.group', mkern=T)
+
+
+#### Australia overlap by site ####
+
 # trial plot for site level results
-aus_ovl_comp<-left_join(aus_ovl_comp,aus_sp_site%>%group_by(Site)%>%summarise_all(first)%>%dplyr::select(Site, Lat), by='Site')
-aus_ovl_filt<-left_join(aus_ovl_filt,aus_sp_site%>%group_by(Site)%>%summarise_all(first)%>%dplyr::select(Site, Lat), by='Site')
+# fill overlap with 0's where no overlap
+ovl_site_aus[[1]]<-ovl_site_aus[[1]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
+ovl_site_aus[[2]]<-ovl_site_aus[[2]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
+
+aus_ovl_comp<-left_join(ovl_site_aus[[1]],aus_sp_site%>%group_by(Site)%>%
+                          summarise_all(first)%>%dplyr::select(Site, Lat), by='Site')
+aus_ovl_filt<-left_join(ovl_site_aus[[2]],aus_sp_site%>%group_by(Site)%>%
+                          summarise_all(first)%>%dplyr::select(Site, Lat), by='Site')
+
+aus_trop_prop$FG<-factor(aus_trop_prop$FG,
+                           levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
+aus_ovl_comp$FG<-factor(aus_ovl_comp$FG,
+                         levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
+aus_ovl_filt$FG<-factor(aus_ovl_filt$FG,
+                         levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
+
+aus_ovl_comp<-aus_ovl_comp[-which(is.na(aus_ovl_comp$Site)),] # remove na row from FG 16 no overlap
+
+sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97), 
+                         xmax=c(-24.1, -25.3, -26.98, -28.616, -30.96, -30.3))
 
 ggplot()+
-  geom_smooth(data=aus_trop_prop[aus_trop_prop$FG==10,], aes(x=Lat, y=trop_met), se=F, colour='black')+
+  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+  geom_smooth(data=aus_trop_prop, aes(x=Lat, y=trop_met), se=F, colour='black')+
   geom_smooth(data=aus_ovl_comp, aes(x=Lat, y=Freq), colour='red', se=F)+
   geom_smooth(data=aus_ovl_filt, aes(x=Lat, y=Freq), colour='blue', se=F)+
-  geom_point(data=aus_trop_prop[aus_trop_prop$FG==10,], aes(x=Lat, y=trop_met))+
+  geom_point(data=aus_trop_prop[aus_trop_prop$trop_met<2,], aes(x=Lat, y=trop_met))+
   geom_point(data=aus_ovl_comp, aes(x=Lat, y=Freq), colour='red')+
-  geom_point(data=aus_ovl_filt, aes(x=Lat, y=Freq), colour='blue')+scale_x_reverse()
-
-t3<-left_join(aus_trop_prop[aus_trop_prop$FG==10,], aus_ovl_comp[,c(1,5)], by='Site')
-names(t3)[14]<-'ovl_comp'
-t3<-left_join(t3, aus_ovl_filt[,c(7,3)], by='Site')
-names(t3)[15]<-'ovl_filt'
-ggplot(data=t3, aes(x=ovl_comp, y=trop_met))+geom_point()+geom_smooth()
-ggplot(data=t3, aes(x=ovl_filt, y=trop_met))+geom_point()+geom_smooth()
-
-
-
-# sum biomass per site.group
-jpn_sp_sg<-jpn_sp_site%>%group_by(site.group, FG, SpeciesFish, ThermalAffinity2)%>%
-  summarise(cor_biom=sum(cor_biom))
-aus_sp_sg<-aus_sp_site%>%group_by(site.group, FG, Fish, ThermalAffinity2)%>%
-  summarise(cor_biom=sum(cor_biom))
-
-jpn_sp_site_pco<-left_join(jpn_sp_sg, func_pco[,1:5], by=c('SpeciesFish'='Species'))
-aus_sp_site_pco<-left_join(aus_sp_sg, func_pco[,1:5], by=c('Fish'='Species'))
-
-#### AUS functional overlap ####
-
-# setup factor levels
-aus_sp_site_pco<-filter(aus_sp_site_pco, FG %in% c(15, 10, 8, 2,6, 12, 4,1, 16))
-aus_sp_site_pco$FG<-factor(aus_sp_site_pco$FG, levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
-aus_sp_site_pco$site.group<-factor(aus_sp_site_pco$site.group,
-                                  levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
-                                           'temp.inshore', 'temp.offshore'))
-
-aus_sp_site_pco$ThermalAffinity2<-factor(aus_sp_site_pco$ThermalAffinity2, levels=c('tropical', 'subtropical'))
-
-aus_sp_site_pco$ID<-paste(aus_sp_site_pco$site.group, aus_sp_site_pco$FG, aus_sp_site_pco$ThermalAffinity2)
-
-# loop to find IDs with < 5 data points and replicate until n=5 so kernels can be made
-for(i in data.frame(table(aus_sp_site_pco$ID))[which(data.frame(table(aus_sp_site_pco$ID))$Freq<5),]$Var1)
-{
-aus_sp_site_pco<-rbind(aus_sp_site_pco, 
-do.call(rbind,replicate(4, aus_sp_site_pco[aus_sp_site_pco$ID==i,], simplify=F)))
-}
-                                  
-spdf<-SpatialPointsDataFrame(coords=aus_sp_site_pco[,c(6,7)],  data=data.frame(ID=aus_sp_site_pco$ID))
-
-spdf$ID<-factor(spdf$ID)
-
-KDE.Surface <- kernelUD(spdf,same4all = T, h=0.075, grid=500)
-KDE.99 <- getverticeshr(KDE.Surface, percent = 99)
-KDE.99<-st_as_sf(KDE.99)
-temp<- do.call(rbind, lapply(strsplit(as.character(KDE.99$id), ' '),
-        function(x) data.frame(site.group=x[1], FG=x[2], ThermalAffinity2=x[3])))
-KDE.99$site.group<-temp$site.group
-KDE.99$FG<-temp$FG
-KDE.99$FG<-factor(KDE.99$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
-KDE.99$ThermalAffinity2<-temp$ThermalAffinity2
-KDE.99$site.group<-factor(KDE.99$site.group,
-                                   levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
-                                            'temp.inshore', 'temp.offshore'))
-
-KDE.99$ThermalAffinity2<-factor(KDE.99$ThermalAffinity2, levels=c('tropical', 'subtropical'))
-
-ovl<-kerneloverlaphr(KDE.Surface, percent=99, meth="HR", conditional=T)
-ovl<-as.data.frame.table(ovl)
-ovl<-ovl[-which(ovl$Var1==ovl$Var2),]
-ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var1), ' '),
-                      function(x) data.frame(V1site.group=x[1], V1FG=x[2], V1ThermalAffinity2=x[3]))))
-ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var2), ' '),
-                                     function(x) data.frame(V2site.group=x[1], V2FG=x[2], V2ThermalAffinity2=x[3]))))
-ovl<-ovl[ovl$V1FG==ovl$V2FG,]
-
-
-ovl_comp<-ovl[ovl$V1site.group==ovl$V2site.group,]
-ovl_comp<-ovl_comp%>%group_by(V1site.group, V1FG)%>%summarise_all(first) # prop of tropical FG space covered by subtropical FG
-names(ovl_comp)[names(ovl_comp)=="V1site.group"]<-'site.group'
-names(ovl_comp)[names(ovl_comp)=="V1FG"]<-'FG'
-ovl_comp$FG<-factor(ovl_comp$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
-ovl_comp$site.group<-factor(ovl_comp$site.group,
-                                   levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
-                                            'temp.inshore', 'temp.offshore'))
-
-ovl_filt<-ovl[ovl$V1ThermalAffinity2==ovl$V2ThermalAffinity2,]
-ovl_filt<-ovl_filt[ovl_filt$V1ThermalAffinity2=='tropical',]
-ovl_filt<-ovl_filt[ovl_filt$V1site.group=='trop.base',]
-names(ovl_filt)[names(ovl_filt)=="V2site.group"]<-'site.group'
-names(ovl_filt)[names(ovl_filt)=="V1FG"]<-'FG'
-ovl_filt$FG<-factor(ovl_filt$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
-ovl_filt$site.group<-factor(ovl_filt$site.group,
-                            levels=c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
-                                     'temp.inshore', 'temp.offshore'))
-
-# store ovl_objects
-aus_ovl_comp<-ovl_comp
-aus_ovl_filt<-ovl_filt
+  geom_point(data=aus_ovl_filt, aes(x=Lat, y=Freq), colour='blue')+
+  facet_wrap(~FG)+scale_x_reverse()+theme_bw()
+# note removal of outliers on geom_point: allows smooth tofit to full data
+# but not show these outliers on plot
 
 ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2), shape=1)+
-  geom_sf(data=KDE.99, aes(fill=ThermalAffinity2), alpha=0.5)+
-  geom_text(data=aus_ovl_comp, aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
-  geom_text(data=aus_ovl_filt, aes(x=0.7, y=0.7, label=paste(round(Freq, 2)*100,'%', sep='')), colour='red')+
+  geom_sf(data=ovl_site.group_aus[[3]], aes(fill=ThermalAffinity2), alpha=0.5)+
+  geom_text(data=ovl_site.group_aus[[1]], aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
+  geom_text(data=ovl_site.group_aus[[2]], aes(x=0.7, y=0.7, label=paste(round(Freq, 2)*100,'%', sep='')), colour='red')+
   scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
 
-#### JAPAN functional overlap ####
+#### Japan overlap by site ####
 
-# setup factor levels
-jpn_sp_site_pco<-filter(jpn_sp_site_pco, FG %in% c(15, 10, 8, 2,6,12, 4,1, 16))
-jpn_sp_site_pco$FG<-factor(jpn_sp_site_pco$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
-jpn_sp_site_pco$site.group<-factor(jpn_sp_site_pco$site.group,
-                                   levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
-                                            'trans.headld', 'temp.headld'))
+# trial plot for site level results
+# fill overlap with 0's where no overlap
+ovl_site_jpn[[1]]<-ovl_site_jpn[[1]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
+ovl_site_jpn[[2]]<-ovl_site_jpn[[2]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
 
-jpn_sp_site_pco$ThermalAffinity2<-factor(jpn_sp_site_pco$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+jpn_ovl_comp<-left_join(ovl_site_jpn[[1]],jpn_sp_site%>%group_by(SiteID)%>%summarise_all(first)%>%dplyr::select(SiteID, lat), by=c('Site'='SiteID'))
+jpn_ovl_filt<-left_join(ovl_site_jpn[[2]],jpn_sp_site%>%group_by(SiteID)%>%summarise_all(first)%>%dplyr::select(SiteID, lat), by=c('Site'='SiteID'))
 
-#trial using weighted biomass kernels - probably not necessary when using 99% UD
-#jpn_sp_site_pco_weighted<-NULL
-#for(i in 1:nrow(jpn_sp_site_pco)){
-#  jpn_sp_site_pco_weighted<-rbind(jpn_sp_site_pco_weighted, 
-#  do.call(rbind,replicate(ceiling((jpn_sp_site_pco[i,]$cor_biom)^0.5),jpn_sp_site_pco[i,], simplify=F)))
-#  }
+jpn_trop_prop$FG<-factor(jpn_trop_prop$FG,
+                         levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
+jpn_ovl_comp$FG<-factor(jpn_ovl_comp$FG,
+                        levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
+jpn_ovl_filt$FG<-factor(jpn_ovl_filt$FG,
+                        levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
 
-jpn_sp_site_pco$ID<-paste(jpn_sp_site_pco$site.group, jpn_sp_site_pco$FG, jpn_sp_site_pco$ThermalAffinity2)
+jpn_ovl_comp<-jpn_ovl_comp[-which(is.na(jpn_ovl_comp$Site)),]
 
-# loop to find IDs with < 5 data points and replicate until n=5 so kernels can be made
-for(i in data.frame(table(jpn_sp_site_pco$ID))[which(data.frame(table(jpn_sp_site_pco$ID))$Freq<5),]$Var1)
-{
-  jpn_sp_site_pco<-rbind(jpn_sp_site_pco, 
-                         do.call(rbind,replicate(4, jpn_sp_site_pco[jpn_sp_site_pco$ID==i,], simplify=F)))
-}
+sg_lat_spans<-data.frame(xmin=c(24.2, 26.2, 28.5, 31,   32.7,  33.38, 34.6), 
+                         xmax=c(24.5, 28.4, 30.5, 31.6, 32.82, 33.5, 35 ))
 
-spdf<-SpatialPointsDataFrame(coords=jpn_sp_site_pco[,c(6,7)],  data=data.frame(ID=jpn_sp_site_pco$ID))
+ggplot()+
+  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+  geom_smooth(data=jpn_trop_prop, aes(x=lat, y=trop_met), se=F, colour='black')+
+  geom_smooth(data=jpn_ovl_comp, aes(x=lat, y=Freq), colour='red', se=F)+
+  geom_smooth(data=jpn_ovl_filt, aes(x=lat, y=Freq), colour='blue', se=F)+
+  geom_point(data=jpn_trop_prop[jpn_trop_prop$trop_met<2,], aes(x=lat, y=trop_met))+
+  geom_point(data=jpn_ovl_comp, aes(x=lat, y=Freq), colour='red')+
+  geom_point(data=jpn_ovl_filt, aes(x=lat, y=Freq), colour='blue')+
+  facet_wrap(~FG)+theme_bw()
 
-spdf$ID<-factor(spdf$ID)
 
-KDE.Surface <- kernelUD(spdf,same4all = T, h=0.075, grid=500)
-KDE.99 <- getverticeshr(KDE.Surface, percent = 99)
-KDE.99<-st_as_sf(KDE.99)
-temp<- do.call(rbind, lapply(strsplit(as.character(KDE.99$id), ' '),
-                             function(x) data.frame(site.group=x[1], FG=x[2], ThermalAffinity2=x[3])))
-KDE.99$site.group<-temp$site.group
-KDE.99$FG<-temp$FG
-KDE.99$FG<-factor(KDE.99$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
-KDE.99$ThermalAffinity2<-temp$ThermalAffinity2
-KDE.99$site.group<-factor(KDE.99$site.group,
-                          levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
-                                   'trans.headld', 'temp.headld'))
-
-KDE.99$ThermalAffinity2<-factor(KDE.99$ThermalAffinity2, levels=c('tropical', 'subtropical'))
-
-ovl<-kerneloverlaphr(KDE.Surface, percent=99, meth="HR", conditional=T)
-ovl<-as.data.frame.table(ovl)
-ovl<-ovl[-which(ovl$Var1==ovl$Var2),]
-ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var1), ' '),
-                                     function(x) data.frame(V1site.group=x[1], V1FG=x[2], V1ThermalAffinity2=x[3]))))
-ovl<-cbind(ovl,do.call(rbind, lapply(strsplit(as.character(ovl$Var2), ' '),
-                                     function(x) data.frame(V2site.group=x[1], V2FG=x[2], V2ThermalAffinity2=x[3]))))
-ovl<-ovl[ovl$V1FG==ovl$V2FG,]
-
-ovl_comp<-ovl[ovl$V1site.group==ovl$V2site.group,]
-ovl_comp<-ovl_comp%>%group_by(V1site.group, V1FG)%>%summarise_all(first) # prop of tropical FG space covered by subtropical FG
-names(ovl_comp)[names(ovl_comp)=="V1site.group"]<-'site.group'
-names(ovl_comp)[names(ovl_comp)=="V1FG"]<-'FG'
-ovl_comp$FG<-factor(ovl_comp$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
-ovl_comp$site.group<-factor(ovl_comp$site.group,
-                            levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
-                                     'trans.headld', 'temp.headld'))
-
-ovl_filt<-ovl[ovl$V1ThermalAffinity2==ovl$V2ThermalAffinity2,]
-ovl_filt<-ovl_filt[ovl_filt$V1ThermalAffinity2=='tropical',]
-ovl_filt<-ovl_filt[ovl_filt$V1site.group=='trop.base',]
-names(ovl_filt)[names(ovl_filt)=="V2site.group"]<-'site.group'
-names(ovl_filt)[names(ovl_filt)=="V1FG"]<-'FG'
-ovl_filt$FG<-factor(ovl_filt$FG, levels=c(15, 10, 8, 2,6,12, 4,1, 16))
-ovl_filt$site.group<-factor(ovl_filt$site.group,
-                            levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
-                                     'trans.headld', 'temp.headld'))
-
-                      
-# store ovl_objects
-jpn_ovl_comp<-ovl_comp
-jpn_ovl_filt<-ovl_filt
-
-ppp+geom_point(data=jpn_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2))+
-  geom_sf(data=KDE.99, aes(fill=ThermalAffinity2), alpha=0.5)+
-  geom_text(data=jpn_ovl_comp, aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
-  geom_text(data=jpn_ovl_filt, aes(x=0.7, y=0.7, label=paste(round(Freq, 2)*100,'%', sep='')), colour='red')+
-  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
-                                          100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
-  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
-                                          100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
-  facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
 
 #### combine site-group tropicalization lme models with overlap results ####
 
