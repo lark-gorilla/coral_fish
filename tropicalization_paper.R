@@ -1078,7 +1078,9 @@ funcOvl<-function(pcodat=mydat, FGz=c(10, 15), bywhat='site', mkern=F)
     temp<- do.call(rbind, lapply(strsplit(as.character(KDE.99_site$id), '@'),
     function(x) data.frame(Site=x[1], FG=x[2], ThermalAffinity2=x[3])))
     KDE.99_site$Site<-temp$Site
-    KDE.99_site$FG<-temp$FG}else{KDE.99_site<-NULL}
+    KDE.99_site$FG<-temp$FG
+    KDE.99_site$ThermalAffinity2<-temp$ThermalAffinity2
+    }else{KDE.99_site<-NULL}
 
   ovl<-kerneloverlaphr(KDE.Surface, percent=99, meth="HR")
   ovl<-as.data.frame.table(ovl)
