@@ -1092,10 +1092,10 @@ funcOvl<-function(pcodat=mydat, FGz=c(10, 15), bywhat='site', mkern=F)
   ovl<-ovl[ovl$V1FG==ovl$V2FG,]
   
   ovl_comp<-ovl[ovl$V1Site==ovl$V2Site,]
-  ovl_comp<-ovl_comp%>%group_by(V1Site, V1FG)%>%summarise_all(first) # prop of tropical FG space covered by subtropical FG
+  ovl_comp<-ovl_comp%>%group_by(V1Site, V1FG)%>%summarise_all(first)%>%as.data.frame() # prop of tropical FG space covered by subtropical FG
   names(ovl_comp)[names(ovl_comp)=="V1Site"]<-'Site'
   names(ovl_comp)[names(ovl_comp)=="V1FG"]<-'FG'
-  ovl_comp<-ovl_comp[ovl_comp$Site!='trop.base',]
+  if(bywhat=='site'){ovl_comp<-ovl_comp[ovl_comp$Site!='trop.base',]}
   
   ovl_filt<-ovl[ovl$V1ThermalAffinity2==ovl$V2ThermalAffinity2,]
   ovl_filt<-ovl_filt[ovl_filt$V1ThermalAffinity2=='tropical',]
@@ -1108,7 +1108,7 @@ funcOvl<-function(pcodat=mydat, FGz=c(10, 15), bywhat='site', mkern=F)
   site_ovl_kernz<-rbind(site_ovl_kernz, KDE.99_site)
   print(j)
     }
-    return(list(site_ovl_comp, site_ovl_filt, KDE.99_site))
+    return(list(site_ovl_comp, site_ovl_filt, site_ovl_kernz))
 } # function end #
 
 # run function per site for lat plots with tropicalization metric
@@ -1132,31 +1132,43 @@ aus_ovl_comp<-left_join(ovl_site_aus[[1]],aus_sp_site%>%group_by(Site)%>%
 aus_ovl_filt<-left_join(ovl_site_aus[[2]],aus_sp_site%>%group_by(Site)%>%
                           summarise_all(first)%>%dplyr::select(Site, Lat), by='Site')
 
-aus_trop_prop$FG<-factor(aus_trop_prop$FG,
-                           levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
-aus_ovl_comp$FG<-factor(aus_ovl_comp$FG,
-                         levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
-aus_ovl_filt$FG<-factor(aus_ovl_filt$FG,
-                         levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
-
 aus_ovl_comp<-aus_ovl_comp[-which(is.na(aus_ovl_comp$Site)),] # remove na row from FG 16 no overlap
 
 sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97), 
                          xmax=c(-24.1, -25.3, -26.98, -28.616, -30.96, -30.3))
-
-ggplot()+
+p1<-ggplot()+
   geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
   geom_smooth(data=aus_trop_prop, aes(x=Lat, y=trop_met), se=F, colour='black')+
   geom_smooth(data=aus_ovl_comp, aes(x=Lat, y=Freq), colour='red', se=F)+
   geom_smooth(data=aus_ovl_filt, aes(x=Lat, y=Freq), colour='blue', se=F)+
-  geom_point(data=aus_trop_prop[aus_trop_prop$trop_met<2,], aes(x=Lat, y=trop_met))+
+  geom_point(data=filter(aus_trop_prop, trop_met<2), aes(x=Lat, y=trop_met))+
   geom_point(data=aus_ovl_comp, aes(x=Lat, y=Freq), colour='red')+
   geom_point(data=aus_ovl_filt, aes(x=Lat, y=Freq), colour='blue')+
-  facet_wrap(~FG)+scale_x_reverse()+theme_bw()
+  theme_bw()+facet_grid(FG~.)+scale_x_reverse()
 # note removal of outliers on geom_point: allows smooth tofit to full data
 # but not show these outliers on plot
 
-ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2), shape=1)+
+levz<-c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
+                           'temp.inshore', 'temp.offshore')
+
+aus_sp_site_pco$site.group<-factor(aus_sp_site_pco$site.group,levels=levz)
+names(ovl_site.group_aus[[3]])[names(ovl_site.group_aus[[3]])=='Site']<-'site.group'
+names(ovl_site.group_aus[[2]])[names(ovl_site.group_aus[[2]])=='Site']<-'site.group'
+names(ovl_site.group_aus[[1]])[names(ovl_site.group_aus[[1]])=='Site']<-'site.group'
+
+ovl_site.group_aus[[3]]$site.group<-factor(ovl_site.group_aus[[3]]$site.group,levels=levz)
+ovl_site.group_aus[[1]]$site.group<-factor(ovl_site.group_aus[[1]]$site.group,levels=levz)
+ovl_site.group_aus[[2]]$site.group<-factor(ovl_site.group_aus[[2]]$site.group,levels=levz)
+
+ovl_site.group_aus[[1]]<-ovl_site.group_aus[[1]][-which(is.na(ovl_site.group_aus[[1]]$site.group)),]
+
+ap1<-aus_sp_site_pco[aus_sp_site_pco$FG %in% c(15, 10, 8, 2,6, 12, 4,1, 16),]
+ap1$FG<-factor(ap1$FG)
+
+ap1$ThermalAffinity2<-factor(ap1$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+ovl_site.group_aus[[3]]$ThermalAffinity2<-factor(ovl_site.group_aus[[3]]$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+
+p2<-ppp+geom_point(data=ap1, aes(x=A1, y=A2, colour=ThermalAffinity2))+
   geom_sf(data=ovl_site.group_aus[[3]], aes(fill=ThermalAffinity2), alpha=0.5)+
   geom_text(data=ovl_site.group_aus[[1]], aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
   geom_text(data=ovl_site.group_aus[[2]], aes(x=0.7, y=0.7, label=paste(round(Freq, 2)*100,'%', sep='')), colour='red')+
@@ -1165,6 +1177,7 @@ ppp+geom_point(data=aus_sp_site_pco, aes(x=A1, y=A2, colour=ThermalAffinity2), s
   scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
                                           100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
   facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
+
 
 #### Japan overlap by site ####
 
@@ -1188,7 +1201,7 @@ jpn_ovl_comp<-jpn_ovl_comp[-which(is.na(jpn_ovl_comp$Site)),]
 sg_lat_spans<-data.frame(xmin=c(24.2, 26.2, 28.5, 31,   32.7,  33.38, 34.6), 
                          xmax=c(24.5, 28.4, 30.5, 31.6, 32.82, 33.5, 35 ))
 
-ggplot()+
+p3<-ggplot()+
   geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
   geom_smooth(data=jpn_trop_prop, aes(x=lat, y=trop_met), se=F, colour='black')+
   geom_smooth(data=jpn_ovl_comp, aes(x=lat, y=Freq), colour='red', se=F)+
@@ -1196,9 +1209,113 @@ ggplot()+
   geom_point(data=jpn_trop_prop[jpn_trop_prop$trop_met<2,], aes(x=lat, y=trop_met))+
   geom_point(data=jpn_ovl_comp, aes(x=lat, y=Freq), colour='red')+
   geom_point(data=jpn_ovl_filt, aes(x=lat, y=Freq), colour='blue')+
-  facet_wrap(~FG)+theme_bw()
+  theme_bw()+facet_grid(FG~.)
+
+levz<-c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
+        'trans.headld', 'temp.headld')
+
+jpn_sp_site_pco$site.group<-factor(jpn_sp_site_pco$site.group,levels=levz)
+names(ovl_site.group_jpn[[3]])[names(ovl_site.group_jpn[[3]])=='Site']<-'site.group'
+names(ovl_site.group_jpn[[2]])[names(ovl_site.group_jpn[[2]])=='Site']<-'site.group'
+names(ovl_site.group_jpn[[1]])[names(ovl_site.group_jpn[[1]])=='Site']<-'site.group'
+
+ovl_site.group_jpn[[3]]$site.group<-factor(ovl_site.group_jpn[[3]]$site.group,levels=levz)
+ovl_site.group_jpn[[1]]$site.group<-factor(ovl_site.group_jpn[[1]]$site.group,levels=levz)
+ovl_site.group_jpn[[2]]$site.group<-factor(ovl_site.group_jpn[[2]]$site.group,levels=levz)
+
+ovl_site.group_jpn[[1]]<-ovl_site.group_jpn[[1]][-which(is.na(ovl_site.group_jpn[[1]]$site.group)),]
+
+ap1<-jpn_sp_site_pco[jpn_sp_site_pco$FG %in% c(15, 10, 8, 2,6, 12, 4,1, 16),]
+ap1$FG<-factor(ap1$FG)
+
+ap1$ThermalAffinity2<-factor(ap1$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+ovl_site.group_jpn[[3]]$ThermalAffinity2<-factor(ovl_site.group_jpn[[3]]$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+
+p4<-ppp+geom_point(data=ap1, aes(x=A1, y=A2, colour=ThermalAffinity2))+
+  geom_sf(data=ovl_site.group_jpn[[3]], aes(fill=ThermalAffinity2), alpha=0.5)+
+  geom_text(data=ovl_site.group_jpn[[1]], aes(x=0.9, y=0.9, label=paste(round(Freq, 2)*100,'%', sep='')))+
+  geom_text(data=ovl_site.group_jpn[[2]], aes(x=0.7, y=0.7, label=paste(round(Freq, 2)*100,'%', sep='')), colour='red')+
+  scale_y_continuous(paste('PC2', sprintf('(%0.1f%% explained var.)',
+                                          100* func_dudi$eig[2]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
+  scale_x_continuous(paste('PC1', sprintf('(%0.1f%% explained var.)',
+                                          100* func_dudi$eig[1]/sum(func_dudi$eig[func_dudi$eig>0.007]))))+
+  facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
 
 
+library(rvg)
+library(officer)
+
+read_pptx('C:/coral_fish/outputs/portrait_template.pptx') %>%
+  add_slide(layout = "Title and Content", master = "Office Theme") %>%
+  ph_with(dml(ggobj=p1), location = ph_location_fullsize()) %>% 
+  add_slide(layout = "Title and Content", master = "Office Theme") %>%
+  ph_with(dml(ggobj=p2), location = ph_location_fullsize()) %>% 
+  add_slide(layout = "Title and Content", master = "Office Theme") %>%
+  ph_with(dml(ggobj=p3), location = ph_location_fullsize()) %>% 
+  add_slide(layout = "Title and Content", master = "Office Theme") %>%
+  ph_with(dml(ggobj=p4), location = ph_location_fullsize()) %>% 
+  print(target = 'C:/coral_fish/outputs/aus_lat_ovl.pptx')
+
+
+##### single FG function
+
+foverlapPlotz<-function(trop_metD=aus_trop_prop, site_comp=aus_ovl_comp, site_filt=aus_ovl_filt,
+                        pco_pt=aus_sp_site_pco, pco_comp_text=ovl_site.group_aus[[1]],
+                        pco_filt_text=ovl_site.group_aus[[2]], pco_kern=ovl_site.group_aus[[3]],
+                        myFGz=15, aus.jpn='aus')
+{
+  #for(FGz in myFGz)
+  #{  
+  if(aus.jpn=='aus'){sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97), 
+                                              xmax=c(-24.1, -25.3, -26.98, -28.616, -30.96, -30.3))}
+  if(aus.jpn=='jpn'){sg_lat_spans<-data.frame(xmin=c(24.2, 26.2, 28.5, 31, 32.7,  33.38, 34.6), 
+                                              xmax=c(24.5, 28.4, 30.5, 31.6, 32.82, 33.5, 35 ))}
+  
+  
+  p1<-ggplot()+
+    geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+    geom_smooth(data=filter(trop_metD, FG==FGz), aes(x=Lat, y=trop_met), se=F, colour='black')+
+    geom_smooth(data=filter(site_comp, FG==FGz), aes(x=Lat, y=Freq), colour='red', se=F)+
+    geom_smooth(data=filter(site_filt, FG==FGz), aes(x=Lat, y=Freq), colour='blue', se=F)+
+    geom_point(data=filter(trop_metD, FG==FGz & trop_met<2), aes(x=Lat, y=trop_met))+
+    geom_point(data=filter(site_comp, FG==FGz), aes(x=Lat, y=Freq), colour='red')+
+    geom_point(data=filter(site_filt, FG==FGz), aes(x=Lat, y=Freq), colour='blue')+
+    theme_bw()+theme(plot.margin=unit(c(1,1,-0.7,1), "cm"))
+  
+  if(aus.jpn=='aus'){p1<-p1+scale_x_reverse()}
+  
+  names(pco_kern)[names(pco_kern)=='Site']<-'site.group'
+  names(pco_comp_text)[names(pco_comp_text)=='Site']<-'site.group'
+  names(pco_filt_text)[names(pco_filt_text)=='Site']<-'site.group'
+  
+  pco_kern$ThermalAffinity2<-factor(pco_kern$ThermalAffinity2, levels=c('tropical', 'subtropical'))
+  
+  if(aus.jpn=='aus'){levz<-c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
+                             'temp.inshore', 'temp.offshore')}
+  if(aus.jpn=='jpn'){levz<-c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
+                             'trans.headld', 'temp.headld')}
+  
+  pco_pt$site.group<-factor(pco_pt$site.group,levels=levz)
+  pco_kern$site.group<-factor(pco_kern$site.group,levels=levz)
+  pco_comp_text$site.group<-factor(pco_comp_text$site.group,levels=levz)
+  pco_filt_text$site.group<-factor(pco_filt_text$site.group,levels=levz)
+  
+  p2<-ggplot()+geom_point(data=filter(pco_pt, FG==FGz), aes(x=A1, y=A2, colour=ThermalAffinity2))+
+    geom_sf(data=filter(pco_kern, FG==FGz), aes(fill=ThermalAffinity2), alpha=0.5)+
+    geom_text(data=filter(pco_comp_text, FG==FGz), aes(x=max(filter(pco_pt, FG==FGz)$A1)+0.02, y=min(filter(pco_pt, FG==FGz)$A2)+0.2, label=paste(round(Freq, 2)*100,'%', sep='')), colour='red')+
+    geom_text(data=filter(pco_filt_text, FG==FGz), aes(x=max(filter(pco_pt, FG==FGz)$A1)+0.02, y=min(filter(pco_pt, FG==FGz)$A2), label=paste(round(Freq, 2)*100,'%', sep='')), colour='blue')+
+    facet_grid(~site.group)+
+    scale_x_continuous(breaks=round(seq(min(filter(pco_pt, FG==FGz)$A1),
+                                        max(filter(pco_pt, FG==FGz)$A1), by = 0.4), 1))+
+    scale_y_continuous(breaks=round(seq(min(filter(pco_pt, FG==FGz)$A2),
+                                        max(filter(pco_pt, FG==FGz)$A2), by = 0.4), 1))+
+    theme_minimal()+xlab('PCoA1')+ylab('PCoA2')+
+    theme(legend.position = "none",strip.text.x = element_blank(),plot.margin=unit(c(-3,1,1,1), "cm"))
+  
+  #return(list(p1, p2)) 
+  
+  
+}
 
 #### combine site-group tropicalization lme models with overlap results ####
 
