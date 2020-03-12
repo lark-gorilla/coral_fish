@@ -232,19 +232,27 @@ brt_log<-gbm(group11log~BodySize+Diet+Position+Aggregation+DepthRange,
 summary(brt_log)
 
 
-## trial with party package
+## Using part package to make figure for paper
+dat<-read.csv('C:/coral_fish/data/Traits/JPN_AUS_RMI_CHK_MLD_TMR_trait_master_opt2_clusters.csv', h=T)
+# Running on simplist classification of Position trait
+
+#Remove Aus summer only species
+aus_summer<-read.csv('C:/coral_fish/data/Australia/sp_list_summer_only.csv')
+dat[dat$Species %in% aus_summer$Fish,]$AUS_sp<-0
+
+# filter to just 9 FGs we're interested in
+dat<-dat[dat$groupk19 %in% c(16, 15,12, 10, 8, 6, 4, 2, 1),]
+dat$groupk19<-factor(dat$groupk19)
+
 library(partykit)
 
-party1<-ctree(group11log~BodySize+Diet+Position+Aggregation+DepthRange,
-    data=dat_imp)
-plot(party1, type='simple')
-party1
-
-party1<-ctree(group20log~BodySize+Diet+Position+Aggregation+DepthRange,
-              data=dat_imp)
+party1<-ctree(groupk19~BodySize+Diet+Position+Aggregation+DepthRange,
+    data=dat)
 plot(party1, type='simple')
 party1
 varimp(party1)
+
+
 
 #best plot
 st<-as.simpleparty(party1)
