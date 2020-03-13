@@ -1151,6 +1151,14 @@ p1<-ggplot()+
 # note removal of outliers on geom_point: allows smooth tofit to full data
 # but not show these outliers on plot
 
+## calc correlation coef and significance
+
+ovl_test_aus<-aus_trop_prop%>%group_by(FG, Site)%>%summarise(trop_met=mean(trop_met))%>%
+  left_join(., ovl_site_aus[[1]][c(1,2,5)], by=c('FG', 'Site'))%>%
+  left_join(., ovl_site_aus[[2]][c(1,2,5)], by=c('FG', 'Site'))
+
+m1<-lm(trop_met~Freq.x, data=filter(ovl_test_aus, FG==1))
+
 levz<-c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
                            'temp.inshore', 'temp.offshore')
 
@@ -1213,6 +1221,27 @@ p3<-ggplot()+
   geom_point(data=jpn_ovl_comp, aes(x=lat, y=Freq), colour='red')+
   geom_point(data=jpn_ovl_filt, aes(x=lat, y=Freq), colour='blue')+
   theme_bw()+facet_grid(FG~.)
+
+## calc correlation coef and significance
+
+ovl_test_jpn<-jpn_trop_prop%>%group_by(FG, SiteID)%>%summarise(trop_met=mean(trop_met))%>%
+  left_join(., ovl_site_jpn[[1]][c(1,2,5)], by=c('FG', 'SiteID'='Site'))%>%
+  left_join(., ovl_site_jpn[[2]][c(1,2,5)], by=c('FG', 'SiteID'='Site'))
+
+qplot(data=ovl_test_jpn, x=Freq.y, y=trop_met)+facet_wrap(~FG, scales='free')
+
+# tests for aus and japan then write out
+spear_tests<-rbind(
+ovl_test_jpn%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method = 'kendall')$p.value,
+                                        comp_est=cor.test(trop_met, Freq.x, method = 'kendall')$estimate,
+                                        filt_p=cor.test(trop_met, Freq.y, method = 'kendall')$p.value,
+                                        filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate),
+ovl_test_aus%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method = 'kendall')$p.value,
+                                        comp_est=cor.test(trop_met, Freq.x, method = 'kendall')$estimate,
+                                        filt_p=cor.test(trop_met, Freq.y, method = 'kendall')$p.value,
+                                        filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate))
+
+#write.csv(spear_tests, 'C:/coral_fish/outputs/func_overlap_correlation_tropicalization.csv', quote=F, row.names=F)
 
 levz<-c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
         'trans.headld', 'temp.headld')
