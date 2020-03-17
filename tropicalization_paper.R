@@ -1240,7 +1240,7 @@ ovl_test_aus%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method
                                         comp_est=cor.test(trop_met, Freq.x, method = 'kendall')$estimate,
                                         filt_p=cor.test(trop_met, Freq.y, method = 'kendall')$p.value,
                                         filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate))
-
+# actually using kendall's tau!
 #write.csv(spear_tests, 'C:/coral_fish/outputs/func_overlap_correlation_tropicalization.csv', quote=F, row.names=F)
 
 levz<-c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
