@@ -328,14 +328,16 @@ ggplot(jpn_trop_prop, aes(x = lat, y = (cor_biom/mean_biom)^0.25)) +
 sg_lat_spans<-data.frame(xmin=c(24.2, 26.2, 28.5, 31,   32.7,  33.38, 34.6), 
                          xmax=c(24.5, 28.4, 30.5, 31.6, 32.82, 33.5, 35 ))
 
-ggplot(jpn_trop_prop) + 
+jpn_trend<-ggplot(jpn_trop_prop) + 
   geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
   geom_smooth(aes(x = lat, y = (cor_biom/mean_biom)^0.25, colour=factor(FG)), se=F)+
   geom_smooth(data=jpn_trop_comm, aes(x = lat, y = (cor_biom/mean_biom)^0.25),
               se=F, colour='black', linetype='dashed')+
-  theme_classic()+theme(legend.position = "none")+
+  theme_bw()+theme(legend.position = "none")+
   geom_hline(yintercept=0.05^0.25)+scale_x_continuous(breaks=24:35)+
-  xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
+  xlab('Latitude')+ylab('Proportion of tropical biomass')+
+  scale_y_continuous(breaks=c(0, 0.05, 0.25, 0.5, 1, 2, 4, 20)^0.25, 
+                     labels=c(0,0.05, 0.25, 0.5, 1, 2, 4, 20), minor_breaks = NULL)
   
 ggplot(aus_trop_prop, aes(x = Lat, y = (cor_biom/mean_biom)^0.25)) + 
   geom_point(data=aus_trop_comm, colour='black', alpha=0.3, shape=1)+
@@ -357,14 +359,17 @@ ggplot(aus_trop_prop, aes(x = Lat, y = (cor_biom/mean_biom)^0.25)) +
 sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97), 
                          xmax=c(-24.1, -25.3, -26.98, -28.616, -30.96, -30.3))
 
-ggplot(aus_trop_prop) + 
-  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.6)+
+aus_trend<-ggplot(aus_trop_prop) + 
+  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=4^0.25, xmin=xmin, xmax=xmax), fill='grey', alpha=0.6)+
   geom_smooth(aes(x = Lat, y = (cor_biom/mean_biom)^0.25, colour=factor(FG)), se=F)+
   geom_smooth(data=aus_trop_comm, aes(x = Lat, y = (cor_biom/mean_biom)^0.25),
               se=F, colour='black', linetype='dashed')+
-  theme_classic()+theme(legend.position = "none")+
+  theme_bw()+theme(legend.position = "none")+
   geom_hline(yintercept=0.05^0.25)+scale_x_reverse(breaks=-23:-31)+
-  xlab('Latitude')+ylab('Proportion of tropical biomass (4rt scaled)')
+  xlab('Latitude')+ylab('Proportion of tropical biomass')+
+scale_y_continuous(breaks=c(0, 0.05, 0.25, 0.5, 1, 2, 4)^0.25, 
+                   labels=c(0,0.05, 0.25, 0.5, 1, 2, 4), minor_breaks = NULL)
+
 
 # calc statistics 
 
@@ -547,15 +552,17 @@ trop_comps_out$site.group<-factor(trop_comps_out$site.group,
                        'trans.headld', 'temp.headld'))
  
 
-ggplot()+
-  geom_hline(yintercept =filter(trop_comps_out, FG=='comm')$response, linetype='dotted')+
+jpn_mods<-ggplot()+
+  geom_hline(yintercept=0.05^0.25, linetype='dotted')+
   geom_errorbar(data=trop_comps_out, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
   geom_point(data=trop_comps_out, aes(x=FG, y=emmean, size=ifelse(is.na(p.value), 1, ifelse(p.value>0.05, 1, 2))), shape=1)+
   geom_point(data=trop_comps_out, aes(x=FG, y=emmean, colour=factor(FG)), size=2)+
   theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group, nrow=1)+
   scale_colour_manual(values = c("black", "#F8766D", "#D39200" ,"#93AA00", "#00BA38",
  "#00C19F", "#00B9E3", "#619CFF", "#DB72FB", "#FF61C3"))+
-  ylab('Proportion of tropical biomass (4rt scaled)')
+  ylab('Proportion of tropical biomass')+
+  scale_y_continuous(breaks=c(0, 0.05, 0.25, 0.5, 1, 2, 4, 20)^0.25, 
+   labels=c(0,0.05, 0.25, 0.5, 1, 2, 4, 20), minor_breaks = NULL)
 
 #### Australia FG tropicalization comparisons #### 
 
@@ -695,17 +702,24 @@ trop_comps_out_aus<-rbind(trop_comps_out_aus,
 trop_comps_out_aus$site.group<-factor(trop_comps_out_aus$site.group, levels=c('trop.base', 'trans.bay', 'trans.offshore',
                                                                               'trans.temp',  'temp.offshore', 'temp.inshore'))
 
-ggplot()+
-  geom_hline(yintercept =filter(trop_comps_out_aus, FG=='comm')$response, linetype='dotted')+
+aus_mods<-ggplot()+
+  geom_hline(yintercept=0.05^0.25, linetype='dotted')+
   geom_errorbar(data=trop_comps_out_aus, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
   geom_point(data=trop_comps_out_aus, aes(x=FG, y=emmean, size=ifelse(is.na(p.value), 1, ifelse(p.value>0.05, 1, 2))), shape=1)+
   geom_point(data=trop_comps_out_aus, aes(x=FG, y=emmean, colour=factor(FG)), size=2)+
   theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group, nrow=1)+
   scale_colour_manual(values = c("black", "#F8766D", "#D39200" ,"#93AA00", "#00BA38",
   "#00C19F", "#00B9E3", "#619CFF", "#DB72FB", "#FF61C3"))+
-  ylab('Proportion of tropical biomass (4rt scaled)')
+  ylab('Proportion of tropical biomass')+
+  scale_y_continuous(breaks=c(0, 0.05, 0.25, 0.5, 1, 2, 4, 20)^0.25, 
+                     labels=c(0,0.05, 0.25, 0.5, 1, 2, 4, 20), minor_breaks = NULL)
 
+#### create tropicalization mega plot and write out ####
 
+#png('C:/coral_fish/outputs/tropicalization_4plot.png',width = 12, height =12 , units ="in", res =600)
+
+#grid.arrange(jpn_trend, jpn_mods, aus_trend, aus_mods, nrow=4)
+#dev.off()
 
 ####  GAMS  ####
 
