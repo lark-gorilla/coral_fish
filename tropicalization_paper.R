@@ -413,6 +413,10 @@ table(aus_trop_tests$Site,aus_trop_tests$site.group)
 # set comm as intercept
 jpn_trop_tests$FG<-factor(jpn_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,4,1,16))
 
+# remove comm for diff between FG stat reporting
+#jpn_trop_tests<-filter(jpn_trop_tests, FG!='comm')
+#jpn_trop_tests$FG<-factor(jpn_trop_tests$FG, levels=c( 15, 10, 8, 2,6,12,4,1,16))
+
 ## trop.island
 
 ggplot(data=filter(jpn_trop_tests, site.group=='trop.island'), aes(x=FG, y=trop_met))+
@@ -568,6 +572,11 @@ jpn_mods<-ggplot()+
 
 # drop some FGs and set comm as intercept
 aus_trop_tests$FG<-factor(aus_trop_tests$FG, levels=c('comm', 15, 10, 8, 2,6,12,4,1,16))
+
+# remove comm for diff between FG stat reporting
+#aus_trop_tests<-filter(aus_trop_tests, FG!='comm')
+#aus_trop_tests$FG<-factor(aus_trop_tests$FG, levels=c( 15, 10, 8, 2,6,12,4,1,16))
+
 
 ## trans.bay
 
