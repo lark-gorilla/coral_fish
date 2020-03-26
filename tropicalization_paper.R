@@ -723,12 +723,50 @@ aus_mods<-ggplot()+
   scale_y_continuous(breaks=c(0, 0.05, 0.25, 0.5, 1, 2, 4, 20)^0.25, 
                      labels=c(0,0.05, 0.25, 0.5, 1, 2, 4, 20), minor_breaks = NULL)
 
+# write out results
+#write.csv(rbind(trop_comps_out, trop_comps_out_aus), 'C:/coral_fish/outputs/sitegroup_FG_tropicalization.csv', quote=F, row.names=F)
+
 #### create tropicalization mega plot and write out ####
 
 #png('C:/coral_fish/outputs/tropicalization_4plot.png',width = 12, height =12 , units ="in", res =600)
 
 #grid.arrange(jpn_trend, jpn_mods, aus_trend, aus_mods, nrow=4)
 #dev.off()
+
+#### Look for sig diff between stie.groups in terms of comm level tropicalization ####
+
+jpn_trop_tests$site.group<-factor(jpn_trop_tests$site.group,
+                                  levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
+                                           'trans.headld', 'temp.headld'))
+
+ggplot(data=filter(jpn_trop_tests, FG=='comm'), aes(x=site.group, y=trop_met))+
+  geom_point(aes(colour=SiteID))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+
+m1<-lme(trop_met~site.group, random=~1|SiteID, weights=varIdent(form=~1|site.group),
+        data=filter(jpn_trop_tests, FG=='comm'))
+resid_panel(m1)
+summary(m1)
+anova(m1)
+
+em1<-emmeans(m1, specs='site.group')
+pairs(em1)
+plot(em1, comparisons = TRUE)
+
+aus_trop_tests$site.group<-factor(aus_trop_tests$site.group, levels=c('trop.base', 'trans.bay', 'trans.offshore',
+                                                                              'trans.temp',  'temp.offshore', 'temp.inshore'))
+ggplot(data=filter(aus_trop_tests, FG=='comm'), aes(x=site.group, y=trop_met))+
+  geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
+
+m1<-lme(trop_met~site.group, random=~1|Site, weights=varIdent(form=~1|site.group),
+        data=filter(aus_trop_tests, FG=='comm'))
+resid_panel(m1)
+summary(m1)
+anova(m1)
+
+em1<-emmeans(m1, specs='site.group')
+pairs(em1)
+plot(em1, comparisons = TRUE)
+
 
 ####  GAMS  ####
 
