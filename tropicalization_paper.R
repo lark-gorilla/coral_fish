@@ -1283,7 +1283,7 @@ p3<-ggplot()+
   geom_point(data=jpn_ovl_filt, aes(x=lat, y=Freq), colour='blue')+
   theme_bw()+facet_grid(FG~.)
 
-## calc correlation coef and significance
+#### calc correlation coef and significance ####
 
 ovl_test_jpn<-jpn_trop_prop%>%group_by(FG, SiteID)%>%summarise(trop_met=mean(trop_met))%>%
   left_join(., ovl_site_jpn[[1]][c(1,2,5)], by=c('FG', 'SiteID'='Site'))%>%
@@ -1303,6 +1303,26 @@ ovl_test_aus%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method
                                         filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate))
 # actually using kendall's tau!
 #write.csv(spear_tests, 'C:/coral_fish/outputs/func_overlap_correlation_tropicalization.csv', quote=F, row.names=F)
+
+# Do correlation test with subtropical biomass
+
+aus_cor<-left_join(aus_trop_prop, bio_aus[bio_aus$ThermalAffinity2=='subtropical',c(1, 2, 11)],
+          by=c('Site.trans.ID', 'FG'))
+jpn_cor<-left_join(jpn_trop_prop, bio_jpn[bio_jpn$ThermalAffinity2=='subtropical',c(1, 2, 9)],
+                   by=c('Site.trans.ID', 'FG'))
+
+qplot(data=aus_cor, x=cor_biom.y^0.25, y=cor_biom.x^0.25)+facet_wrap(~FG)
+qplot(data=aus_cor, x=cor_biom.y^0.25, y=trop_met)+facet_wrap(~FG)
+
+aus_cor%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, cor_biom.y^0.25, method = 'kendall')$p.value,
+                                        comp_est=cor.test(trop_met, cor_biom.y^0.25, method = 'kendall')$estimate)
+
+jpn_cor%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, cor_biom.y^0.25, method = 'kendall')$p.value,
+                                   comp_est=cor.test(trop_met, cor_biom.y^0.25, method = 'kendall')$estimate)
+# not used in the end
+
+
+
 
 levz<-c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
         'trans.headld', 'temp.headld')
