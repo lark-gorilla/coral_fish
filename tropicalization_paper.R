@@ -1010,12 +1010,19 @@ summary(m1)
 anova(m1) # ns
 pairs(emmeans(m1, 'groupk19'))
 boxplot(resid(m1, type='pearson')~factor(conf_tm_jpn$groupk19))
+
+ggplot(data=data.frame(emmeans(m1, 'groupk19')), aes(x=factor(groupk19), y=emmean))+geom_pointrange(aes(ymin=lower.CL, ymax=upper.CL))+xlab('Functional Group')+ylab('Thermal Midpoint')
+
 #try with GLS to be sure
 m2<-gls(sst95~factor(groupk19), data=conf_tm_jpn,
         weights=varIdent(form=~1|groupk19))
 boxplot(resid(m2, type='pearson')~factor(conf_tm_jpn$groupk19))
 # no better, remember these groups have different n() so standard 
 # error different anyway
+m1<-ggplot(data=data.frame(emmeans(m1, 'groupk19')), aes(x=factor(groupk19), y=emmean))+
+  geom_pointrange(aes(ymin=lower.CL, ymax=upper.CL))+xlab('Functional Group')+
+  ylab('Thermal Midpoint (°C)')+scale_y_continuous(limits=c(30.5, 31.6),
+  breaks=c(30.5,30.75, 31, 31.25, 31.5, 31.5))+labs(title ='Japan')
 
 #AUS
 
@@ -1032,6 +1039,15 @@ summary(m1)
 anova(m1) # ns
 pairs(emmeans(m1, 'groupk19'))
 boxplot(resid(m1, type='pearson')~factor(conf_tm_aus$groupk19))
+
+m2<-ggplot(data=data.frame(emmeans(m1, 'groupk19')), aes(x=factor(groupk19), y=emmean))+
+  geom_pointrange(aes(ymin=lower.CL, ymax=upper.CL))+xlab('Functional Group')+
+  ylab('Thermal Midpoint (°C)')+scale_y_continuous(limits=c(30.5, 31.6),
+  breaks=c(30.5,30.75, 31, 31.25, 31.5, 31.5))+labs(title ='Australia')
+
+#png('C:/coral_fish/outputs/themal_midpoint_suppl.png',width =8, height =4 , units ="in", res =600)
+grid.arrange(m1, m2, ncol=2)
+dev.off()
 
 
 #### calculate functional distance/overlap between tropical invaders and
