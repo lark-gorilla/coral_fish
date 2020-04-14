@@ -998,7 +998,7 @@ dat_ss$sst95<-dat_ss$`95th SSTmax`
 
 #JPN
 dat_ss%>%filter(JPN_sp>0 & ThermalAffinity2=='tropical')%>%group_by(groupk19)%>%
-  summarise(n_sp=n(), n_sp_conf=length(confidence[confidence>1])) # pretty good
+  summarise(n_sp=n(), n_sp_conf=length(confidence[which(confidence>1)])) # pretty good
 
 conf_tm_jpn<-dat_ss%>%filter(JPN_sp>0 & ThermalAffinity2=='tropical' & confidence>1)
 
@@ -1020,7 +1020,7 @@ boxplot(resid(m2, type='pearson')~factor(conf_tm_jpn$groupk19))
 #AUS
 
 dat_ss%>%filter(AUS_sp>0 & ThermalAffinity2=='tropical')%>%group_by(groupk19)%>%
-  summarise(n_sp=n(), n_sp_conf=length(confidence[confidence>1])) # pretty good
+  summarise(n_sp=n(), n_sp_conf=length(confidence[which(confidence>1)])) # pretty good
 
 conf_tm_aus<-dat_ss%>%filter(AUS_sp>0 & ThermalAffinity2=='tropical' & confidence>1)
 
@@ -1282,6 +1282,8 @@ p3<-ggplot()+
   geom_point(data=jpn_ovl_comp, aes(x=lat, y=Freq), colour='red')+
   geom_point(data=jpn_ovl_filt, aes(x=lat, y=Freq), colour='blue')+
   theme_bw()+facet_grid(FG~.)
+# FYI tropicalization curve is same when using site-aggregated mean data
+# jpn_trop_prop%>%group_by(FG, SiteID)%>%summarise_all(mean)
 
 #### calc correlation coef and significance ####
 
@@ -1303,6 +1305,24 @@ ovl_test_aus%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method
                                         filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate))
 # actually using kendall's tau!
 #write.csv(spear_tests, 'C:/coral_fish/outputs/func_overlap_correlation_tropicalization.csv', quote=F, row.names=F)
+
+# Do correlation test between competition and subtropical biomass
+
+ovl_test_jpn<-left_join(ovl_test_jpn, bio_jpn%>%filter(.,ThermalAffinity2=='subtropical')%>%
+  group_by(FG, SiteID)%>%summarise(cor_biom=mean(cor_biom)), by=c('FG', 'SiteID'))
+  
+ovl_test_aus<-left_join(ovl_test_aus, bio_aus%>%filter(.,ThermalAffinity2=='subtropical')%>%
+  group_by(FG, Site)%>%summarise(cor_biom=mean(cor_biom)), by=c('FG', 'Site'))
+
+qplot(data=ovl_test_jpn, x=Freq.x, y=cor_biom^0.25)+facet_wrap(~FG, scales='free')
+qplot(data=ovl_test_aus, x=Freq.x, y=cor_biom^0.25)+facet_wrap(~FG, scales='free')
+
+ovl_test_aus%>%group_by(FG)%>%summarise(comp_p=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$p.value,
+                                   comp_est=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$estimate)
+
+ovl_test_jpn%>%group_by(FG)%>%summarise(comp_p=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$p.value,
+                                   comp_est=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$estimate)
+# not used in the end
 
 # Do correlation test with subtropical biomass
 
