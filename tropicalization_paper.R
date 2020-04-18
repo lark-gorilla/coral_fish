@@ -211,8 +211,34 @@ ggplot(filter(bio_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
   xlab('Latitude')+ylab('log standardised biomass')
 
 # same plots as above but refined for traitspace comparisons
+
+jpn_cor<-bio_jpn%>%filter(FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))%>%
+  dplyr::select(FG, Site.trans.ID,ThermalAffinity2, cor_biom)%>%
+  group_by(FG,Site.trans.ID)%>%tidyr::spread(ThermalAffinity2, cor_biom)%>%
+  ungroup()%>%group_by(FG)%>%
+  summarise(cor_p=cor.test((tropical^0.25), (subtropical^0.25), method = 'kendall')$p.value,
+               cop_est=cor.test((tropical^0.25), (subtropical^0.25), method = 'kendall')$estimate)
+                 
+jpn_cor$txt=ifelse(jpn_cor$cor_p<0.001, paste0('tau=',round(jpn_cor$cop_est, 2), '***'),
+                   ifelse(jpn_cor$cor_p<0.01, paste0('tau=',round(jpn_cor$cop_est, 2), '**'),
+                          ifelse(jpn_cor$cor_p<0.05, paste0('tau=',round(jpn_cor$cop_est, 2), '*'),
+                                 NA)))                     
+
+aus_cor<-bio_aus%>%filter(FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))%>%
+  dplyr::select(FG, Site.trans.ID,ThermalAffinity2, cor_biom)%>%
+  group_by(FG,Site.trans.ID)%>%tidyr::spread(ThermalAffinity2, cor_biom)%>%
+  ungroup()%>%group_by(FG)%>%
+  summarise(cor_p=cor.test((tropical^0.25), (subtropical^0.25), method = 'kendall')$p.value,
+            cop_est=cor.test((tropical^0.25), (subtropical^0.25), method = 'kendall')$estimate)
+
+aus_cor$txt=ifelse(aus_cor$cor_p<0.001, paste0('tau=',round(aus_cor$cop_est, 2), '***'),
+                   ifelse(aus_cor$cor_p<0.01, paste0('tau=',round(aus_cor$cop_est, 2), '**'),
+                   ifelse(aus_cor$cor_p<0.05, paste0('tau=',round(aus_cor$cop_est, 2), '*'),
+                   NA)))                     
+
 sg_lat_spans<-data.frame(xmin=c(24.2, 26.2, 28.5, 31,   32.7,  33.38, 34.6), 
                          xmax=c(24.5, 28.4, 30.5, 31.6, 32.82, 33.5, 35 ))
+
 
 bio_jpn$ThermalAffinity2<-factor(bio_jpn$ThermalAffinity2, levels=c('tropical', 'subtropical'))
 
@@ -221,9 +247,13 @@ p1<-ggplot(data=filter(bio_jpn, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))) +
   geom_point(data=filter(bio_jpn, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16) & ((tot_biom/totMsurv)^0.25)<4),
              aes(x = lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2), shape=1)+
   geom_smooth(aes(x = lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2),se=F)+
+  geom_label(data=jpn_cor, aes(x=28.5, y=3.5, label=txt))+
   facet_grid(FG~., scales='free_y')+
   theme_bw()+theme(legend.position = "none")+
-  xlab('Latitude')+ylab('4rt-trans standardised biomass')
+  xlab('Latitude')+ylab('4rt-trans standardised biomass')+
+  ggtitle('Japan')+
+  theme(strip.background = element_blank(),strip.text.y = element_blank(),
+        plot.title = element_text(hjust = 0.5))
 
 sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97), 
                            xmax=c(-24.1, -25.3, -26.98, -28.616, -30.96, -30.3))
@@ -235,11 +265,16 @@ p2<-ggplot(data=filter(bio_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))) +
     geom_point(data=filter(bio_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16) & ((tot_biom/totMsurv)^0.25)<4),
                aes(x = Lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2), shape=1)+
     geom_smooth(aes(x = Lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2),se=F)+
-    facet_grid(FG~., scales='free_y')+scale_x_reverse()+
+  geom_label(data=aus_cor, aes(x=-26, y=3.5, label=txt))+  
+  facet_grid(FG~., scales='free_y')+scale_x_reverse()+ylab(NULL)+
+  ggtitle('Australia')+
     theme_bw()+theme(legend.position = "none")+
-    xlab('Latitude')+ylab('4rt-trans standardised biomass')
-  
+    xlab('Latitude')+theme(plot.title = element_text(hjust = 0.5))
+
+#png('C:/coral_fish/outputs/biomass_thermal_plot.png',width = 8, height =12 , units ="in", res =600)
 grid.arrange(p1, p2, ncol=2)
+#dev.off()
+
 #plots have outlier points removed (>4) but curves still fitter to full data
 # make same plot with spprich data while we're here
 
@@ -1119,8 +1154,7 @@ names(jpn_sp_site_pco)[1]<-'Site'
 names(jpn_sp_site_pco)[2]<-'Lat'
 
 funcOvl<-function(pcodat=mydat, FGz=c(10, 15), bywhat='site', mkern=F)
-{
-  pcodat<-as.data.frame(pcodat)
+{  pcodat<-as.data.frame(pcodat)
   
   if(bywhat=='site'){
   pcodat$ID<-paste(pcodat$Site, pcodat$FG, pcodat$ThermalAffinity2, sep='@')}
