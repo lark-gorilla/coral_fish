@@ -419,11 +419,15 @@ jpn_trop_prop$trop_met<-(jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom)^0.25
 aus_trop_prop$trop_met<-(aus_trop_prop$cor_biom/aus_trop_prop$mean_biom)^0.25
 
 #visualise using pca
-jpn_pca<-jpn_trop_prop%>%dplyr::select(FG, Site.trans.ID, trop_met)%>%
-  group_by(FG)%>%tidyr::spread(Site.trans.ID, trop_met)
+jpn_pca<-jpn_trop_prop%>%group_by(FG, SiteID)%>%summarise(trop_met=mean(trop_met))%>%
+         ungroup()%>% group_by(FG)%>%tidyr::spread(SiteID, trop_met)
 
-aus_pca<-aus_trop_prop%>%dplyr::select(FG, Site.trans.ID, trop_met)%>%
-  group_by(FG)%>%tidyr::spread(Site.trans.ID, trop_met)
+aus_pca<-aus_trop_prop%>%group_by(FG, Site)%>%summarise(trop_met=mean(trop_met))%>%
+  ungroup()%>% group_by(FG)%>%tidyr::spread(Site, trop_met)
+
+# remove tropical base
+jpn_pca<-jpn_pca[-c(2,13,22,25)]
+aus_pca<-aus_pca[-c(12,13,14,23,24)]
 
 jpnpc<-rda(jpn_pca[,c(2:length(jpn_pca)),], scale=T) # scaled so each transect equivelent
 auspc<-rda(aus_pca[,c(2:length(aus_pca)),], scale=T)
@@ -465,9 +469,15 @@ g2<-g+geom_point(data=auspc.dat, aes(y=PC2, x=PC1, colour=FG),size=3)+
 
 eig<-eigenvals(auspc)
 g2<- g2+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
-  scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+  scale_x_reverse(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
 
 grid.arrange(g1, g2)
+
+# also using table 1 data
+
+t1_dat<-read.csv('C:/coral_fish/outputs/paper_table_data.csv')
+
+qplot(data=t1_dat, x=peak, y=edge, colour=FG, shape=regon)#nope
 
 # create site-groups based on dendrogram clustering
 jpn_trop_comm$FG<-'comm'
