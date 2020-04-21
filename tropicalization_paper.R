@@ -418,6 +418,57 @@ aus_trop_comm$trop_met<-(aus_trop_comm$cor_biom/aus_trop_comm$mean_biom)^0.25
 jpn_trop_prop$trop_met<-(jpn_trop_prop$cor_biom/jpn_trop_prop$mean_biom)^0.25
 aus_trop_prop$trop_met<-(aus_trop_prop$cor_biom/aus_trop_prop$mean_biom)^0.25
 
+#visualise using pca
+jpn_pca<-jpn_trop_prop%>%dplyr::select(FG, Site.trans.ID, trop_met)%>%
+  group_by(FG)%>%tidyr::spread(Site.trans.ID, trop_met)
+
+aus_pca<-aus_trop_prop%>%dplyr::select(FG, Site.trans.ID, trop_met)%>%
+  group_by(FG)%>%tidyr::spread(Site.trans.ID, trop_met)
+
+jpnpc<-rda(jpn_pca[,c(2:length(jpn_pca)),], scale=T) # scaled so each transect equivelent
+auspc<-rda(aus_pca[,c(2:length(aus_pca)),], scale=T)
+
+jpnpc.dat<-as.data.frame(scores(jpnpc, choices=1:2, display='sites', scaling=1)) 
+auspc.dat<-as.data.frame(scores(auspc, choices=1:2, display='sites', scaling=1)) 
+
+jpnpc.dat$FG=factor(c('Upper-benthic Omnivores', 'Upper-benthic planktivores', 'Benthic planktivores',
+               'Upper-benthic Herbivores', 'Benthic Herbivore/omnivores', 'Upper-benthic predators',
+               'Demersal Predators', 'Benthic Predators', 'Corallivores'), 
+               levels=c('Benthic Predators','Upper-benthic predators', 'Benthic Herbivore/omnivores',
+              'Upper-benthic planktivores','Upper-benthic Herbivores','Demersal Predators',
+              'Benthic planktivores','Upper-benthic Omnivores','Corallivores'))
+
+auspc.dat$FG=factor(c('Upper-benthic Omnivores', 'Upper-benthic planktivores', 'Benthic planktivores',
+               'Upper-benthic Herbivores', 'Benthic Herbivore/omnivores', 'Upper-benthic predators',
+               'Demersal Predators', 'Benthic Predators', 'Corallivores'),
+               levels=c('Benthic Predators','Upper-benthic predators', 'Benthic Herbivore/omnivores',
+                        'Upper-benthic planktivores','Upper-benthic Herbivores','Demersal Predators',
+                        'Benthic planktivores','Upper-benthic Omnivores','Corallivores'))
+               
+
+g<- ggplot()+
+  geom_segment(data=NULL, aes(y=-Inf, x=0, yend=Inf, xend=0), linetype='dotted')+
+  geom_segment(data=NULL, aes(y=0, x=-Inf, yend=0, xend=Inf), linetype='dotted')
+  
+g1<-g+geom_point(data=jpnpc.dat, aes(y=PC2, x=PC1, colour=FG),size=3)+
+  geom_text_repel(data=jpnpc.dat, aes(y=PC2, x=PC1, colour=FG, label=FG),size=3)+
+  theme_classic()+theme(legend.position = "none") 
+
+eig<-eigenvals(jpnpc)
+g1<- g1+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
+  scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+
+
+g2<-g+geom_point(data=auspc.dat, aes(y=PC2, x=PC1, colour=FG),size=3)+
+  geom_text_repel(data=auspc.dat, aes(y=PC2, x=PC1, colour=FG, label=FG),size=3)+
+  theme_classic()+theme(legend.position = "none") 
+
+eig<-eigenvals(auspc)
+g2<- g2+scale_y_continuous(paste(names(eig[2]), sprintf('(%0.1f%% explained var.)', 100* eig[2]/sum(eig))))+
+  scale_x_continuous(paste(names(eig[1]), sprintf('(%0.1f%% explained var.)', 100* eig[1]/sum(eig))))
+
+grid.arrange(g1, g2)
+
 # create site-groups based on dendrogram clustering
 jpn_trop_comm$FG<-'comm'
 jpn_trop_prop$FG<-as.character(jpn_trop_prop$FG)
