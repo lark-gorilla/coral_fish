@@ -155,15 +155,20 @@ l_sum<-l_melt%>%group_by(k, variable)%>%
 ggplot(data=l_melt, aes(x=k, y=value, group=k))+
   geom_boxplot()+facet_wrap(~variable, scales='free_y') # 9
 
-ggplot()+
-  geom_violin(data=l_melt, aes(x=k, y=value, group=k))+
+p1<-ggplot()+
+  geom_vline(xintercept = 19, color='blue')+
+  geom_violin(data=l_melt, aes(x=k, y=value, group=k), scale='width')+
   geom_point(data=l_sum, aes(x=k, y=mean), color='red', shape=1)+
   geom_line(data=l_sum, aes(x=k, y=mean), color='red')+
   geom_point(data=l_sum, aes(x=k, y=median), color='green', shape=1)+
   geom_line(data=l_sum, aes(x=k, y=median), color='green')+
   scale_x_continuous(breaks=3:30)+
-  facet_wrap(~variable, scales='free_y')+
-  geom_vline(xintercept = 9, color='cyan')
+  facet_wrap(~variable, scales='free_y')
+
+#png('C:/coral_fish/outputs/optimal_cluster_choice.png',width = 12, height =6 , units ="in", res =600)
+
+#p1
+#dev.off()
 
 
 # can now check individual cluster stability to see which is best
@@ -198,7 +203,7 @@ rowMeans(clus_out_log$jaccard[[20]])
 
 # variance in jaccard similarity per cluster
 apply(clus_out_log$jaccard[[9]], 1, var)
-table(clus_out_log$clust_centres[clus_out$clust_centres$kval==9,]$jc_match)
+table(clus_out_log$clust_centres[clus_out_log$clust_centres$kval==19,]$jc_match)
 
 ################## Variable importance using BRT sensu Darling 2012 ###########
 ###############################################################################
@@ -252,7 +257,12 @@ plot(party1, type='simple')
 party1
 varimp(party1)
 
-
+#use random forest for variable importance
+rf1<-cforest(groupk19~BodySize+Diet+Position+Aggregation+DepthRange,
+              data=dat)
+varimp(rf1)
+#  BodySize        Diet    Position Aggregation  DepthRange 
+# 0.23068941  9.74648830  8.79870379  0.15036341  0.03627378 
 
 #best plot
 st<-as.simpleparty(party1)
