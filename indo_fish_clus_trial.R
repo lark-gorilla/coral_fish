@@ -47,7 +47,7 @@ crl_out<-clVal(data=dat[,c('MaxLength', 'DRange','PLD',
                            'Position','ParentalMode',
                            'SpawnMode')],
                daisytypelist = list(logratio = c(1,2,3)),
-               runs=100, min_cl=2, max_cl=20, subs_perc=0.95,
+               runs=100, min_cl=2, max_cl=70, subs_perc=0.95,
                fast.k.h = 0.1, calc_wigl = F, daisyweights=rep(1, 8))
   
 
@@ -64,11 +64,12 @@ ggplot()+
   geom_line(data=a_sum, aes(x=k, y=mean), color='red')+
   geom_point(data=a_sum, aes(x=k, y=median), color='green', shape=1)+
   geom_line(data=a_sum, aes(x=k, y=median), color='green')+
-  scale_x_continuous(breaks=2:20)+
+  scale_x_continuous(breaks=2:70)+
   facet_wrap(~variable, scales='free_y')+
-  geom_vline(xintercept = 9, color='cyan')+
-  geom_vline(xintercept = 15, color='cyan')+
-  geom_vline(xintercept = 20, color='cyan')
+  geom_vline(xintercept = 20, color='cyan')+
+  geom_vline(xintercept = 42, color='cyan')+
+  geom_vline(xintercept = 56, color='cyan')+
+  geom_vline(xintercept = 70, color='cyan')
 
 
 # write clusters out
@@ -80,13 +81,13 @@ hc<-hclust(daisy(dat[,c('MaxLength', 'DRange','PLD',
                   metric='gower', 
                  type = list(logratio = c(1,2,3)),stand = FALSE), method='average')
 
-plot(hc); rect.hclust(hc, k=9);rect.hclust(hc, k=15, border=4);rect.hclust(hc, k=20, border=5)
+plot(hc); rect.hclust(hc, k=20);rect.hclust(hc, k=42, border=4)
+rect.hclust(hc, k=56, border=5);rect.hclust(hc, k=70, border=6)
 
-
-dat$FG_k9<-cutree(hc, k=9)
-dat$FG_k15<-cutree(hc, k=15)
 dat$FG_k20<-cutree(hc, k=20)
+dat$FG_k42<-cutree(hc, k=42)
+dat$FG_k56<-cutree(hc, k=56)
+dat$FG_k70<-cutree(hc, k=70)
 
-
-write.csv(dat, 'C:/coral_fish/outputs/Wallacea_Fish_Traits_clustered.csv', quote=F, row.names=F)
+write.csv(dat, 'C:/coral_fish/outputs/Wallacea_Fish_Traits_clustered_FINE.csv', quote=F, row.names=F)
 
