@@ -297,6 +297,31 @@ ggplot(filter(spr_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
   theme_bw()+theme(legend.position = "none")+scale_x_reverse()+
   xlab('Latitude')+ylab('Estimated species richness')
 
+# check correlation
+spr_jpn$FG<-as.factor(spr_jpn$FG)
+spbio_jpn<-left_join(bio_jpn%>%filter(FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)), 
+                     spr_jpn%>%dplyr::select(qD, ThermalAffinity2, FG, Site), 
+                     by=c('FG', 'ThermalAffinity2', 'SiteID'='Site'))
+
+qplot(data=spbio_jpn, x=tot_biom^0.25, y=qD, colour=ThermalAffinity2)+#
+  facet_wrap(~FG, scales='free')
+
+spbio_jpn%>%filter(ThermalAffinity2=='tropical')%>%group_by(FG)%>% summarise(cor_p=cor.test((tot_biom^0.25), qD, method = 'kendall')$p.value,
+                                   cop_est=cor.test((tot_biom^0.25), qD, method = 'kendall')$estimate)
+# all sig positive cor apart from group 15 = ns
+
+spr_aus$FG<-as.factor(spr_aus$FG)
+spbio_aus<-left_join(bio_aus%>%filter(FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)), 
+                     spr_aus%>%dplyr::select(qD, ThermalAffinity2, FG, Site), 
+                     by=c('FG', 'ThermalAffinity2', 'Site'='Site'))
+
+qplot(data=spbio_aus, x=tot_biom^0.25, y=qD, colour=ThermalAffinity2)+#
+  facet_wrap(~FG, scales='free')
+
+spbio_aus%>%filter(ThermalAffinity2=='tropical')%>%group_by(FG)%>% summarise(cor_p=cor.test((tot_biom^0.25), qD, method = 'kendall')$p.value,
+                                                                             cop_est=cor.test((tot_biom^0.25), qD, method = 'kendall')$estimate)
+# all sig positive 
+
 ####
 
 #### Setup tropical-only data for tropicalization analyses ####
@@ -901,7 +926,7 @@ dev.off()
 
 #### calculate functional distance/overlap between tropical invaders and
 
-#### functional niche overlap, tropical vs higher latitude residents ####
+#### functional niche calculation and overlap ####
 
 # recreate distance matrix from clustering
 
@@ -1048,14 +1073,17 @@ ovl_site_jpn<-funcOvl(pcodat=jpn_sp_site_pco, FGz=c(15, 10, 8, 2,6, 12, 4,1, 16)
 ovl_site.group_aus<-funcOvl(pcodat=aus_sp_site_pco, FGz=c(15, 10, 8, 2,6, 12, 4,1, 16), bywhat='site.group', mkern=T)
 ovl_site.group_jpn<-funcOvl(pcodat=jpn_sp_site_pco, FGz=c(15, 10, 8, 2,6, 12, 4,1, 16), bywhat='site.group', mkern=T)
 
-
-#### Australia overlap by site ####
-
-# trial plot for site level results
 # fill overlap with 0's where no overlap
 ovl_site_aus[[1]]<-ovl_site_aus[[1]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
 ovl_site_aus[[2]]<-ovl_site_aus[[2]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
 
+ovl_site_jpn[[1]]<-ovl_site_jpn[[1]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
+ovl_site_jpn[[2]]<-ovl_site_jpn[[2]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
+####
+
+#### Create plots of niche overlap, competition and filtering ####
+
+## AUSTRALIA
 aus_ovl_comp<-left_join(ovl_site_aus[[1]],aus_sp_site%>%group_by(Site)%>%
                           summarise_all(first)%>%dplyr::select(Site, Lat), by='Site')
 aus_ovl_filt<-left_join(ovl_site_aus[[2]],aus_sp_site%>%group_by(Site)%>%
@@ -1077,13 +1105,9 @@ p1<-ggplot()+
 # note removal of outliers on geom_point: allows smooth tofit to full data
 # but not show these outliers on plot
 
-## calc correlation coef and significance
-
 ovl_test_aus<-aus_trop_prop%>%group_by(FG, Site)%>%summarise(trop_met=mean(trop_met))%>%
   left_join(., ovl_site_aus[[1]][c(1,2,5)], by=c('FG', 'Site'))%>%
   left_join(., ovl_site_aus[[2]][c(1,2,5)], by=c('FG', 'Site'))
-
-m1<-lm(trop_met~Freq.x, data=filter(ovl_test_aus, FG==1))
 
 levz<-c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
                            'temp.inshore', 'temp.offshore')
@@ -1126,12 +1150,7 @@ p2a<-ppp+
   facet_grid(FG~site.group)+theme_minimal()+theme(legend.position = "none")
 
 
-#### Japan overlap by site ####
-
-# trial plot for site level results
-# fill overlap with 0's where no overlap
-ovl_site_jpn[[1]]<-ovl_site_jpn[[1]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
-ovl_site_jpn[[2]]<-ovl_site_jpn[[2]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
+## JAPAN
 
 jpn_ovl_comp<-left_join(ovl_site_jpn[[1]],jpn_sp_site%>%group_by(SiteID)%>%summarise_all(first)%>%dplyr::select(SiteID, lat), by=c('Site'='SiteID'))
 jpn_ovl_filt<-left_join(ovl_site_jpn[[2]],jpn_sp_site%>%group_by(SiteID)%>%summarise_all(first)%>%dplyr::select(SiteID, lat), by=c('Site'='SiteID'))
@@ -1159,65 +1178,6 @@ p3<-ggplot()+
   theme_bw()+facet_grid(FG~.)
 # FYI tropicalization curve is same when using site-aggregated mean data
 # jpn_trop_prop%>%group_by(FG, SiteID)%>%summarise_all(mean)
-
-#### calc correlation coef and significance ####
-
-ovl_test_jpn<-jpn_trop_prop%>%group_by(FG, SiteID)%>%summarise(trop_met=mean(trop_met))%>%
-  left_join(., ovl_site_jpn[[1]][c(1,2,5)], by=c('FG', 'SiteID'='Site'))%>%
-  left_join(., ovl_site_jpn[[2]][c(1,2,5)], by=c('FG', 'SiteID'='Site'))
-
-qplot(data=ovl_test_jpn, x=Freq.y, y=trop_met)+facet_wrap(~FG, scales='free')
-
-# tests for aus and japan then write out
-spear_tests<-rbind(
-ovl_test_jpn%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method = 'kendall')$p.value,
-                                        comp_est=cor.test(trop_met, Freq.x, method = 'kendall')$estimate,
-                                        filt_p=cor.test(trop_met, Freq.y, method = 'kendall')$p.value,
-                                        filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate),
-ovl_test_aus%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method = 'kendall')$p.value,
-                                        comp_est=cor.test(trop_met, Freq.x, method = 'kendall')$estimate,
-                                        filt_p=cor.test(trop_met, Freq.y, method = 'kendall')$p.value,
-                                        filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate))
-# actually using kendall's tau!
-#write.csv(spear_tests, 'C:/coral_fish/outputs/func_overlap_correlation_tropicalization.csv', quote=F, row.names=F)
-
-# Do correlation test between competition and subtropical biomass
-
-ovl_test_jpn<-left_join(ovl_test_jpn, bio_jpn%>%filter(.,ThermalAffinity2=='subtropical')%>%
-  group_by(FG, SiteID)%>%summarise(cor_biom=mean(cor_biom)), by=c('FG', 'SiteID'))
-  
-ovl_test_aus<-left_join(ovl_test_aus, bio_aus%>%filter(.,ThermalAffinity2=='subtropical')%>%
-  group_by(FG, Site)%>%summarise(cor_biom=mean(cor_biom)), by=c('FG', 'Site'))
-
-qplot(data=ovl_test_jpn, x=Freq.x, y=cor_biom^0.25)+facet_wrap(~FG, scales='free')
-qplot(data=ovl_test_aus, x=Freq.x, y=cor_biom^0.25)+facet_wrap(~FG, scales='free')
-
-ovl_test_aus%>%group_by(FG)%>%summarise(comp_p=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$p.value,
-                                   comp_est=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$estimate)
-
-ovl_test_jpn%>%group_by(FG)%>%summarise(comp_p=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$p.value,
-                                   comp_est=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$estimate)
-# not used in the end
-
-# Do correlation test with subtropical biomass
-
-aus_cor<-left_join(aus_trop_prop, bio_aus[bio_aus$ThermalAffinity2=='subtropical',c(1, 2, 11)],
-          by=c('Site.trans.ID', 'FG'))
-jpn_cor<-left_join(jpn_trop_prop, bio_jpn[bio_jpn$ThermalAffinity2=='subtropical',c(1, 2, 9)],
-                   by=c('Site.trans.ID', 'FG'))
-
-qplot(data=aus_cor, x=cor_biom.y^0.25, y=cor_biom.x^0.25)+facet_wrap(~FG)
-qplot(data=aus_cor, x=cor_biom.y^0.25, y=trop_met)+facet_wrap(~FG)
-
-aus_cor%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, cor_biom.y^0.25, method = 'kendall')$p.value,
-                                        comp_est=cor.test(trop_met, cor_biom.y^0.25, method = 'kendall')$estimate)
-
-jpn_cor%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, cor_biom.y^0.25, method = 'kendall')$p.value,
-                                   comp_est=cor.test(trop_met, cor_biom.y^0.25, method = 'kendall')$estimate)
-# not used in the end
-
-
-
 
 levz<-c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
         'trans.headld', 'temp.headld')
@@ -1274,8 +1234,6 @@ read_pptx('C:/coral_fish/outputs/portrait_template.pptx') %>%
   ph_with(dml(ggobj=p4), location = ph_location_fullsize()) %>% 
   print(target = 'C:/coral_fish/outputs/aus_lat_ovl.pptx')
 
-
-
 ggsave('C:/coral_fish/outputs/fig5_Australia_trends.eps',
        plot=p1,width = 21, height = 30, units = "cm")
 ggsave('C:/coral_fish/outputs/fig5_Australia_niche.eps',
@@ -1289,6 +1247,55 @@ ggsave('C:/coral_fish/outputs/fig5_Australia_nicheALT.eps',
        plot=p2a,width = 21, height = 30, units = "cm")
 ggsave('C:/coral_fish/outputs/fig5_Japan_nicheALT.eps',
        plot=p4a,width = 21, height = 30, units = "cm")
+####
+
+
+#### Calc correlation coef and significance ####
+
+ovl_test_jpn<-jpn_trop_prop%>%group_by(FG, SiteID)%>%summarise(trop_met=mean(trop_met))%>%
+  left_join(., ovl_site_jpn[[1]][c(1,2,5)], by=c('FG', 'SiteID'='Site'))%>%
+  left_join(., ovl_site_jpn[[2]][c(1,2,5)], by=c('FG', 'SiteID'='Site'))
+
+ovl_test_aus<-aus_trop_prop%>%group_by(FG, Site)%>%summarise(trop_met=mean(trop_met))%>%
+  left_join(., ovl_site_aus[[1]][c(1,2,5)], by=c('FG', 'Site'))%>%
+  left_join(., ovl_site_aus[[2]][c(1,2,5)], by=c('FG', 'Site'))
+
+qplot(data=ovl_test_jpn, x=Freq.y, y=trop_met)+facet_wrap(~FG, scales='free')
+qplot(data=ovl_test_aus, x=Freq.y, y=trop_met)+facet_wrap(~FG, scales='free')
+# tests for aus and japan then write out
+spear_tests<-rbind(
+  ovl_test_jpn%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method = 'kendall')$p.value,
+                                          comp_est=cor.test(trop_met, Freq.x, method = 'kendall')$estimate,
+                                          filt_p=cor.test(trop_met, Freq.y, method = 'kendall')$p.value,
+                                          filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate),
+  ovl_test_aus%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method = 'kendall')$p.value,
+                                          comp_est=cor.test(trop_met, Freq.x, method = 'kendall')$estimate,
+                                          filt_p=cor.test(trop_met, Freq.y, method = 'kendall')$p.value,
+                                          filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate))
+# actually using kendall's tau!
+#write.csv(spear_tests, 'C:/coral_fish/outputs/func_overlap_correlation_tropicalization.csv', quote=F, row.names=F)
+
+# Do correlation test between competition and subtropical biomass
+
+ovl_test_jpn<-left_join(ovl_test_jpn, bio_jpn%>%filter(.,ThermalAffinity2=='subtropical')%>%
+                          group_by(FG, SiteID)%>%summarise(cor_biom=mean(cor_biom)), by=c('FG', 'SiteID'))
+
+ovl_test_aus<-left_join(ovl_test_aus, bio_aus%>%filter(.,ThermalAffinity2=='subtropical')%>%
+                          group_by(FG, Site)%>%summarise(cor_biom=mean(cor_biom)), by=c('FG', 'Site'))
+
+qplot(data=ovl_test_jpn, x=Freq.x, y=cor_biom^0.25)+facet_wrap(~FG, scales='free')
+qplot(data=ovl_test_aus, x=Freq.x, y=cor_biom^0.25)+facet_wrap(~FG, scales='free')
+
+ovl_test_aus%>%group_by(FG)%>%summarise(comp_p=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$p.value,
+                                        comp_est=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$estimate)
+
+ovl_test_jpn%>%group_by(FG)%>%summarise(comp_p=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$p.value,
+                                        comp_est=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$estimate)
+# subtropical biomass sig positively correlated (p<0.05) with
+# functional niche overlap in all FGs in both regions. Because
+# biomass corr with functional area (due to corr with sprich) - 
+# basically same env filtering as seen for tropical sp (but in other direction) 
+
 
 
 ##### single FG function
@@ -1350,6 +1357,8 @@ foverlapPlotz<-function(trop_metD=aus_trop_prop, site_comp=aus_ovl_comp, site_fi
   
   
 }
+
+####
 
 #### combine site-group tropicalization lme models with overlap results ####
 
