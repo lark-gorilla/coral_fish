@@ -420,6 +420,7 @@ scale_y_continuous(breaks=c(0, 0.05, 0.25, 0.5, 1, 2, 4)^0.25,
 ####
 
 
+
 #### Visualise FG tropicalization using PCA (suppl) ####
 
 #visualise using pca
@@ -646,6 +647,7 @@ jpn_mods<-ggplot()+
    labels=c(0,0.05, 0.25, 0.5, 1, 2, 4, 20), minor_breaks = NULL)
 
 
+
 #### Australia FG tropicalization comparisons #### 
 
 # drop some FGs and set comm as intercept
@@ -814,6 +816,7 @@ aus_mods<-ggplot()+
 ####
 
 
+
 #### Look for sig diff between site.groups from comm level tropicalization ####
 
 jpn_trop_tests$site.group<-factor(jpn_trop_tests$site.group,
@@ -893,7 +896,7 @@ m2<-gls(sst95~factor(groupk19), data=conf_tm_jpn,
 boxplot(resid(m2, type='pearson')~factor(conf_tm_jpn$groupk19))
 # no better, remember these groups have different n() so standard 
 # error different anyway
-m1<-ggplot(data=data.frame(emmeans(m1, 'groupk19')), aes(x=factor(groupk19), y=emmean))+
+p1<-ggplot(data=data.frame(emmeans(m1, 'groupk19')), aes(x=factor(groupk19), y=emmean))+
   geom_pointrange(aes(ymin=lower.CL, ymax=upper.CL))+xlab('Functional Group')+
   ylab('Thermal Midpoint (°C)')+scale_y_continuous(limits=c(30.5, 31.6),
   breaks=c(30.5,30.75, 31, 31.25, 31.5, 31.5))+labs(title ='Japan')
@@ -914,16 +917,84 @@ anova(m1) # ns
 pairs(emmeans(m1, 'groupk19'))
 boxplot(resid(m1, type='pearson')~factor(conf_tm_aus$groupk19))
 
-m2<-ggplot(data=data.frame(emmeans(m1, 'groupk19')), aes(x=factor(groupk19), y=emmean))+
+p2<-ggplot(data=data.frame(emmeans(m1, 'groupk19')), aes(x=factor(groupk19), y=emmean))+
   geom_pointrange(aes(ymin=lower.CL, ymax=upper.CL))+xlab('Functional Group')+
   ylab('Thermal Midpoint (°C)')+scale_y_continuous(limits=c(30.5, 31.6),
   breaks=c(30.5,30.75, 31, 31.25, 31.5, 31.5))+labs(title ='Australia')
 
 #png('C:/coral_fish/outputs/themal_midpoint_suppl.png',width =8, height =4 , units ="in", res =600)
-grid.arrange(m1, m2, ncol=2)
+grid.arrange(p1, p2, ncol=2)
 dev.off()
 
+## Check for site.group differences between FG that could be explained by sst differences
 
+jpn_sp_site$site.group<-'trop.base'
+jpn_sp_site[jpn_sp_site$lat > 25 &  jpn_sp_site$lat < 28.5,]$site.group<-'trop.island'
+jpn_sp_site[jpn_sp_site$lat > 28.5 &  jpn_sp_site$lat < 31,]$site.group<-'trans.island'
+jpn_sp_site[jpn_sp_site$SiteID %in% c('JP28', 'JP29', 'JP30', 'JP31'),]$site.group<-'trans.inland'
+jpn_sp_site[jpn_sp_site$SiteID %in% c('JP8', 'JP9', 'JP10', 'JP11', 'JP12'),]$site.group<-'trans.headld'
+jpn_sp_site[jpn_sp_site$lat > 34,]$site.group<-'temp.headld'
+
+aus_sp_site$site.group<-'trop.base'
+aus_sp_site[aus_sp_site$Lat > -25.6 &  aus_sp_site$Lat < -24.5,]$site.group<-'trans.bay'
+aus_sp_site[aus_sp_site$Lat > -28 &  aus_sp_site$Lat < -25.6,]$site.group<-'trans.offshore'
+aus_sp_site[aus_sp_site$Lat < -28,]$site.group<-'temp.offshore'
+aus_sp_site[aus_sp_site$Site %in% c('Julian Rock False Trench', 'Julian Rock Nursery', 'Cook Island'),]$site.group<-'trans.temp'
+aus_sp_site[aus_sp_site$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woolgoolga Headland', 'North Rock'),]$site.group<-'temp.inshore'
+
+aus_sp_site$site.group<-factor(aus_sp_site$site.group,
+                      levels=c('trop.base', 'trans.bay', 'trans.offshore','trans.temp',  'temp.offshore', 'temp.inshore'))
+jpn_sp_site$site.group<-factor(jpn_sp_site$site.group,
+                      levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland','trans.headld', 'temp.headld'))
+
+jpn_sp_site<-jpn_sp_site%>%filter(FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)
+                                  & ThermalAffinity2=='tropical')
+aus_sp_site<-aus_sp_site%>%filter(FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)
+                                  & ThermalAffinity2=='tropical')
+
+jpn_sp_site<-left_join(jpn_sp_site, dat_ss%>%dplyr::select(Species, confidence, sst95), 
+                       by=c('SpeciesFish'='Species'))
+aus_sp_site<-left_join(aus_sp_site, dat_ss%>%dplyr::select(Species, confidence, sst95), 
+                       by=c('Fish'='Species'))
+
+ggplot(data=filter(jpn_sp_site, confidence>1))+
+  geom_boxplot(aes(y=sst95, x=factor(FG)))+facet_wrap(~site.group, scales='free')
+
+ggplot(data=filter(jpn_sp_site, confidence>1))+
+   geom_boxplot(aes(y=sst95, x=factor(site.group)))+facet_wrap(~FG, scales='free_y')
+
+em1<-filter(jpn_sp_site, confidence>1) %>% group_by(site.group) %>% do(tidy(emmeans(lm(sst95 ~ factor(FG), .), 'FG')))
+
+filter(jpn_sp_site, confidence>1) %>% group_by(site.group) %>% do(tidy(anova(lm(sst95 ~ factor(FG), .) )))
+#trop.base = 0.018, trans.island=0.013
+
+p1<-ggplot()+geom_jitter(data=filter(jpn_sp_site, confidence>1), 
+                         aes(x=factor(FG),y=sst95), shape=1, alpha=0.5, colour='red', width=0.1)+
+  geom_pointrange(data=em1, aes(x=factor(FG),y=estimate, ymin=conf.low, ymax=conf.high))+
+  facet_wrap(~site.group, scales='free', nrow=1)+theme_bw()+
+  xlab('Functional Group')+ylab('Thermal Midpoint (°C)')+ labs(title ='Japan')
+
+
+ggplot(data=filter(aus_sp_site, confidence>1))+
+  geom_boxplot(aes(y=sst95, x=factor(FG)))+facet_wrap(~site.group, scales='free')
+
+ggplot(data=filter(aus_sp_site, confidence>1))+
+  geom_boxplot(aes(y=sst95, x=factor(site.group)))+facet_wrap(~FG, scales='free_y')
+
+em1<-filter(aus_sp_site, confidence>1) %>% group_by(site.group) %>% do(tidy(emmeans(lm(sst95 ~ factor(FG), .), 'FG')))
+
+filter(aus_sp_site, confidence>1) %>% group_by(site.group) %>% do(tidy(anova(lm(sst95 ~ factor(FG), .) )))
+# trop.base=0.005, trans.bay <0.001, temp.inshore <0.001
+
+p2<-ggplot()+geom_jitter(data=filter(aus_sp_site, confidence>1), 
+        aes(x=factor(FG),y=sst95), shape=1, alpha=0.5, colour='red', width=0.1)+
+        geom_pointrange(data=em1, aes(x=factor(FG),y=estimate, ymin=conf.low, ymax=conf.high))+
+        facet_wrap(~site.group, scales='free', nrow=1)+theme_bw()+
+  xlab('Functional Group')+ylab('Thermal Midpoint (°C)')+ labs(title ='Australia')
+
+#png('C:/coral_fish/outputs/themal_midpoint_zone_suppl.png',width =8, height =8 , units ="in", res =600)
+grid.arrange(p1, p2, nrow=2)
+dev.off()
 #### calculate functional distance/overlap between tropical invaders and
 
 #### functional niche calculation and overlap ####
@@ -1080,6 +1151,7 @@ ovl_site_aus[[2]]<-ovl_site_aus[[2]]%>%tidyr::complete(Site, FG, fill=list(Freq=
 ovl_site_jpn[[1]]<-ovl_site_jpn[[1]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
 ovl_site_jpn[[2]]<-ovl_site_jpn[[2]]%>%tidyr::complete(Site, FG, fill=list(Freq=0))
 ####
+
 
 #### Create plots of niche overlap, competition and filtering ####
 
@@ -1250,6 +1322,7 @@ ggsave('C:/coral_fish/outputs/fig5_Japan_nicheALT.eps',
 ####
 
 
+
 #### Calc correlation coef and significance ####
 
 ovl_test_jpn<-jpn_trop_prop%>%group_by(FG, SiteID)%>%summarise(trop_met=mean(trop_met))%>%
@@ -1360,7 +1433,9 @@ foverlapPlotz<-function(trop_metD=aus_trop_prop, site_comp=aus_ovl_comp, site_fi
 
 ####
 
-#### combine site-group tropicalization lme models with overlap results ####
+
+#### OLD STUFF ####
+##combine site-group tropicalization lme models with overlap results ##
 
 # Add site.group classes to biomass data
 
@@ -1385,7 +1460,7 @@ bio_jpn_sg<-bio_jpn%>%group_by(site.group, FG, ThermalAffinity2)%>%
 bio_aus_sg<-bio_aus%>%group_by(site.group, FG, ThermalAffinity2)%>%
   summarise(cor_biom=sum(cor_biom), Lat=min(Lat))%>%filter(., ThermalAffinity2=='subtropical')
 
-##### JAPAN ####
+##JAPAN
 
 trop_comps_out<-trop_comps_out[trop_comps_out$FG!='comm',1:7]
 trop_comps_out<-rbind(trop_comps_out, data.frame(site.group='trop.base', FG=c(15, 10, 8, 2,6, 12,4, 1, 16),
@@ -1452,7 +1527,7 @@ ggplot(data=trop_expl, aes(x=comp_ovl))+
   theme_bw()+facet_wrap(~FG)
 
 
-#### Australia ####
+## Australia ##
 
 trop_comps_out_aus<-trop_comps_out_aus[trop_comps_out_aus$FG!='comm',1:7]
 trop_comps_out_aus<-rbind(trop_comps_out_aus, data.frame(site.group='trop.base', FG=c(15, 10, 8, 2,6, 12,4, 1, 16),
