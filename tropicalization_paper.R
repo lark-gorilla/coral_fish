@@ -245,11 +245,16 @@ sg_lat_spans<-data.frame(xmin=c(24.2, 26.2, 28.5, 31,   32.7,  33.38, 34.6),
 
 bio_jpn$ThermalAffinity2<-factor(bio_jpn$ThermalAffinity2, levels=c('tropical', 'subtropical'))
 
-p1<-ggplot(data=filter(bio_jpn, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))) + 
+jpn_plot_dat<-filter(bio_jpn, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))
+
+
+p1<-ggplot(data=jpn_plot_dat) + 
   geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=4, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
-  geom_point(data=filter(bio_jpn, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16) & ((tot_biom/totMsurv)^0.25)<4),
+  geom_point(data=filter(jpn_plot_dat, ((tot_biom/totMsurv)^0.25)<4),
              aes(x = lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2), shape=1)+
   geom_smooth(aes(x = lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2),se=F)+
+  geom_smooth(data=jpn_plot_dat%>%group_by(Site.trans.ID, FG)%>%summarise(cor_biom=sum(cor_biom), lat=first(lat)),
+              aes(x = lat, y = cor_biom^0.25),colour='black', linetype='dotted',se=F)+
   geom_label(data=jpn_cor, aes(x=28.5, y=3.5, label=txt))+
   facet_grid(FG~., scales='free_y')+
   theme_bw()+theme(legend.position = "none")+
@@ -263,20 +268,140 @@ sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97),
 
 bio_aus$ThermalAffinity2<-factor(bio_aus$ThermalAffinity2, levels=c('tropical', 'subtropical'))
 
-p2<-ggplot(data=filter(bio_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))) + 
+aus_plot_dat<-filter(bio_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))
+
+p2<-ggplot(data=aus_plot_dat) + 
     geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=4, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
-    geom_point(data=filter(bio_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16) & ((tot_biom/totMsurv)^0.25)<4),
+    geom_point(data=filter(aus_plot_dat,  ((tot_biom/totMsurv)^0.25)<4),
                aes(x = Lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2), shape=1)+
     geom_smooth(aes(x = Lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2),se=F)+
+      geom_smooth(data=aus_plot_dat%>%group_by(Site.trans.ID, FG)%>%summarise(cor_biom=sum(cor_biom), Lat=first(Lat)),
+                  aes(x = Lat, y = cor_biom^0.25),colour='black', linetype='dotted',se=F)+
   geom_label(data=aus_cor, aes(x=-26, y=3.5, label=txt))+  
   facet_grid(FG~., scales='free_y')+scale_x_reverse()+ylab(NULL)+
   ggtitle('Australia')+
     theme_bw()+theme(legend.position = "none")+
     xlab('Latitude')+theme(plot.title = element_text(hjust = 0.5))
 
-#png('C:/coral_fish/outputs/biomass_thermal_plot.png',width = 8, height =12 , units ="in", res =600)
+#png('C:/coral_fish/outputs/biomass_thermal_plot_sums.png',width = 8, height =12 , units ="in", res =300)
 grid.arrange(p1, p2, ncol=2)
-#dev.off()
+dev.off()
+
+# non transformed version
+
+sg_lat_spans<-data.frame(xmin=c(24.2, 26.2, 28.5, 31,   32.7,  33.38, 34.6), 
+                         xmax=c(24.5, 28.4, 30.5, 31.6, 32.82, 33.5, 35 ))
+
+newdat<-data.frame(lat=seq(24.2, 35, 0.1))
+
+jpn_gam<-jpn_plot_dat %>% group_by(FG, ThermalAffinity2) %>% 
+  do(cbind(pred=predict(gam(cor_biom^0.25 ~ s(lat, k=6), data=.), newdat, se.fit=T), newdat))
+
+jpn_gam_sum<-jpn_plot_dat %>% group_by(FG, Site.trans.ID) %>%
+  summarise(cor_biom=sum(cor_biom), lat=first(lat))%>%ungroup()%>%group_by(FG)%>%
+  do(cbind(pred=predict(gam(cor_biom^0.25 ~ s(lat, k=6), data=.), newdat, se.fit=T), newdat))
+
+jpn_sitemn<-jpn_plot_dat %>% group_by(FG, ThermalAffinity2) %>% 
+  do(tidy(emmeans(lm(cor_biom^0.25 ~ factor(lat), data=.), 'lat')))
+
+p1<-ggplot(data=jpn_plot_dat) + 
+  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=Inf, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+  geom_line(data=jpn_gam, aes(x = lat, y = pred.fit^4, colour=ThermalAffinity2))+
+  geom_line(data=jpn_gam_sum, aes(x = lat, y = pred.fit^4), linetype='dotted')+
+    geom_pointrange(data=jpn_sitemn, aes(x = lat, y = estimate^4, ymin=estimate-std.error^4,
+                  ymax=(estimate+std.error)^4,colour=ThermalAffinity2), alpha=0.5, size=0.25)+
+  facet_grid(FG~., scales='free_y')+
+  theme_bw()+theme(legend.position = "none")+
+  xlab('Latitude')+ylab('4rt-trans standardised biomass')+
+  ggtitle('Japan')+
+  theme(strip.background = element_blank(),strip.text.y = element_blank(),
+        plot.title = element_text(hjust = 0.5))
+
+sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97), 
+                         xmax=c(-24.1, -25.3, -26.98, -28.616, -30.96, -30.3))
+
+newdat<-data.frame(Lat=seq(-30.96, -23.4, 0.1))
+
+aus_gam<-aus_plot_dat %>% group_by(FG, ThermalAffinity2) %>% 
+  do(cbind(pred=predict(gam(cor_biom^0.25 ~ s(Lat, k=6), data=.), newdat, se.fit=T), newdat))
+
+aus_gam_sum<-aus_plot_dat %>% group_by(FG, Site.trans.ID) %>%
+  summarise(cor_biom=sum(cor_biom), Lat=first(Lat))%>%ungroup()%>%group_by(FG)%>%
+  do(cbind(pred=predict(gam(cor_biom^0.25 ~ s(Lat, k=6), data=.), newdat, se.fit=T), newdat))
+
+aus_sitemn<-aus_plot_dat %>% group_by(FG, ThermalAffinity2) %>% 
+  do(tidy(emmeans(lm(cor_biom^0.25 ~ factor(Lat), data=.), 'Lat')))
+
+p2<-ggplot(data=aus_plot_dat) + 
+  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=Inf, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+  geom_line(data=aus_gam, aes(x = Lat, y = pred.fit^4, colour=ThermalAffinity2))+
+  geom_line(data=aus_gam_sum, aes(x = Lat, y = pred.fit^4), linetype='dotted')+
+  geom_pointrange(data=aus_sitemn, aes(x = Lat, y = estimate^4, ymin=estimate-std.error^4,
+                                       ymax=(estimate+std.error)^4,colour=ThermalAffinity2), alpha=0.5, size=0.25)+
+  facet_grid(FG~., scales='free_y')+scale_x_reverse()+ylab(NULL)+
+  ggtitle('Australia')+
+  theme_bw()+theme(legend.position = "none")+
+  xlab('Latitude')+theme(plot.title = element_text(hjust = 0.5))
+
+#png('C:/coral_fish/outputs/biomass_thermal_plot_sums.png',width = 8, height =12 , units ="in", res =300)
+grid.arrange(p1, p2, ncol=2)
+dev.off()
+
+# non trans lines only
+
+sg_lat_spans<-data.frame(xmin=c(24.2, 26.2, 28.5, 31,   32.7,  33.38, 34.6), 
+                         xmax=c(24.5, 28.4, 30.5, 31.6, 32.82, 33.5, 35 ))
+
+newdat<-data.frame(lat=seq(24.2, 35, 0.1))
+
+jpn_gam<-jpn_plot_dat %>% group_by(FG, ThermalAffinity2) %>% 
+  do(cbind(pred=predict(gam(cor_biom^0.25 ~ s(lat, k=6), data=.), newdat, se.fit=T), newdat))
+
+jpn_gam_sum<-jpn_plot_dat %>% group_by(FG, Site.trans.ID) %>%
+  summarise(cor_biom=sum(cor_biom), lat=first(lat))%>%ungroup()%>%group_by(FG)%>%
+  do(cbind(pred=predict(gam(cor_biom^0.25 ~ s(lat, k=6), data=.), newdat, se.fit=T), newdat))
+
+jpn_gam_sum<-jpn_gam%>%group_by(FG, lat)%>%summarise(pred.fit=sum(pred.fit^4))
+
+p1<-ggplot(data=jpn_plot_dat) + 
+  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=Inf, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+  geom_line(data=jpn_gam, aes(x = lat, y = pred.fit^4, colour=ThermalAffinity2))+
+  geom_line(data=jpn_gam_sum, aes(x = lat, y = pred.fit), linetype='dotted')+
+  facet_grid(FG~., scales='free_y')+
+  theme_bw()+theme(legend.position = "none")+
+  xlab('Latitude')+ylab('Standardised biomass')+
+  ggtitle('Japan')+
+  theme(strip.background = element_blank(),strip.text.y = element_blank(),
+        plot.title = element_text(hjust = 0.5))
+
+sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97), 
+                         xmax=c(-24.1, -25.3, -26.98, -28.616, -30.96, -30.3))
+
+newdat<-data.frame(Lat=seq(-30.96, -23.4, 0.1))
+
+aus_gam<-aus_plot_dat %>% group_by(FG, ThermalAffinity2) %>% 
+  do(cbind(pred=predict(gam(cor_biom^0.25 ~ s(Lat, k=6), data=.), newdat, se.fit=T), newdat))
+
+aus_gam_sum<-aus_plot_dat %>% group_by(FG, Site.trans.ID) %>%
+  summarise(cor_biom=sum(cor_biom), Lat=first(Lat))%>%ungroup()%>%group_by(FG)%>%
+  do(cbind(pred=predict(gam(cor_biom^0.25 ~ s(Lat, k=6), data=.), newdat, se.fit=T), newdat))
+
+aus_gam_sum<-aus_gam%>%group_by(FG, Lat)%>%summarise(pred.fit=sum(pred.fit^4))
+
+p2<-ggplot(data=aus_plot_dat) + 
+  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=Inf, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+  geom_line(data=aus_gam, aes(x = Lat, y = pred.fit^4, colour=ThermalAffinity2))+
+  geom_line(data=aus_gam_sum, aes(x = Lat, y = pred.fit), linetype='dotted')+
+  facet_grid(FG~., scales='free_y')+scale_x_reverse()+ylab(NULL)+
+  ggtitle('Australia')+
+  theme_bw()+theme(legend.position = "none")+
+  xlab('Latitude')+theme(plot.title = element_text(hjust = 0.5))
+
+#png('C:/coral_fish/outputs/biomass_thermal_plot_sums.png',width = 8, height =12 , units ="in", res =300)
+grid.arrange(p1, p2, ncol=2)
+dev.off()
+
+
 #plots have outlier points removed (>4) but curves still fitted to full data
 ####
 #### Tropical-substropical SPECIES RICHNESS comparisons (suppl) ####
