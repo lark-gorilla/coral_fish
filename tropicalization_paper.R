@@ -247,15 +247,27 @@ bio_jpn$ThermalAffinity2<-factor(bio_jpn$ThermalAffinity2, levels=c('tropical', 
 
 jpn_plot_dat<-filter(bio_jpn, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))
 
+jpn_nsp<-dat%>%filter(JPN_sp==1 & groupk19 %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))%>%
+  group_by(groupk19,ThermalAffinity2)%>%summarise(n())%>%
+  dplyr::rename(FG=groupk19, count=`n()`)
+jpn_nsp$y=3.5
+jpn_nsp$x=34
+jpn_nsp[jpn_nsp$ThermalAffinity2=='subtropical',]$x=35
+
+jpn_plot_dat$FG<-factor(jpn_plot_dat$FG, levels=c(15,10,8,2,6,12,4,1,16))
+jpn_cor$FG<-factor(jpn_cor$FG, levels=c(15,10,8,2,6,12,4,1,16))
+jpn_nsp$FG<-factor(jpn_nsp$FG, levels=c(15,10,8,2,6,12,4,1,16))
+
 
 p1<-ggplot(data=jpn_plot_dat) + 
-  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=4, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+  geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=4, xmin=xmin, xmax=xmax), fill='gainsboro')+
   geom_point(data=filter(jpn_plot_dat, ((tot_biom/totMsurv)^0.25)<4),
              aes(x = lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2), shape=1)+
   geom_smooth(aes(x = lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2),se=F)+
   geom_smooth(data=jpn_plot_dat%>%group_by(Site.trans.ID, FG)%>%summarise(cor_biom=sum(cor_biom), lat=first(lat)),
               aes(x = lat, y = cor_biom^0.25),colour='black', linetype='dotted',se=F)+
   geom_label(data=jpn_cor, aes(x=28.5, y=3.5, label=txt))+
+  geom_label(data=jpn_nsp, aes(x=x, y=y, colour=ThermalAffinity2, label=count))+
   facet_grid(FG~., scales='free_y')+
   theme_bw()+theme(legend.position = "none")+
   xlab('Latitude')+ylab('4rt-trans standardised biomass')+
@@ -270,14 +282,27 @@ bio_aus$ThermalAffinity2<-factor(bio_aus$ThermalAffinity2, levels=c('tropical', 
 
 aus_plot_dat<-filter(bio_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))
 
+aus_nsp<-dat%>%filter(AUS_sp==1 & groupk19 %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))%>%
+  group_by(groupk19,ThermalAffinity2)%>%summarise(n())%>%
+  dplyr::rename(FG=groupk19, count=`n()`)
+aus_nsp$y=3.5
+aus_nsp$x=-30
+aus_nsp[aus_nsp$ThermalAffinity2=='subtropical',]$x=-31
+
+aus_plot_dat$FG<-factor(aus_plot_dat$FG, levels=c(15,10,8,2,6,12,4,1,16))
+aus_cor$FG<-factor(aus_cor$FG, levels=c(15,10,8,2,6,12,4,1,16))
+aus_nsp$FG<-factor(aus_nsp$FG, levels=c(15,10,8,2,6,12,4,1,16))
+
+
 p2<-ggplot(data=aus_plot_dat) + 
-    geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=4, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
+    geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=4, xmin=xmin, xmax=xmax), fill='gainsboro')+
     geom_point(data=filter(aus_plot_dat,  ((tot_biom/totMsurv)^0.25)<4),
                aes(x = Lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2), shape=1)+
     geom_smooth(aes(x = Lat, y = (tot_biom/totMsurv)^0.25, colour=ThermalAffinity2),se=F)+
       geom_smooth(data=aus_plot_dat%>%group_by(Site.trans.ID, FG)%>%summarise(cor_biom=sum(cor_biom), Lat=first(Lat)),
                   aes(x = Lat, y = cor_biom^0.25),colour='black', linetype='dotted',se=F)+
-  geom_label(data=aus_cor, aes(x=-26, y=3.5, label=txt))+  
+  geom_label(data=aus_cor, aes(x=-26, y=3.5, label=txt))+
+  geom_label(data=aus_nsp, aes(x=x, y=y, colour=ThermalAffinity2, label=count))+
   facet_grid(FG~., scales='free_y')+scale_x_reverse()+ylab(NULL)+
   ggtitle('Australia')+
     theme_bw()+theme(legend.position = "none")+
@@ -286,6 +311,9 @@ p2<-ggplot(data=aus_plot_dat) +
 #png('C:/coral_fish/outputs/biomass_thermal_plot_sums.png',width = 8, height =12 , units ="in", res =300)
 grid.arrange(p1, p2, ncol=2)
 dev.off()
+
+#ggsave('C:/coral_fish/outputs/fig2_biomass_labels.eps',
+#       plot=grid.arrange(p1, p2, ncol=2),width = 20, height = 29, units = "cm")
 
 
 # non trans lines only
