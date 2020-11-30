@@ -377,19 +377,35 @@ dev.off()
 
 # make same plot with spprich data while we're here
 
-ggplot(filter(spr_jpn, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
+spr_jpn_plot<-filter(spr_jpn, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))
+spr_jpn_plot$FG<-factor(spr_jpn_plot$FG, levels=c(15, 10, 8, 2, 6, 12, 4, 1, 16))
+
+p1<-ggplot(data=spr_jpn_plot,
        aes(x = lat, y = qD, colour=ThermalAffinity2)) + 
-  geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
+  geom_point()+geom_smooth(se=F)+facet_grid(FG~., scales='free_y')+
   scale_colour_manual(values = c("#377eb8", "#ff7f00"))+
   theme_bw()+theme(legend.position = "none")+
-  xlab('Latitude')+ylab('Estimated species richness')
+  xlab('Latitude')+ylab('Estimated species richness')+
+  ggtitle('Japan')+
+  theme(strip.background = element_blank(),strip.text.y = element_blank(),
+        plot.title = element_text(hjust = 0.5))
 
-ggplot(filter(spr_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
+spr_aus_plot<-filter(spr_aus, FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16))
+spr_aus_plot$FG<-factor(spr_aus_plot$FG, levels=c(15, 10, 8, 2, 6, 12, 4, 1, 16))
+
+p2<-ggplot(data=spr_aus_plot,
        aes(x = Lat, y = qD, colour=ThermalAffinity2)) + 
-  geom_point()+geom_smooth(se=F)+facet_wrap(~FG, scales='free')+
+  geom_point()+geom_smooth(se=F)+facet_grid(FG~., scales='free_y')+
   scale_colour_manual(values = c("#377eb8", "#ff7f00"))+
-  theme_bw()+theme(legend.position = "none")+scale_x_reverse()+
-  xlab('Latitude')+ylab('Estimated species richness')
+  scale_x_reverse()+
+  ggtitle('Australia')+ylab(NULL)+
+  theme_bw()+theme(legend.position = "none")+
+  xlab('Latitude')+theme(plot.title = element_text(hjust = 0.5))
+
+#png('C:/coral_fish/outputs/sp_richness_plot.png',width =8, height =11 , units ="in", res =300)
+
+#grid.arrange(p1, p2, ncol=2)
+#dev.off()
 
 # check correlation
 spr_jpn$FG<-as.factor(spr_jpn$FG)
@@ -1271,10 +1287,6 @@ p1<-ggplot()+
 # note removal of outliers on geom_point: allows smooth tofit to full data
 # but not show these outliers on plot
 
-ovl_test_aus<-aus_trop_prop%>%group_by(FG, Site)%>%summarise(trop_met=mean(trop_met))%>%
-  left_join(., ovl_site_aus[[1]][c(1,2,5)], by=c('FG', 'Site'))%>%
-  left_join(., ovl_site_aus[[2]][c(1,2,5)], by=c('FG', 'Site'))
-
 levz<-c('trop.base', 'trans.bay', 'trans.offshore', 'trans.temp',
                            'temp.inshore', 'temp.offshore')
 
@@ -1321,6 +1333,7 @@ p2a<-ppp+
 jpn_ovl_comp<-left_join(ovl_site_jpn[[1]],jpn_sp_site%>%group_by(SiteID)%>%summarise_all(first)%>%dplyr::select(SiteID, lat), by=c('Site'='SiteID'))
 jpn_ovl_filt<-left_join(ovl_site_jpn[[2]],jpn_sp_site%>%group_by(SiteID)%>%summarise_all(first)%>%dplyr::select(SiteID, lat), by=c('Site'='SiteID'))
 
+# THESE NOT IN AUS
 jpn_trop_prop$FG<-factor(jpn_trop_prop$FG,
                          levels=c(15, 10, 8, 2,6, 12, 4,1, 16))
 jpn_ovl_comp$FG<-factor(jpn_ovl_comp$FG,
@@ -1431,16 +1444,25 @@ qplot(data=ovl_test_jpn, x=Freq.y, y=trop_met)+facet_wrap(~FG, scales='free')
 qplot(data=ovl_test_aus, x=Freq.y, y=trop_met)+facet_wrap(~FG, scales='free')
 # tests for aus and japan then write out
 spear_tests<-rbind(
-  ovl_test_jpn%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method = 'kendall')$p.value,
+  ovl_test_jpn%>%filter(trop_met!=0)%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method = 'kendall')$p.value,
                                           comp_est=cor.test(trop_met, Freq.x, method = 'kendall')$estimate,
                                           filt_p=cor.test(trop_met, Freq.y, method = 'kendall')$p.value,
                                           filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate),
-  ovl_test_aus%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method = 'kendall')$p.value,
+  ovl_test_aus%>%filter(trop_met!=0)%>%group_by(FG)%>%summarise(comp_p=cor.test(trop_met, Freq.x, method = 'kendall')$p.value,
                                           comp_est=cor.test(trop_met, Freq.x, method = 'kendall')$estimate,
                                           filt_p=cor.test(trop_met, Freq.y, method = 'kendall')$p.value,
                                           filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate))
 # actually using kendall's tau!
 #write.csv(spear_tests, 'C:/coral_fish/outputs/func_overlap_correlation_tropicalization.csv', quote=F, row.names=F)
+
+# now write out summary vals
+summr<-rbind(
+ovl_test_jpn%>%filter(trop_met!=0)%>%group_by(FG)%>%summarise(comp_mean=mean(Freq.x), comp_sd=sd(Freq.x),
+                                                              filt_mean=mean(Freq.y), filt_sd=sd(Freq.y)),
+ovl_test_aus%>%filter(trop_met!=0)%>%group_by(FG)%>%summarise(comp_mean=mean(Freq.x), comp_sd=sd(Freq.x),
+                                                              filt_mean=mean(Freq.y), filt_sd=sd(Freq.y)))
+#write.csv(summr, 'C:/coral_fish/outputs/func_overlap_meanz_summary.csv', quote=F, row.names=F)
+
 
 # Do correlation test between competition and subtropical biomass
 
