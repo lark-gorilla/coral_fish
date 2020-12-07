@@ -315,6 +315,39 @@ dev.off()
 #ggsave('C:/coral_fish/outputs/fig2_biomass_labels.eps',
 #       plot=grid.arrange(p1, p2, ncol=2),width = 20, height = 29, units = "cm")
 
+## biomass Zone summaries 
+
+jpn_plot_dat$site.group<-'trop.base'
+jpn_plot_dat[jpn_plot_dat$lat > 25 &  jpn_plot_dat$lat < 28.5,]$site.group<-'trop.island'
+jpn_plot_dat[jpn_plot_dat$lat > 28.5 &  jpn_plot_dat$lat < 31,]$site.group<-'trans.island'
+jpn_plot_dat[jpn_plot_dat$SiteID %in% c('JP28', 'JP29', 'JP30', 'JP31'),]$site.group<-'trans.inland'
+jpn_plot_dat[jpn_plot_dat$SiteID %in% c('JP8', 'JP9', 'JP10', 'JP11', 'JP12'),]$site.group<-'trans.headld'
+jpn_plot_dat[jpn_plot_dat$lat > 34,]$site.group<-'temp.headld'
+
+aus_plot_dat$site.group<-'trop.base'
+aus_plot_dat[aus_plot_dat$Lat > -25.6 &  aus_plot_dat$Lat < -24.5,]$site.group<-'trans.bay'
+aus_plot_dat[aus_plot_dat$Lat > -28 &  aus_plot_dat$Lat < -25.6,]$site.group<-'trans.offshore'
+aus_plot_dat[aus_plot_dat$Lat < -28,]$site.group<-'temp.offshore'
+aus_plot_dat[aus_plot_dat$Site %in% c('Julian Rock False Trench', 'Julian Rock Nursery', 'Cook Island'),]$site.group<-'trans.temp'
+aus_plot_dat[aus_plot_dat$Site %in% c('Muttonbird Island', 'Woolgoolga Reef', 'Woolgoolga Headland', 'North Rock'),]$site.group<-'temp.inshore'
+
+
+jp_sum1<-jpn_plot_dat %>% group_by(FG, ThermalAffinity2) %>%
+ do(tidy(emmeans(with(my4rt, lm(linkfun(cor_biom) ~ site.group, .)), 'site.group', type='response')))%>%
+filter(response==max(response))
+
+au_sum1<-aus_plot_dat %>% group_by(FG, ThermalAffinity2) %>%
+  do(tidy(emmeans(with(my4rt, lm(linkfun(cor_biom) ~ site.group, .)), 'site.group', type='response')))%>%
+  filter(response==max(response))
+
+write.csv(rbind(jp_sum1, au_sum1), 'C:/coral_fish/outputs/FG_thermal_sitegroup_biomass_mean.csv')
+
+#zone lats
+
+write.csv(rbind(
+  jpn_plot_dat%>%group_by(site.group)%>%summarise(minlat=min(lat), meanlat=mean(lat), maxlat=max(lat)),
+  aus_plot_dat%>%group_by(site.group)%>%summarise(minlat=min(Lat), meanlat=mean(Lat), maxlat=max(Lat))),
+          'C:/coral_fish/outputs/zone_lats.csv')
 
 # non trans lines only
 
@@ -413,10 +446,10 @@ spbio_jpn<-left_join(bio_jpn%>%filter(FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
                      spr_jpn%>%dplyr::select(qD, ThermalAffinity2, FG, Site), 
                      by=c('FG', 'ThermalAffinity2', 'SiteID'='Site'))
 
-qplot(data=spbio_jpn, x=tot_biom^0.25, y=qD, colour=ThermalAffinity2)+#
+qplot(data=spbio_jpn%>%filter(ThermalAffinity2=='tropical') , x=tot_biom^0.25, y=qD)+#
   facet_wrap(~FG, scales='free')
 
-spbio_jpn%>%filter(ThermalAffinity2=='tropical')%>%group_by(FG)%>% summarise(cor_p=cor.test((tot_biom^0.25), qD, method = 'kendall')$p.value,
+spbio_jpn%>%filter(ThermalAffinity2=='tropical' & tot_biom!=0)%>%group_by(FG)%>% summarise(cor_p=cor.test((tot_biom^0.25), qD, method = 'kendall')$p.value,
                                    cop_est=cor.test((tot_biom^0.25), qD, method = 'kendall')$estimate)
 # all sig positive cor apart from group 15 = ns
 
@@ -428,7 +461,7 @@ spbio_aus<-left_join(bio_aus%>%filter(FG %in% c(15, 10, 8, 2, 6, 12, 4, 1, 16)),
 qplot(data=spbio_aus, x=tot_biom^0.25, y=qD, colour=ThermalAffinity2)+#
   facet_wrap(~FG, scales='free')
 
-spbio_aus%>%filter(ThermalAffinity2=='tropical')%>%group_by(FG)%>% summarise(cor_p=cor.test((tot_biom^0.25), qD, method = 'kendall')$p.value,
+spbio_aus%>%filter(ThermalAffinity2=='tropical'& tot_biom!=0)%>%group_by(FG)%>% summarise(cor_p=cor.test((tot_biom^0.25), qD, method = 'kendall')$p.value,
                                                                              cop_est=cor.test((tot_biom^0.25), qD, method = 'kendall')$estimate)
 # all sig positive 
 
@@ -1475,10 +1508,10 @@ ovl_test_aus<-left_join(ovl_test_aus, bio_aus%>%filter(.,ThermalAffinity2=='subt
 qplot(data=ovl_test_jpn, x=Freq.x, y=cor_biom^0.25)+facet_wrap(~FG, scales='free')
 qplot(data=ovl_test_aus, x=Freq.x, y=cor_biom^0.25)+facet_wrap(~FG, scales='free')
 
-ovl_test_aus%>%group_by(FG)%>%summarise(comp_p=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$p.value,
+ovl_test_aus%>%filter(trop_met!=0)%>%group_by(FG)%>%summarise(comp_p=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$p.value,
                                         comp_est=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$estimate)
 
-ovl_test_jpn%>%group_by(FG)%>%summarise(comp_p=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$p.value,
+ovl_test_jpn%>%filter(trop_met!=0)%>%group_by(FG)%>%summarise(comp_p=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$p.value,
                                         comp_est=cor.test(Freq.x, cor_biom^0.25, method = 'kendall')$estimate)
 # subtropical biomass sig positively correlated (p<0.05) with
 # functional niche overlap in all FGs in both regions. Because
