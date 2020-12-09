@@ -90,24 +90,87 @@ table1$max_tropicalB_4rt<-table1$max_tropicalB^0.25
 table1$max_temperateB_4rt<-table1$max_temperateB^0.25
 
 
-ggplot(data=table1, aes(x=latclass2, y=max_tropicalB^0.25, colour=region))+geom_point(shape=1)+theme_bw()
-ggplot(data=table1, aes(x=latclass2, y=max_temperateB^0.25, colour=region))+geom_point(shape=1)+theme_bw()
-ggplot(data=table1, aes(x=latclass2, y=Bdiff, colour=region))+geom_point(shape=1)+theme_bw()
-
-ggplot(data=table1, aes(x=latclass2, y=func_niceO, colour=region))+geom_point(shape=1)+theme_bw()
-ggplot(data=table1, aes(x=latclass2, y=trop_funcA, colour=region))+geom_point(shape=1)+theme_bw()
-
-ggplot(data=table1, aes(x=latclass2, y=nspecies, colour=region))+geom_point(shape=1)+theme_bw()
-
 table(table1$latclass2, table1$diet)
 table(table1$latclass2, table1$position)
 table(table1$latclass2, table1$region)
 
-#ggpairs(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','Bdiff',
-#                 'Bdiff2', 'diet', 'position', 'func_niceO', 'trop_funcA')])
+#check significance of categorical variables
+# all simulate p vals above exact so confident all are NS
+chisq.test(table1$latclass2, table1$region, simulate.p.value = F)
+#X-squared = 1.4, df = 2, p-value = 0.4966
+chisq.test(table1$latclass2, table1$diet, simulate.p.value = F)
+#X-squared = 10.05, df = 10, p-value = 0.4361
+chisq.test(table1$latclass2, table1$position, simulate.p.value = F)
+#X-squared = 4.3875, df = 6, p-value = 0.6244
 
-ggpairs(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','nspecies',
-                 'Bdiff2', 'func_niceO', 'trop_funcA')])
+# mod tropical biomass
+m_tropB<-lm(max_tropicalB_4rt~latclass2, data=table1)
+m_tropB<-glm(max_tropicalB_4rt~latclass2, data=table1, family=Gamma(link = "log"))
+plot(m_tropB)
+anova(m_tropB, test="Chisq") #latclass2  2 0.053506        15     2.3639   0.8359
+emmeans(m_tropB, 'latclass2', type='response')
+
+# mod temperate biomass
+m_tempB_inCor<-lm(max_temperateB_4rt~latclass2, data=table1)
+m_tempB<-glm(max_temperateB_4rt~latclass2, data=table1[table1$diet!='corallivores',],family=Gamma(link = "log"))
+plot(m_tempB)
+anova(m_tempB_inCor) #latclass2  2 14.047  7.0234  7.0534 0.00693 ** with corallivores
+anova(m_tempB, test="Chisq")# latclass2  2   3.2969        13     9.6903  0.02863 *
+m_tempB_em<-emmeans(m_tempB, 'latclass2', type='response')
+
+# mod Bdiff2 
+m_bdiff<-lm(Bdiff2~latclass2, data=table1)
+plot(m_bdiff)
+anova(m_bdiff) #latclass2  2 2.3325 1.16622  9.7815 0.00191 **
+emmeans(m_bdiff, 'latclass2')
+
+# mod func_niceO 
+m_funcO<-glm(cbind(func_niceO, 100-func_niceO)~latclass2, data=table1[table1$diet!='corallivores',], family='quasibinomial')
+plot(m_funcO)
+anova(m_funcO, test="Chisq")# latclass2  2   166.27        13     151.72 0.0004538 ***
+m_funcO_em<-emmeans(m_funcO, 'latclass2', type='response')
+
+# mod trop_funcA removal of FG 6 Japan outlier low func area
+m_funcA<-glm(cbind(trop_funcA, 100-trop_funcA)~latclass2, data=table1[-13,], family='quasibinomial')
+plot(m_funcA)
+anova(m_funcA, test="Chisq") #latclass2  2   6.0167        14     49.948   0.4258
+
+# mod nspecies
+m_nsp<-glm(nspecies~latclass2, data=table1, family='quasipoisson')
+plot(m_nsp)
+anova(m_nsp, test="Chisq")# latclass2  2   142.45        15     180.99 0.002457 **
+m_nsp_em<-emmeans(m_nsp, 'latclass2', type='response')
+sum((resid(m_nsp, type="pearson")^2))/df.residual(m_nsp)
+
+gp1<-ggpairs(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','nspecies',
+                  'func_niceO', 'trop_funcA')])
+
+# make plots
+
+p1<-ggplot(data=table1, aes(x=latclass2, y=max_tropicalB^0.25))+
+  geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Tropical biomass (4rt)')+theme(legend.position='none') 
+p2<-ggplot(data=table1, aes(x=latclass2, y=max_temperateB^0.25))+
+  geom_point(aes(colour=region),shape=1, size=2)+theme_bw()+xlab('FG poleward advance')+ ylab('Temperate biomass (4rt)')+theme(legend.position='none')+
+  geom_pointrange(data=as.data.frame(m_tempB_em), aes(y=response, ymin=asymp.LCL, ymax=asymp.UCL), alpha=0.9)
+
+ggplot(data=table1, aes(x=latclass2, y=Bdiff, colour=region))+geom_point(shape=1)+theme_bw()
+
+p3<-ggplot(data=table1, aes(x=latclass2, y=func_niceO/100))+
+  geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Tropical-temperate functional overlap')+
+  theme(legend.position='none')+geom_pointrange(data=as.data.frame(m_funcO_em), aes(y=prob, ymin=asymp.LCL, ymax=asymp.UCL), alpha=0.9)
+
+p4<-ggplot(data=table1, aes(x=latclass2, y=trop_funcA))+
+  geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Tropical functional area maintained')+
+  theme(legend.position='none')
+
+p5<-ggplot(data=table1, aes(x=latclass2, y=nspecies))+
+  geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Species richness')+
+  theme(legend.position='none')+geom_pointrange(data=as.data.frame(m_nsp_em), aes(y=rate, ymin=asymp.LCL, ymax=asymp.UCL), alpha=0.9)
+
+library(patchwork)
+png('C:/coral_fish/outputs/poleward_advance_plots.png',width =8, height =5 , units ="in", res =300)
+p1+p2+p5+p3+p4+ plot_spacer()
+dev.off()
 
 smat <- abs(cor(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','nspecies',
                          'Bdiff2', 'func_niceO', 'trop_funcA')])) <= .61
