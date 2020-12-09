@@ -44,6 +44,9 @@ bio_aus<-read.csv('C:/coral_fish/data/Australia/Aus_transects_biomass.csv')
 aus_sp_site<-read.csv('C:/coral_fish/data/Australia/Aus_site_species_biomass.csv')
 jpn_sp_site<-read.csv('C:/coral_fish/data/Japan/Jpn_site_species_biomass.csv')
 
+# read in table 1 for summary analysis
+table1<-read.csv('C:/coral_fish/outputs/table1_analysis.csv')
+
 # FG to factor
 bio_jpn$FG<-factor(bio_jpn$FG)
 bio_aus$FG<-factor(bio_aus$FG)
@@ -72,6 +75,72 @@ aus_sp_site<-aus_sp_site%>%group_by(Site, Lat, FG, ThermalAffinity2, Fish)%>%
 jpn_sp_site<-jpn_sp_site%>%group_by(SiteID, lat, FG, ThermalAffinity2, SpeciesFish)%>%
   summarise(cor_biom=sum(cor_biom))
 
+#### Table 1 summary analysis ####
+
+table1$latclass2<-table1$latclass
+table1[table1$latclass2=='above',]$latclass2<-'expected'
+table1$latclass2<-  factor(table1$latclass2,
+                        levels=c('well.below', 'below', 'expected'), ordered=T)
+
+table1$Bdiff<-table1$max_temperateB/table1$max_tropicalB
+table1$Bdiff2<-(table1$max_temperateB^0.25)/(table1$max_tropicalB^0.25)
+qplot(data=table1, x=Bdiff, y=Bdiff2)
+#4rt trans
+table1$max_tropicalB_4rt<-table1$max_tropicalB^0.25
+table1$max_temperateB_4rt<-table1$max_temperateB^0.25
+
+
+ggplot(data=table1, aes(x=latclass2, y=max_tropicalB^0.25, colour=region))+geom_point(shape=1)+theme_bw()
+ggplot(data=table1, aes(x=latclass2, y=max_temperateB^0.25, colour=region))+geom_point(shape=1)+theme_bw()
+ggplot(data=table1, aes(x=latclass2, y=Bdiff, colour=region))+geom_point(shape=1)+theme_bw()
+
+ggplot(data=table1, aes(x=latclass2, y=func_niceO, colour=region))+geom_point(shape=1)+theme_bw()
+ggplot(data=table1, aes(x=latclass2, y=trop_funcA, colour=region))+geom_point(shape=1)+theme_bw()
+
+ggplot(data=table1, aes(x=latclass2, y=nspecies, colour=region))+geom_point(shape=1)+theme_bw()
+
+table(table1$latclass2, table1$diet)
+table(table1$latclass2, table1$position)
+table(table1$latclass2, table1$region)
+
+#ggpairs(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','Bdiff',
+#                 'Bdiff2', 'diet', 'position', 'func_niceO', 'trop_funcA')])
+
+ggpairs(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','nspecies',
+                 'Bdiff2', 'func_niceO', 'trop_funcA')])
+
+smat <- abs(cor(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','nspecies',
+                         'Bdiff2', 'func_niceO', 'trop_funcA')])) <= .61
+smat[!lower.tri(smat)] <- NA
+
+library(MASS)
+library(MuMIn)
+m1<-polr(latclass2 ~ Bdiff2 +func_niceO +trop_funcA +region,
+         data = table1, Hess = TRUE, na.action='na.fail') # diet + position make rank deficient
+dr1<-dredge(m1)
+dr1$cum.weight=cumsum(dr1$weight)
+
+# alternate forwards model selection
+m.null<-polr(latclass2 ~1,data = table1, Hess = TRUE)
+m.reg<-polr(latclass2 ~region,data = table1, Hess = TRUE)
+anova(m.null, m.reg) # doesn't add
+m.diet<-polr(latclass2 ~diet,data = table1, Hess = TRUE)
+anova(m.null, m.diet) # doesn't add
+m.position<-polr(latclass2 ~position,data = table1, Hess = TRUE)
+anova(m.null, m.position) # doesn't add
+m.funcA<-polr(latclass2 ~trop_funcA,data = table1, Hess = TRUE)
+anova(m.null, m.funcA)# doesn't add
+m.funcO<-polr(latclass2 ~func_niceO,data = table1, Hess = TRUE)
+anova(m.null, m.funcO)# sig 0.0004
+m.bdiff<-polr(latclass2 ~Bdiff2,data = table1, Hess = TRUE)
+anova( m.null, m.bdiff)# sig 0.0002
+
+m.funcO_bdiff<-polr(latclass2 ~func_niceO+Bdiff2,data = table1, Hess = TRUE)
+anova(m.funcO, m.funcO_bdiff)
+anova(m.bdiff, m.funcO_bdiff)
+
+
+#m1<-lm(lat_20fold~max_tropicalB_4rt+region, data=table1)
 #### Functional Entity creation and word clouds ####
 
 dat_mice<-mice(dat[,c(3:9)], m=5, method=c(rep('norm.predict', 3), rep('polyreg', 4)))
