@@ -1157,10 +1157,14 @@ conf_tm_jpn<-dat_ss%>%filter(JPN_sp>0 & ThermalAffinity2=='tropical' & confidenc
 qplot(data=conf_tm_jpn, x=groupk19, y=sst95, geom='boxplot') # looks good but need closer 
 
 m1<-lm(sst95~groupk19, data=conf_tm_jpn[-80,]) #remove outlier
-par(mfrow=c(2,2));plot(m1)
-summary(m1)
+#par(mfrow=c(2,2));plot(m1)
+#resid_panel(m1)
+#m1.1<-lm(sst95~groupk19, data=conf_tm_jpn[-c(80, which(resid(m1)>1|resid(m1)< -1)),])
+resid_panel(m1.1)
+ summary(m1)
 anova(m1) # ns
 pairs(emmeans(m1, 'groupk19'))
+jpn_mean<-emmeans(m1, 'groupk19')
 boxplot(resid(m1, type='pearson')~factor(conf_tm_jpn$groupk19))
 
 ggplot(data=data.frame(emmeans(m1, 'groupk19')), aes(x=factor(groupk19), y=emmean))+geom_pointrange(aes(ymin=lower.CL, ymax=upper.CL))+xlab('Functional Group')+ylab('Thermal Midpoint')
@@ -1185,11 +1189,13 @@ conf_tm_aus<-dat_ss%>%filter(AUS_sp>0 & ThermalAffinity2=='tropical' & confidenc
 
 qplot(data=conf_tm_aus, x=groupk19, y=sst95, geom='boxplot') # looks good but need closer 
 
-m1<-lm(sst95~groupk19, data=conf_tm_aus) #remove outlier
+m1<-lm(sst95~groupk19, data=conf_tm_aus[-c(18, 186, 89),]) #remove outliers
 par(mfrow=c(2,2));plot(m1)
+resid_panel(m1)
 summary(m1)
 anova(m1) # ns
 pairs(emmeans(m1, 'groupk19'))
+aus_mean<-emmeans(m1, 'groupk19')
 boxplot(resid(m1, type='pearson')~factor(conf_tm_aus$groupk19))
 
 p2<-ggplot(data=data.frame(emmeans(m1, 'groupk19')), aes(x=factor(groupk19), y=emmean))+
@@ -1200,6 +1206,9 @@ p2<-ggplot(data=data.frame(emmeans(m1, 'groupk19')), aes(x=factor(groupk19), y=e
 #png('C:/coral_fish/outputs/themal_midpoint_suppl.png',width =8, height =4 , units ="in", res =600)
 grid.arrange(p1, p2, ncol=2)
 dev.off()
+
+write.csv(rbind(data.frame(region='Japan', jpn_mean),data.frame(region='Australia', aus_mean)),
+          'C:/coral_fish/outputs/thermal_midpoint_means.csv', quote=F, row.names=F)
 
 ## Check for site.group differences between FG that could be explained by sst differences
 
