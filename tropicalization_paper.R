@@ -77,6 +77,10 @@ jpn_sp_site<-jpn_sp_site%>%group_by(SiteID, lat, FG, ThermalAffinity2, SpeciesFi
 
 #### Table 1 summary analysis ####
 
+#join with thermal mean
+tmean<-read.csv('C:/coral_fish/outputs/thermal_midpoint_means.csv')
+table1<-left_join(table1, tmean[,1:3], by=c('FG'='groupk19', 'region'))
+
 table1$latclass2<-table1$latclass
 table1[table1$latclass2=='above',]$latclass2<-'expected'
 table1$latclass2<-  factor(table1$latclass2,
@@ -142,15 +146,22 @@ anova(m_nsp, test="Chisq")# latclass2  2   142.45        15     180.99 0.002457 
 m_nsp_em<-emmeans(m_nsp, 'latclass2', type='response')
 sum((resid(m_nsp, type="pearson")^2))/df.residual(m_nsp)
 
+# mod thermal mean 
+m_therm<-lm(thermal_mn~latclass2, data=table1)
+plot(m_therm)
+anova(m_therm)# latclass2  2 0.020399 0.0101995  1.1382 0.3466
+emmeans(m_therm, 'latclass2')
+
+
 gp1<-ggpairs(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','nspecies',
-                  'func_niceO', 'trop_funcA')])
+                  'func_niceO', 'trop_funcA', 'thermal_mn', 'latclass2')])
 
 # make plots
 
 p1<-ggplot(data=table1, aes(x=latclass2, y=max_tropicalB^0.25))+
   geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Tropical biomass (4rt)')+theme(legend.position='none') 
 p2<-ggplot(data=table1, aes(x=latclass2, y=max_temperateB^0.25))+
-  geom_point(aes(colour=region),shape=1, size=2)+theme_bw()+xlab('FG poleward advance')+ ylab('Temperate biomass (4rt)')+theme(legend.position='none')+
+  geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Temperate biomass (4rt)')+theme(legend.position='none')+
   geom_pointrange(data=as.data.frame(m_tempB_em), aes(y=response, ymin=asymp.LCL, ymax=asymp.UCL), alpha=0.9)
 
 ggplot(data=table1, aes(x=latclass2, y=Bdiff, colour=region))+geom_point(shape=1)+theme_bw()
@@ -167,9 +178,13 @@ p5<-ggplot(data=table1, aes(x=latclass2, y=nspecies))+
   geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Species richness')+
   theme(legend.position='none')+geom_pointrange(data=as.data.frame(m_nsp_em), aes(y=rate, ymin=asymp.LCL, ymax=asymp.UCL), alpha=0.9)
 
+p6<-ggplot(data=table1, aes(x=latclass2, y=thermal_mn))+
+  geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Thermal midpoint (°C)')+
+  theme(legend.position='none')
+
 library(patchwork)
-png('C:/coral_fish/outputs/poleward_advance_plots.png',width =8, height =5 , units ="in", res =300)
-p1+p2+p5+p3+p4+ plot_spacer()
+png('C:/coral_fish/outputs/poleward_advance_plots.png',width =8, height =8 , units ="in", res =300)
+p1+p2+p5+p3+p4+p6
 dev.off()
 
 smat <- abs(cor(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','nspecies',
