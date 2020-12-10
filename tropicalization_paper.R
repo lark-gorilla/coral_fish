@@ -441,11 +441,11 @@ p2<-ggplot(data=aus_plot_dat) +
     xlab('Latitude')+theme(plot.title = element_text(hjust = 0.5))
 
 #png('C:/coral_fish/outputs/biomass_thermal_plot_sums.png',width = 8, height =12 , units ="in", res =300)
-grid.arrange(p1, p2, ncol=2)
+grid.arrange(p2, p1, ncol=2)
 dev.off()
 
 #ggsave('C:/coral_fish/outputs/fig2_biomass_labels.eps',
-#       plot=grid.arrange(p1, p2, ncol=2),width = 20, height = 29, units = "cm")
+#       plot=grid.arrange(p2, p1, ncol=2),width = 20, height = 29, units = "cm")
 
 ## biomass Zone summaries 
 
