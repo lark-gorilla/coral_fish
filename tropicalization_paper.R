@@ -89,10 +89,6 @@ table1$latclass2<-  factor(table1$latclass2,
 table1$Bdiff<-table1$max_temperateB/table1$max_tropicalB
 table1$Bdiff2<-(table1$max_temperateB^0.25)/(table1$max_tropicalB^0.25)
 qplot(data=table1, x=Bdiff, y=Bdiff2)
-#4rt trans
-table1$max_tropicalB_4rt<-table1$max_tropicalB^0.25
-table1$max_temperateB_4rt<-table1$max_temperateB^0.25
-
 
 table(table1$latclass2, table1$diet)
 table(table1$latclass2, table1$position)
@@ -109,17 +105,17 @@ chisq.test(table1$latclass2, table1$position, simulate.p.value = F)
 
 # mod tropical biomass
 m_tropB<-lm(max_tropicalB_4rt~latclass2, data=table1)
-m_tropB<-glm(max_tropicalB_4rt~latclass2, data=table1, family=Gamma(link = "log"))
+m_tropB<-glm(sqrt(max_tropicalB)~latclass2, data=table1, family=Gamma(link = "log"))
 plot(m_tropB)
-anova(m_tropB, test="Chisq") #latclass2  2 0.053506        15     2.3639   0.8359
+anova(m_tropB, test="F") #latclass2  2 0.082488        15     8.9162 0.0746 0.9284
 emmeans(m_tropB, 'latclass2', type='response')
 
 # mod temperate biomass
 m_tempB_inCor<-lm(max_temperateB_4rt~latclass2, data=table1)
-m_tempB<-glm(max_temperateB_4rt~latclass2, data=table1[table1$diet!='corallivores',],family=Gamma(link = "log"))
+m_tempB<-glm(sqrt(max_temperateB)~latclass2, data=table1[table1$diet!='corallivores',],family=Gamma(link = "log"))
 plot(m_tempB)
 anova(m_tempB_inCor) #latclass2  2 14.047  7.0234  7.0534 0.00693 ** with corallivores
-anova(m_tempB, test="Chisq")# latclass2  2   3.2969        13     9.6903  0.02863 *
+anova(m_tempB, test="F")# latclass2  2   3.2969        13     9.6903  0.02863 *
 m_tempB_em<-emmeans(m_tempB, 'latclass2', type='response')
 
 # mod Bdiff2 
@@ -131,18 +127,18 @@ emmeans(m_bdiff, 'latclass2')
 # mod func_niceO 
 m_funcO<-glm(cbind(func_niceO, 100-func_niceO)~latclass2, data=table1[table1$diet!='corallivores',], family='quasibinomial')
 plot(m_funcO)
-anova(m_funcO, test="Chisq")# latclass2  2   166.27        13     151.72 0.0004538 ***
+anova(m_funcO, test="F")# latclass2  2   166.27        13     151.72 7.6979 0.00623 **
 m_funcO_em<-emmeans(m_funcO, 'latclass2', type='response')
 
 # mod trop_funcA removal of FG 6 Japan outlier low func area
 m_funcA<-glm(cbind(trop_funcA, 100-trop_funcA)~latclass2, data=table1[-13,], family='quasibinomial')
 plot(m_funcA)
-anova(m_funcA, test="Chisq") #latclass2  2   6.0167        14     49.948   0.4258
+anova(m_funcA, test="F") #latclass2  2   6.0167        14     49.948 0.8538 0.4468
 
 # mod nspecies
 m_nsp<-glm(nspecies~latclass2, data=table1, family='quasipoisson')
 plot(m_nsp)
-anova(m_nsp, test="Chisq")# latclass2  2   142.45        15     180.99 0.002457 **
+anova(m_nsp, test="F")# latclass2  2   142.45        15     180.99 6.0089 0.01211 *
 m_nsp_em<-emmeans(m_nsp, 'latclass2', type='response')
 sum((resid(m_nsp, type="pearson")^2))/df.residual(m_nsp)
 
@@ -158,10 +154,10 @@ gp1<-ggpairs(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','nspecies',
 
 # make plots
 
-p1<-ggplot(data=table1, aes(x=latclass2, y=max_tropicalB^0.25))+
-  geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Tropical biomass (4rt)')+theme(legend.position='none') 
-p2<-ggplot(data=table1, aes(x=latclass2, y=max_temperateB^0.25))+
-  geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Temperate biomass (4rt)')+theme(legend.position='none')+
+p1<-ggplot(data=table1, aes(x=latclass2, y=max_tropicalB))+
+  geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Tropical biomass')+theme(legend.position='none') 
+p2<-ggplot(data=table1, aes(x=latclass2, y=max_temperateB))+
+  geom_jitter(aes(colour=region),shape=1, size=2, width=0.1)+theme_bw()+xlab('FG poleward advance')+ ylab('Temperate biomass')+theme(legend.position='none')+
   geom_pointrange(data=as.data.frame(m_tempB_em), aes(y=response, ymin=asymp.LCL, ymax=asymp.UCL), alpha=0.9)
 
 ggplot(data=table1, aes(x=latclass2, y=Bdiff, colour=region))+geom_point(shape=1)+theme_bw()
@@ -183,7 +179,7 @@ p6<-ggplot(data=table1, aes(x=latclass2, y=thermal_mn))+
   theme(legend.position='none')
 
 library(patchwork)
-png('C:/coral_fish/outputs/poleward_advance_plots.png',width =8, height =8 , units ="in", res =300)
+#png('C:/coral_fish/outputs/poleward_advance_plots.png',width =8, height =8 , units ="in", res =300)
 p1+p2+p5+p3+p4+p6
 dev.off()
 
