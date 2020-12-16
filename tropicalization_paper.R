@@ -119,7 +119,8 @@ anova(m_tempB, test="F")# latclass2  2   3.2969        13     9.6903  0.02863 *
 m_tempB_em<-emmeans(m_tempB, 'latclass2', type='response')
 
 # mod Bdiff2 
-m_bdiff<-lm(Bdiff2~latclass2, data=table1)
+#m_bdiff<-lm(Bdiff2~latclass2, data=table1)
+m_tempB<-glm(sqrt(Bdiff)~latclass2, data=table1[table1$diet!='corallivores',],family=Gamma(link = "log"))
 plot(m_bdiff)
 anova(m_bdiff) #latclass2  2 2.3325 1.16622  9.7815 0.00191 **
 emmeans(m_bdiff, 'latclass2')
@@ -148,9 +149,10 @@ plot(m_therm)
 anova(m_therm)# latclass2  2 0.020399 0.0101995  1.1382 0.3466
 emmeans(m_therm, 'latclass2')
 
-
-gp1<-ggpairs(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','nspecies',
+#png('C:/coral_fish/outputs/poleward_advance_correlation.png',width =8, height =8 , units ="in", res =300)
+ggpairs(table1[c('max_tropicalB', 'max_temperateB','nspecies',
                   'func_niceO', 'trop_funcA', 'thermal_mn', 'latclass2')])
+#dev.off()
 
 # make plots
 
@@ -679,12 +681,20 @@ table(aus_trop_tests$Site,aus_trop_tests$site.group)
 sg_lat_spans<-data.frame(xmin=c(24.2, 26.2, 28.5, 31,   32.7,  33.38, 34.6), 
                          xmax=c(24.5, 28.4, 30.5, 31.6, 32.82, 33.5, 35 ))
 
+jpn_trop_prop$FG<-factor(jpn_trop_prop$FG, levels=c(15, 10, 8, 2,6,12,4,1,16))
+jpn_trop_prop$FG_name<-recode(jpn_trop_prop$FG, 
+                              '15'='Benthic Predators', '10'='Upper-benthic Predators',
+                              '8'='Benthic Herbivore/Omnivores', '2'='Upper-benthic Planktivores',
+                              '6'='Upper-benthic Herbivores','12'='Demersal Predators',
+                              '4'='Benthic Planktivores','1'='Upper-benthic Omnivores',
+                              '16'='Corallibovores')
+
 jpn_trend<-ggplot(jpn_trop_prop) + 
   geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=2, xmin=xmin, xmax=xmax), fill='grey', alpha=0.5)+
-  geom_smooth(aes(x = lat, y = (cor_biom/mean_biom)^0.25, colour=factor(FG)), se=F)+
+  geom_smooth(aes(x = lat, y = (cor_biom/mean_biom)^0.25, colour=FG_name), se=F)+
   geom_smooth(data=jpn_trop_comm, aes(x = lat, y = (cor_biom/mean_biom)^0.25),
               se=F, colour='black', linetype='dashed')+
-  theme_bw()+theme(legend.position = "none")+
+  theme_bw()+
   geom_hline(yintercept=0.05^0.25)+scale_x_continuous(breaks=24:35)+
   xlab('Latitude')+ylab('Proportion of tropical biomass')+
   scale_y_continuous(breaks=c(0, 0.05, 0.25, 0.5, 1, 2, 4, 20)^0.25, 
@@ -918,14 +928,23 @@ trop_comps_out<-rbind(trop_comps_out,
 trop_comps_out$site.group<-factor(trop_comps_out$site.group,
               levels=c('trop.base', 'trop.island', 'trans.island', 'trans.inland',
                        'trans.headld', 'temp.headld'))
- 
+
+trop_comps_out$site.group2<-recode(trop_comps_out$site.group,
+                                   trop.base = 'Tropical Coral Reef',
+                                   trop.island = 'Cold-tropical Reef',
+                                   trans.island = 'Transitional Reef',
+                                   trans.inland = 'Warm-temperate Transitional Reef',
+                                   trans.headld = 'Subtropical Coral Community',
+                                  temp.headld = 'Temperate Kelp Reef')
+                                   
+                              
 
 jpn_mods<-ggplot()+
   geom_hline(yintercept=0.05^0.25, linetype='dotted')+
-  geom_errorbar(data=trop_comps_out, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_errorbar(data=trop_comps_out, aes(x=FG, ymin=emmean-SE, ymax=emmean+SE))+
   geom_point(data=trop_comps_out, aes(x=FG, y=emmean, size=ifelse(is.na(p.value), 1, ifelse(p.value>0.05, 1, 2))), shape=1)+
   geom_point(data=trop_comps_out, aes(x=FG, y=emmean, colour=factor(FG)), size=2)+
-  theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group, nrow=1)+
+  theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group2, nrow=1)+
   scale_colour_manual(values = c("black", "#F8766D", "#D39200" ,"#93AA00", "#00BA38",
  "#00C19F", "#00B9E3", "#619CFF", "#DB72FB", "#FF61C3"))+
   ylab('Proportion of tropical biomass')+
@@ -1076,13 +1095,21 @@ trop_comps_out_aus<-rbind(trop_comps_out_aus,
 
 trop_comps_out_aus$site.group<-factor(trop_comps_out_aus$site.group, levels=c('trop.base', 'trans.bay', 'trans.offshore',
                                                                               'trans.temp',  'temp.offshore', 'temp.inshore'))
+trop_comps_out_aus$site.group2<-recode(trop_comps_out_aus$site.group,
+                                   trop.base = 'Tropical Coral Reef',
+                                   trans.bay = 'Cold-tropical Bay',
+                                   trans.offshore = 'Warm-transitional Reef',
+                                   trans.temp = 'Transitional Reef',
+                                   temp.offshore = 'Subtropical Coral Community',
+                                   temp.inshore = 'Temperate Kelp Reef')
+
 
 aus_mods<-ggplot()+
   geom_hline(yintercept=0.05^0.25, linetype='dotted')+
-  geom_errorbar(data=trop_comps_out_aus, aes(x=FG, ymin=lower.CL, ymax=upper.CL))+
+  geom_errorbar(data=trop_comps_out_aus, aes(x=FG, ymin=emmean-SE, ymax=emmean+SE))+
   geom_point(data=trop_comps_out_aus, aes(x=FG, y=emmean, size=ifelse(is.na(p.value), 1, ifelse(p.value>0.05, 1, 2))), shape=1)+
   geom_point(data=trop_comps_out_aus, aes(x=FG, y=emmean, colour=factor(FG)), size=2)+
-  theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group, nrow=1)+
+  theme_bw()+theme(legend.position = "none")+facet_wrap(~site.group2, nrow=1)+
   scale_colour_manual(values = c("black", "#F8766D", "#D39200" ,"#93AA00", "#00BA38",
   "#00C19F", "#00B9E3", "#619CFF", "#DB72FB", "#FF61C3"))+
   ylab('Proportion of tropical biomass')+
@@ -1099,6 +1126,18 @@ aus_mods<-ggplot()+
 
 #grid.arrange(jpn_trend, jpn_mods, aus_trend, aus_mods, nrow=4)
 #dev.off()
+
+library(patchwork)
+ggsave('C:/coral_fish/outputs/fig3_tropicalization_footprints_legend.eps',
+       plot=jpn_trend+jpn_mods+aus_trend+aus_mods+
+       plot_layout(ncol=1, nrow=4, guides = 'collect')&theme(legend.position = 'bottom')
+      ,width = 21, height = 30, units = "cm")
+
+ggsave('C:/coral_fish/outputs/fig3_tropicalization_footprints_NOlegend.eps',
+       plot=jpn_trend+jpn_mods+aus_trend+aus_mods+
+         plot_layout(ncol=1, nrow=4, guides = 'collect')&theme(legend.position = 'none')
+       ,width = 21, height = 30, units = "cm")
+
 ####
 
 
