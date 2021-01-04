@@ -240,6 +240,9 @@ dend<-as.dendrogram(hclust(vegdist(decostand(mat_biom_jpn, 'log'), 'bray', na.rm
 plot(dend)
 labels(dend)
 dend2<-rotate(dend, order=labels(dend)[c(10:21,9, 26:29, 22:25, 4:8, 1:3)])%>%as.ggdend()
+# eps export
+ggsave('C:/coral_fish/outputs/fig_s2_jpn_dend.eps',
+       plot=ggplot(dend2, horiz=T),width = 10, height = 20, units = "cm")
 
 read_pptx() %>%
   add_slide(layout = "Title and Content", master = "Office Theme") %>%
@@ -456,6 +459,11 @@ read_pptx() %>%
   add_slide(layout = "Title and Content", master = "Office Theme") %>%
   ph_with(dml(ggobj=ggplot(dend2)), location = ph_location_fullsize()) %>% 
   print(target = 'C:/coral_fish/outputs/dend2.pptx')
+
+# eps export
+ggsave('C:/coral_fish/outputs/fig_s2_aus_dend.eps',
+       plot=ggplot(dend2, horiz=T),width = 10, height = 20, units = "cm")
+
 
 # sqrt trans
 mat_biom_aus<-matrify(data.frame(biom3$Site, biom3$Fish, sqrt(biom3$corr_biom)))
