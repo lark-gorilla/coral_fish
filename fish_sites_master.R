@@ -180,6 +180,16 @@ biom1<-left_join(biom1, locs[,2:4], by=c('SiteID'='Site'))
 
 write.csv(biom1, 'C:/coral_fish/data/Japan/Jpn_site_species_biomass.csv', quote=F, row.names=F) 
 
+#species site biomass AND ABUN for maria jan2021
+
+biom1<-dat%>%group_by(SiteID, Site.trans.ID, Date.x,  FG, ThermalAffinity2, SpeciesFish)%>%
+  summarise(tot_biom=sum(Number*(a*SizeCm^b), na.rm=T), tot_abun=sum(Number, na.rm=T))
+
+biom1$totMsurv<-25
+biom1<-left_join(biom1, locs[,2:4], by=c('SiteID'='Site'))
+
+write.csv(biom1, 'C:/coral_fish/data/Japan/Jpn_site_species_biomass_abundance.csv', quote=F, row.names=F) 
+
 
 # PLOTTING clusters
 
@@ -408,6 +418,20 @@ biom1$totMsurv<-biom1$totNsurv*biom1$surv_length
 
 write.csv(biom1, 'C:/coral_fish/data/Australia/Aus_site_species_biomass.csv', quote=F, row.names=F) 
 
+#species site biomass AND ABUN for maria jan2021
+
+biom1<-dat_aus_sub%>%group_by(Site, Site.trans.ID, Trip, FG, ThermalAffinity2, Fish)%>%
+  summarise(tot_biom=sum(Number*(a*Size^b), na.rm=T),tot_abun=sum(Number, na.rm=T))
+
+#biom1<-left_join(biom1, dat_aus_sub%>%group_by(Site.trans.ID, Trip)%>%
+#                   summarise(totNsurv=length(unique(id))), 
+#                 by=c('Site.trans.ID', 'Trip'))
+
+
+biom1<-left_join(biom1, locs[,c(1,6,7,15)], by=c('Site'='Site.name'))
+names(biom1)[11]<-'totMsurv'
+
+write.csv(biom1, 'C:/coral_fish/data/Australia/Aus_site_species_biomass_abundance.csv', quote=F, row.names=F) 
 
 
 # make hclust visualisation
