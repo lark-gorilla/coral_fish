@@ -44,7 +44,7 @@ bio_aus<-read.csv('C:/coral_fish/data/Australia/Aus_transects_biomass.csv')
 aus_sp_site<-read.csv('C:/coral_fish/data/Australia/Aus_site_species_biomass.csv')
 jpn_sp_site<-read.csv('C:/coral_fish/data/Japan/Jpn_site_species_biomass.csv')
 
-# read in table 1 for summary analysis
+# read in table 1 for summary analysis # edited on 27/04/21 to update func stats from pcoafix
 table1<-read.csv('C:/coral_fish/outputs/table1_analysis.csv')
 
 # FG to factor
@@ -128,13 +128,13 @@ emmeans(m_bdiff, 'latclass2')
 # mod func_niceO 
 m_funcO<-glm(cbind(func_niceO, 100-func_niceO)~latclass2, data=table1[table1$diet!='corallivores',], family='quasibinomial')
 plot(m_funcO)
-anova(m_funcO, test="F")# latclass2  2   166.27        13     151.72 7.6979 0.00623 **
+anova(m_funcO, test="F")# latclass2  2   167.62        13     146.88 7.9407 0.00558 **
 m_funcO_em<-emmeans(m_funcO, 'latclass2', type='response')
 
-# mod trop_funcA removal of FG 6 Japan outlier low func area
-m_funcA<-glm(cbind(trop_funcA, 100-trop_funcA)~latclass2, data=table1[-13,], family='quasibinomial')
+# mod trop_funcA 
+m_funcA<-glm(cbind(trop_funcA, 100-trop_funcA)~latclass2, data=table1, family='quasibinomial')
 plot(m_funcA)
-anova(m_funcA, test="F") #latclass2  2   6.0167        14     49.948 0.8538 0.4468
+anova(m_funcA, test="F") #latclass2  2   2.3914        15     74.406 0.2444   0.7862
 
 # mod nspecies
 m_nsp<-glm(nspecies~latclass2, data=table1, family='quasipoisson')
@@ -185,38 +185,8 @@ library(patchwork)
 p1+p2+p5+p3+p4+p6
 dev.off()
 
-smat <- abs(cor(table1[c('max_tropicalB_4rt', 'max_temperateB_4rt','nspecies',
-                         'Bdiff2', 'func_niceO', 'trop_funcA')])) <= .61
-smat[!lower.tri(smat)] <- NA
-
-library(MASS)
-library(MuMIn)
-m1<-polr(latclass2 ~ Bdiff2 +func_niceO +trop_funcA +region,
-         data = table1, Hess = TRUE, na.action='na.fail') # diet + position make rank deficient
-dr1<-dredge(m1)
-dr1$cum.weight=cumsum(dr1$weight)
-
-# alternate forwards model selection
-m.null<-polr(latclass2 ~1,data = table1, Hess = TRUE)
-m.reg<-polr(latclass2 ~region,data = table1, Hess = TRUE)
-anova(m.null, m.reg) # doesn't add
-m.diet<-polr(latclass2 ~diet,data = table1, Hess = TRUE)
-anova(m.null, m.diet) # doesn't add
-m.position<-polr(latclass2 ~position,data = table1, Hess = TRUE)
-anova(m.null, m.position) # doesn't add
-m.funcA<-polr(latclass2 ~trop_funcA,data = table1, Hess = TRUE)
-anova(m.null, m.funcA)# doesn't add
-m.funcO<-polr(latclass2 ~func_niceO,data = table1, Hess = TRUE)
-anova(m.null, m.funcO)# sig 0.0004
-m.bdiff<-polr(latclass2 ~Bdiff2,data = table1, Hess = TRUE)
-anova( m.null, m.bdiff)# sig 0.0002
-
-m.funcO_bdiff<-polr(latclass2 ~func_niceO+Bdiff2,data = table1, Hess = TRUE)
-anova(m.funcO, m.funcO_bdiff)
-anova(m.bdiff, m.funcO_bdiff)
 
 
-#m1<-lm(lat_20fold~max_tropicalB_4rt+region, data=table1)
 #### Functional Entity creation and word clouds ####
 
 dat_mice<-mice(dat[,c(3:9)], m=5, method=c(rep('norm.predict', 3), rep('polyreg', 4)))
@@ -703,6 +673,14 @@ jpn_trend<-ggplot(jpn_trop_prop) +
 sg_lat_spans<-data.frame(xmin=c(-23.4, -24.8, -26.61, -28.19, -29.9, -29.97), 
                          xmax=c(-24.1, -25.3, -26.98, -28.616, -30.96, -30.3))
 
+aus_trop_prop$FG<-factor(aus_trop_prop$FG, levels=c(15, 10, 8, 2,6,12,4,1,16))
+aus_trop_prop$FG_name<-recode(aus_trop_prop$FG, 
+                              '15'='Benthic Predators', '10'='Upper-benthic Predators',
+                              '8'='Benthic Herbivore/Omnivores', '2'='Upper-benthic Planktivores',
+                              '6'='Upper-benthic Herbivores','12'='Demersal Predators',
+                              '4'='Benthic Planktivores','1'='Upper-benthic Omnivores',
+                              '16'='Corallibovores')
+
 aus_trend<-ggplot(aus_trop_prop) + 
   geom_rect(data=sg_lat_spans, aes(ymin=0, ymax=4^0.25, xmin=xmin, xmax=xmax), fill='grey', alpha=0.6)+
   geom_smooth(aes(x = Lat, y = (cor_biom/mean_biom)^0.25, colour=factor(FG)), se=F)+
@@ -933,8 +911,8 @@ trop_comps_out$site.group2<-recode(trop_comps_out$site.group,
                                    trop.base = 'Tropical Coral Reef',
                                    trop.island = 'Cold-tropical Reef',
                                    trans.island = 'Transitional Reef',
-                                   trans.inland = 'Warm-temperate Transitional Reef',
-                                   trans.headld = 'Subtropical Coral Community',
+                                   trans.inland = 'Subtropical Coral Community',
+                                   trans.headld = 'Warm-temperate Transitional Reef',
                                   temp.headld = 'Temperate Kelp Reef')
                                    
                               
@@ -1167,7 +1145,8 @@ ggplot(data=filter(aus_trop_tests, FG=='comm'), aes(x=site.group, y=trop_met))+
   geom_point(aes(colour=Site))+geom_boxplot(alpha=0.5) # remember boxplot = medians
 
 m1<-lme(trop_met~site.group, random=~1|Site, weights=varIdent(form=~1|site.group),
-        data=filter(aus_trop_tests, FG=='comm'))
+        data=filter(aus_trop_tests, FG=='comm' & !Site.trans.ID%in%
+                      c('Julian Rock Nursery_T5','Julian Rock False Trench_T4'))) # removal of 2 big outliers
 resid_panel(m1)
 summary(m1)
 anova(m1)
@@ -1338,6 +1317,8 @@ dev.off()
 distlog<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
                metric = "gower",stand = FALSE, type = list(logratio = c(1,5)))
 
+#order aggregation
+dat$Aggregation<-factor(dat$Aggregation, levels=c("solitary", "pairs","groups","schools"), ordered = T)
 
 func_dudi<-dudi.pco(d = cailliez(distlog, print=TRUE, cor.zero = F), scannf = FALSE, nf = 4)
 #func_dudi<-dudi.pco(d = (distlog+3.04421), scannf = FALSE, nf =4)
@@ -1637,18 +1618,18 @@ read_pptx('C:/coral_fish/outputs/portrait_template.pptx') %>%
   ph_with(dml(ggobj=p4), location = ph_location_fullsize()) %>% 
   print(target = 'C:/coral_fish/outputs/aus_lat_ovl.pptx')
 
-ggsave('C:/coral_fish/outputs/fig5_Australia_trends.eps',
+ggsave('C:/coral_fish/outputs/fig5_Australia_trends_pcoafix.eps',
        plot=p1,width = 21, height = 30, units = "cm")
-ggsave('C:/coral_fish/outputs/fig5_Australia_niche.eps',
+ggsave('C:/coral_fish/outputs/fig5_Australia_niche_pcoafix.eps',
        plot=p2,width = 21, height = 30, units = "cm")
-ggsave('C:/coral_fish/outputs/fig5_Japan_trends.eps',
+ggsave('C:/coral_fish/outputs/fig5_Japan_trends_pcoafix.eps',
        plot=p3,width = 21, height = 30, units = "cm")
-ggsave('C:/coral_fish/outputs/fig5_Japan_niche.eps',
+ggsave('C:/coral_fish/outputs/fig5_Japan_niche_pcoafix.eps',
        plot=p4,width = 21, height = 30, units = "cm")
 
-ggsave('C:/coral_fish/outputs/fig5_Australia_nicheALT.eps',
+ggsave('C:/coral_fish/outputs/fig5_Australia_nicheALT_pcoafix.eps',
        plot=p2a,width = 21, height = 30, units = "cm")
-ggsave('C:/coral_fish/outputs/fig5_Japan_nicheALT.eps',
+ggsave('C:/coral_fish/outputs/fig5_Japan_nicheALT_pcoafix.eps',
        plot=p4a,width = 21, height = 30, units = "cm")
 ####
 
@@ -1677,7 +1658,7 @@ spear_tests<-rbind(
                                           filt_p=cor.test(trop_met, Freq.y, method = 'kendall')$p.value,
                                           filt_est=cor.test(trop_met, Freq.y, method = 'kendall')$estimate))
 # actually using kendall's tau!
-#write.csv(spear_tests, 'C:/coral_fish/outputs/func_overlap_correlation_tropicalization.csv', quote=F, row.names=F)
+#write.csv(spear_tests, 'C:/coral_fish/outputs/func_overlap_correlation_tropicalization_pcoafix.csv', quote=F, row.names=F)
 
 # now write out summary vals
 summr<-rbind(
@@ -1685,7 +1666,7 @@ ovl_test_jpn%>%filter(trop_met!=0)%>%group_by(FG)%>%summarise(comp_mean=mean(Fre
                                                               filt_mean=mean(Freq.y), filt_sd=sd(Freq.y)),
 ovl_test_aus%>%filter(trop_met!=0)%>%group_by(FG)%>%summarise(comp_mean=mean(Freq.x), comp_sd=sd(Freq.x),
                                                               filt_mean=mean(Freq.y), filt_sd=sd(Freq.y)))
-#write.csv(summr, 'C:/coral_fish/outputs/func_overlap_meanz_summary.csv', quote=F, row.names=F)
+#write.csv(summr, 'C:/coral_fish/outputs/func_overlap_meanz_summary_pcoafix.csv', quote=F, row.names=F)
 
 
 # Do correlation test between competition and subtropical biomass
