@@ -72,8 +72,8 @@ distreg<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange
 distlog<-daisy(dat[,c("BodySize","Diet",  "Position", "Aggregation", 'DepthRange')],
               metric = "gower",stand = FALSE, type = list(logratio = c(1,5)))
 
-plot(hclust(distreg, 'average'), labels=F);rect.hclust(hclust(distreg, 'average'),k=9)
-plot(hclust(distlog, 'average'), labels=F);rect.hclust(hclust(distlog, 'average'),k=9)
+plot(hclust(distreg, 'average'), labels=F);rect.hclust(hclust(distreg, 'average'),k=19)
+plot(hclust(distlog, 'average'), labels=F);rect.hclust(hclust(distlog, 'average'),k=19)
 
 hclust_methods <-c("ward.D", "ward.D2", "single",
                    "complete", "average", "mcquitty") # median and centroid dont work
@@ -109,6 +109,19 @@ data.frame(method=hclust_methods, two.norm=alg_comp_log[,1],
            thresh=unlist(thresh_log), diff=alg_comp_log[,1]-unlist(thresh_log))
 
 # Nothing really in it but log marginally better
+
+#################### plot dendrogram for paper ##########################
+###############################################################################
+setEPS()
+postscript('C:/coral_fish/outputs/paper_dendrogram.eps')
+hc<-hclust(distlog, 'average')
+plot(hc, labels=F)
+recty<-rect.hclust(hc,k=19)
+# add clust labels https://stackoverflow.com/questions/46404833/clusters-labels-in-dendrogram
+beg_clus <- head(cumsum(c(1, lengths(recty))), -1)
+text(x=beg_clus, y=0.35, col="red",
+     labels=c(17,14,18,11,19,7,5,2,13,16,9,4,15,8,3,12,10,6,1), font=1)
+dev.off()
 
 #################### run cluster validation function ##########################
 ###############################################################################
